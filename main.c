@@ -2,87 +2,22 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdbool.h>
-#include "gapbuffer.h"
 
 //#define GLEW_STATIC
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 
+#include "renderer.h"
+#include "font.h"
 
-GapBuffer *gb;
-size_t cursor_pos = 0;
 
-void print_representation () {
-    char *buffer_content = buffer_string(gb);
+void resize_window(GLFWwindow *window, int width, int height) {
+	Renderer *r = glfwGetWindowUserPointer(window);
 
-    if (strlen(buffer_content) == 0 || cursor_pos == 0){
-        printf("|");
-    }
-    
-    for (size_t i = 0; i < strlen(buffer_content); i++) {
-        
-        printf("%c", buffer_content[i]);
-        if (i == cursor_pos - 1) {
-            printf("|");
-        }
-    }
-
-    printf("\n");
-    free(buffer_content);
+	Render_Resize_Window(r, width, height);
 }
-
-void increment_cursor_pos () {
-    if (cursor_pos < (gb->buffer_size - (gb->gap_end - gb->gap_start))) {
-        cursor_pos ++;
-    }
-}
-
-void decrement_cursor_pos () {
-    if (cursor_pos > 0) {
-        cursor_pos --;
-    }
-}
-
-void key_callback(GLFWwindow* window, int key, int scancode, int action, int mods)
-{
-    (void)window;
-    (void)scancode;
-    (void)mods;
-
-    if (key == GLFW_KEY_LEFT && action == GLFW_RELEASE){
-        decrement_cursor_pos();
-        print_representation();
-        
-    } else if (key == GLFW_KEY_RIGHT && action == GLFW_RELEASE){
-        increment_cursor_pos();
-        print_representation();
-    } else if (key == GLFW_KEY_BACKSPACE && action == GLFW_RELEASE){
-        remove_char_before_buffer (gb, cursor_pos);
-        decrement_cursor_pos();
-        print_representation();
-    } else if (key == GLFW_KEY_DELETE && action == GLFW_RELEASE){
-        remove_char_after_buffer (gb, cursor_pos);
-        print_representation();
-    } else if (key == GLFW_KEY_ENTER && action == GLFW_RELEASE){
-        insert_char(gb, cursor_pos, '\n');
-        increment_cursor_pos();
-        print_representation();
-    }
-}
-
-void character_callback(GLFWwindow* window, unsigned int codepoint)
-{
-    (void)window;
-
-    insert_char(gb, cursor_pos, (char)codepoint);
-    increment_cursor_pos();
- 
-    print_representation();
-}
-
 
 int main () {
-    gb = create_gap_buffer(INITIAL_SIZE);
 
     // Initialize glfw
 	if (!glfwInit()) {
@@ -94,41 +29,76 @@ int main () {
 	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-	glEnable(GL_BLEND);
-	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
-
 	// Create window
-	GLFWwindow* window = glfwCreateWindow(640, 480, "Hello World", NULL, NULL);
+	GLFWwindow* window = glfwCreateWindow(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, "Hello World", NULL, NULL);
 	if (!window) {
 		glfwTerminate();
 		fprintf(stderr, "Failed to initialize GLFW window.\n");
 		return 1;
 	}
     glfwMakeContextCurrent(window);
-	//glfwSetFramebufferSizeCallback(window, resizeWindow);
 
-	if(glewInit() != GLEW_OK) {
+	if (glewInit() != GLEW_OK) {
 		fprintf(stderr, "Failed to init glew\n");
 		return 1;
 	}
 
 	printf("OpenGL ver. %s\n", glGetString(GL_VERSION));
 
-    glfwSetKeyCallback(window, key_callback);
-    glfwSetCharCallback(window, character_callback);
+    Renderer renderer;
+    Color clr_color = {.r = 0.0f, .g = 0.4f, .b = 0.4f, .a = 0.0};
+    Render_Init(&renderer, clr_color);
 
-    // Load font stuff
+    u32 white_texture = Render_GetWhiteTexture();
 
+	// PUtting the font stuff here for the time being - move this to the renderer
+
+	// Load the library
+	FT_Library ft;
+	if (FT_Init_FreeType(&ft)) {
+		printf("ERROR: Couldn't louad freetype library\n");
+		exit(1);
+	}
+
+	// Load a face
+	FT_Face face;
+	if(FT_New_Face(ft, "iosevka-firamono.ttf", 0, &face)) {
+		fprintf(stderr, "Could not open font\n");
+		exit(1);
+	}
+
+	// Set the size of the font in pixels
+	FT_Set_Pixel_Sizes(face, 0, 64);
+
+	Free_Glyph_Atlas atlas;
+	free_glyph_atlas_init(&atlas, face);
+
+	glfwSetWindowUserPointer(window, &renderer);
+	glfwSetFramebufferSizeCallback(window, resize_window);	
+
+	u8 character = 32;
     while (!glfwWindowShouldClose(window)) {
-        glClearColor(0.0f, 0.0f, 0.4f, 0.0f);
-		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+        glfwPollEvents();
+        Render_Begin_Frame(&renderer);
 
+        rect quad = rect_init(10, 10, 100, 100);
+        Color color = { .r=1.0, .g=0.4, .b=1.0, .a=1.0};
+		Color color_font = { .r=1.0, .g=1.0, .b=1.0, .a=1.0};
+        // Render stuff goes here
+        Render_Push_Quad_T(&renderer, quad, color, white_texture);
+		Render_Push_Char(&renderer, &atlas, character, vec2_init(500, 500), color_font);
+		
+		character++;
+		if (character > 128) {
+			character = 32;
+		}
+
+        Render_End_Frame(&renderer);
         glfwSwapBuffers(window);
-		glfwPollEvents();
     }
+    Render_Free(&renderer);
 
     glfwDestroyWindow(window);
 	glfwTerminate();
-    destroy_gap_buffer(gb);
     return 0;
 } 
