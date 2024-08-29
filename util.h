@@ -1,3 +1,4 @@
+#pragma once
 #include <stdbool.h>
 #include <math.h>
 
@@ -27,9 +28,6 @@ typedef double f64;
 
 static inline f64 radians(f32 deg) { return (f64) (deg * DEG_TO_RAD); }
 static inline f32 degrees(f64 rad) { return (f32) (rad * RAD_TO_DEG); }
-
-// Color
-typedef struct { f32 r; f32 g; f32 b; f32 a; } Color;
 
 // Matrices
 typedef struct { f32 a[3*3]; } mat3;
@@ -115,3 +113,23 @@ bool rect_overlaps(rect a, rect b);
 bool rect_contained_by_rect(rect a, rect b);
 rect rect_get_overlap(rect a, rect b);
 rect rect_uv_cull(rect quad, rect uv, rect cull_quad);
+
+
+// Color 
+typedef struct { f32 r; f32 g; f32 b; f32 a; } Color;
+Color color_from_hex(u32 color_hex);
+
+#define COLOR_BLACK     color_from_hex(0x000000FF)
+#define COLOR_WHITE     color_from_hex(0xFFFFFFFF)
+#define COLOR_SILVER    color_from_hex(0xC0C0C0FF)
+#define COLOR_GRAY      color_from_hex(0x808080FF)
+#define COLOR_RED       color_from_hex(0xFF0000FF)
+#define COLOR_ORANGE    color_from_hex(0xFFA500FF)
+#define COLOR_GOLD      color_from_hex(0xFFD700FF)
+#define COLOR_YELLOW    color_from_hex(0xFFFF00FF)
+#define COLOR_GREEN     color_from_hex(0x00FF00FF)
+#define COLOR_CYAN      color_from_hex(0x00FFFFFF)
+#define COLOR_BLUE      color_from_hex(0x0000FFFF)
+#define COLOR_NAVY      color_from_hex(0x000080FF)
+#define COLOR_PURPLE    color_from_hex(0x800080FF)
+#define COLOR_MAGENTA   color_from_hex(0xFF00FFFF)

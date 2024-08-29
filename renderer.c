@@ -134,6 +134,13 @@ void Render_Init(Renderer* r, Color clear_color) {
 	
     r->clear_color = clear_color;
     glClearColor(clear_color.r, clear_color.g, clear_color.b, clear_color.a);
+
+	// Initaliaze Freetype
+	if (FT_Init_FreeType(&r->ft)) {
+		printf("ERROR: Couldn't louad freetype library\n");
+		exit(1);
+	}
+	r->font_atlas_count = 0;
 }
 
 void Render_Free(Renderer* r) {
@@ -278,9 +285,8 @@ void Render_Push_Quad_T(Renderer* r, rect quad, Color tint, u32 texture) {
                          uv_min, uv_max, vec2_init(uv_min.x, uv_max.y), texture);
 }
 
-void Render_Push_Char(Renderer* r, Free_Glyph_Atlas *atlas, const char* text, vec2 *pos, Color tint) {
-	
-	
+void Render_Push_Char(Renderer* r, u32 font_id, i8* text, vec2 *pos, Color tint) {
+	GlyphAtlas atlas = r->font_atlases[font_id];
 	for (size_t i = 0; i < strlen(text); i++) {
 		size_t glyph_index = text[i];
 
@@ -288,16 +294,16 @@ void Render_Push_Char(Renderer* r, Free_Glyph_Atlas *atlas, const char* text, ve
             glyph_index = '?';
     	}
 
-		Glyph_Metric metric = atlas->metrics[glyph_index];
-		float x2 = pos->x + metric.bl;
-		float y2 = pos->y - (metric.bh - metric.bt);
-		float w  = metric.bw;
-		float h  = metric.bh;
+		GlyphMetric metric = atlas.metrics[glyph_index];
+		f32 x2 = pos->x + metric.bl;
+		f32 y2 = pos->y - (metric.bh - metric.bt);
+		f32 w  = metric.bw;
+		f32 h  = metric.bh;
 
-		float u0 = metric.tx;
-		float v0 = 0.0f;
-		float u1 = (metric.tx) + (w / (float)atlas->atlas_width);
-		float v1 = h / (float)atlas->atlas_height;
+		f32 u0 = metric.tx;
+		f32 v0 = 0.0f;
+		f32 u1 = (metric.tx) + (w / (f32)atlas.atlas_width);
+		f32 v1 = h / (f32)atlas.atlas_height;
 
 		vec2 uv_min = vec2_init(u0, v1);
 		vec2 uv_max = vec2_init(u1, v0);
@@ -309,13 +315,34 @@ void Render_Push_Char(Renderer* r, Free_Glyph_Atlas *atlas, const char* text, ve
 							vec2_init(x2 + w, y2),
 							vec2_init(x2 + w, y2 + h),
 							tint, tint, tint,
-							uv_min, vec2_init(uv_max.x, uv_min.y), uv_max, atlas->glyphs_texture);
+							uv_min, vec2_init(uv_max.x, uv_min.y), uv_max, atlas.glyphs_texture);
 		Render_Push_Triangle(r,
-								vec2_init(x2, y2), 
-								vec2_init(x2 + w, y2 + h), 
-								vec2_init(x2, y2 + h),
-								tint, tint, tint,
-								uv_min, uv_max, vec2_init(uv_min.x, uv_max.y), atlas->glyphs_texture);
+							vec2_init(x2, y2), 
+							vec2_init(x2 + w, y2 + h), 
+							vec2_init(x2, y2 + h),
+							tint, tint, tint,
+							uv_min, uv_max, vec2_init(uv_min.x, uv_max.y), atlas.glyphs_texture);
 	}
 }
 
+u32 Render_Load_Font(Renderer *r, char *path, u32 size_px) {
+	// Load a face
+	FT_Face face;
+	if(FT_New_Face(r->ft, path, 0, &face)) {
+		fprintf(stderr, "Could not open font\n");
+		exit(1);
+	}
+
+	// Set the size of the font in pixels
+	FT_Set_Pixel_Sizes(face, 0, size_px);
+
+	//Make the atlas
+	GlyphAtlas atlas;
+	glyph_atlas_init(&atlas, face);
+
+	//Store atlas
+	u32 font_id = r->font_atlas_count;
+	r->font_atlases[r->font_atlas_count] = atlas;
+	r->font_atlas_count++;
+	return font_id;
+}

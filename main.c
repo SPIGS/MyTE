@@ -13,7 +13,6 @@
 
 void resize_window(GLFWwindow *window, int width, int height) {
 	Renderer *r = glfwGetWindowUserPointer(window);
-
 	Render_Resize_Window(r, width, height);
 }
 
@@ -46,53 +45,26 @@ int main () {
 	printf("OpenGL ver. %s\n", glGetString(GL_VERSION));
 
     Renderer renderer;
-    Color clr_color = {.r = 0.0f, .g = 0.4f, .b = 0.4f, .a = 0.0};
-    Render_Init(&renderer, clr_color);
-
-    u32 white_texture = Render_GetWhiteTexture();
-
-	// PUtting the font stuff here for the time being - move this to the renderer
-
-	// Load the library
-	FT_Library ft;
-	if (FT_Init_FreeType(&ft)) {
-		printf("ERROR: Couldn't louad freetype library\n");
-		exit(1);
-	}
-
-	// Load a face
-	FT_Face face;
-	if(FT_New_Face(ft, "iosevka-firamono.ttf", 0, &face)) {
-		fprintf(stderr, "Could not open font\n");
-		exit(1);
-	}
-
-	// Set the size of the font in pixels
-	FT_Set_Pixel_Sizes(face, 0, 48);
-
-	Free_Glyph_Atlas atlas;
-	free_glyph_atlas_init(&atlas, face);
+    Render_Init(&renderer, color_from_hex(0x007777FF));
+	u32 font_id = Render_Load_Font(&renderer, "fonts/iosevka-firamono.ttf", 64);
 
 	glfwSetWindowUserPointer(window, &renderer);
 	glfwSetFramebufferSizeCallback(window, resize_window);	
 
-	u8 text[128];
-
-	for (u8 i = 32; i < 128; i++) {
-		text[i - 32] = i;
-	}
+	i8 *text = "Hello World, Goodbye World!";
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         Render_Begin_Frame(&renderer);
 
         rect quad = rect_init(10, 10, 100, 100);
-        Color color = { .r=1.0, .g=0.4, .b=1.0, .a=1.0};
-		Color color_font = { .r=1.0, .g=1.0, .b=1.0, .a=1.0};
+		Color color = COLOR_MAGENTA;
+		Color color_font = COLOR_ORANGE;
 		vec2 text_pos = vec2_init(100, 500);
-        // Render stuff goes here
-        Render_Push_Quad_T(&renderer, quad, color, white_texture);
-		Render_Push_Char(&renderer, &atlas, text, &text_pos, color_font);
+        
+		// Render stuff goes here
+		Render_Push_Quad_C(&renderer, quad, color);
+		Render_Push_Char(&renderer, font_id, text, &text_pos, color_font);
 
         Render_End_Frame(&renderer);
         glfwSwapBuffers(window);

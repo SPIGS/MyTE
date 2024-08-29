@@ -1,7 +1,7 @@
 #include "util.h"
 #include "font.h"
 
-void free_glyph_atlas_init(Free_Glyph_Atlas *atlas, FT_Face face) {
+void glyph_atlas_init(GlyphAtlas *atlas, FT_Face face) {
     	//Creating a texture atlas
 	FT_GlyphSlot g = face->glyph;
 	u32 w = 0;
@@ -23,8 +23,6 @@ void free_glyph_atlas_init(Free_Glyph_Atlas *atlas, FT_Face face) {
 	// for zero initializing the buffer
 	char* blank_buffer = (char*)malloc(sizeof(char) * (size_t)w * (size_t)h);
 
-    printf("tex: %d\n", atlas->glyphs_texture);
-
 	// Make a blank texture the size needed for the atlas
 	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &(atlas->glyphs_texture));
@@ -37,18 +35,16 @@ void free_glyph_atlas_init(Free_Glyph_Atlas *atlas, FT_Face face) {
 
 	glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
 	glTexImage2D(
-	GL_TEXTURE_2D,
-	0,
-	GL_RED,  // Single channel format for storing the alpha
-	w,
-	h,
-	0,
-	GL_RED,  // Using the red channel for alpha
-	GL_UNSIGNED_BYTE,
-	blank_buffer
+		GL_TEXTURE_2D,
+		0,
+		GL_RED,  // Single channel format for storing the alpha
+		w,
+		h,
+		0,
+		GL_RED,  // Using the red channel for alpha
+		GL_UNSIGNED_BYTE,
+		blank_buffer
 	);
-
-    printf("w:%d, h:%d\n", w, h);
 
 	free(blank_buffer);
 
@@ -78,7 +74,8 @@ void free_glyph_atlas_init(Free_Glyph_Atlas *atlas, FT_Face face) {
             face->glyph->bitmap.rows,
             GL_RED,
             GL_UNSIGNED_BYTE,
-            face->glyph->bitmap.buffer);
+            face->glyph->bitmap.buffer
+		);
         x += face->glyph->bitmap.width;
     }
 }

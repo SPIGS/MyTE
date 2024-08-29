@@ -329,3 +329,16 @@ rect rect_uv_cull(rect quad, rect uv, rect cull_quad) {
     f32 culled_h = overlap.h * uv_yratio;
     return (rect) { culled_x, culled_y, culled_w, culled_h };
 }
+
+Color color_from_hex(u32 color_hex) {
+    Color result;
+    u32 r = (color_hex >> (3 * 8)) & 0xFF;
+    u32 g = (color_hex >> (2 * 8)) & 0xFF;
+    u32 b = (color_hex >> (1 * 8)) & 0xFF;
+    u32 a = (color_hex >> (0 * 8)) & 0xFF;
+    result.r = r / 255.0f;
+    result.g = g / 255.0f;
+    result.b = b / 255.0f;
+    result.a = a / 255.0f;
+    return result;
+}

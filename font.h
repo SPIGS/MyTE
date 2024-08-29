@@ -5,17 +5,17 @@
 #include FT_FREETYPE_H
 
 typedef struct {
-    float ax; // advance.x
-    float ay; // advance.y
+    f32 ax; // advance.x
+    f32 ay; // advance.y
 
-    float bw; // bitmap.width;
-    float bh; // bitmap.rows;
+    f32 bw; // bitmap.width;
+    f32 bh; // bitmap.rows;
 
-    float bl; // bitmap_left;
-    float bt; // bitmap_top;
+    f32 bl; // bitmap_left;
+    f32 bt; // bitmap_top;
 
-    float tx; // x offset of glyph in texture coordinates
-} Glyph_Metric;
+    f32 tx; // x offset of glyph in texture coordinates
+} GlyphMetric;
 
 #define GLYPH_METRICS_CAPACITY 128
 
@@ -23,7 +23,7 @@ typedef struct {
     FT_UInt atlas_width;
     FT_UInt atlas_height;
     GLuint glyphs_texture;
-    Glyph_Metric metrics[GLYPH_METRICS_CAPACITY];
-} Free_Glyph_Atlas;
+    GlyphMetric metrics[GLYPH_METRICS_CAPACITY];
+} GlyphAtlas;
 
-void free_glyph_atlas_init(Free_Glyph_Atlas *atlas, FT_Face face);
+void glyph_atlas_init(GlyphAtlas *atlas, FT_Face face);

@@ -34,6 +34,12 @@ typedef struct {
 
 	// Misc
 	Color clear_color;
+
+	// Fonts
+	FT_Library ft;
+	GlyphAtlas font_atlases[8];
+	u32 font_atlas_count;
+
 } Renderer;
 
 void Render_Init(Renderer* r, Color clear_color);
@@ -49,7 +55,8 @@ void Render_Push_Triangle(Renderer* r,
 
 // Helpers and Extensions
 u32  Render_GetWhiteTexture();
+u32 Render_Load_Font(Renderer *r, char *path, u32 size_px);
 
 void Render_Push_Quad_C(Renderer* r, rect quad, Color color);
 void Render_Push_Quad_T(Renderer* r, rect quad, Color tint, u32 texture);
-void Render_Push_Char(Renderer* r, Free_Glyph_Atlas *atlas, const char* text, vec2 *pos, Color tint);
+void Render_Push_Char(Renderer* r, u32 font_id, i8* text, vec2 *pos, Color tint);
