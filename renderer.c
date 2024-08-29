@@ -287,7 +287,17 @@ void Render_Push_Quad_T(Renderer* r, rect quad, Color tint, u32 texture) {
 
 void Render_Push_Char(Renderer* r, u32 font_id, i8* text, vec2 *pos, Color tint) {
 	GlyphAtlas atlas = r->font_atlases[font_id];
+	vec2 init_pos = vec2_init(pos->x, pos->y);
+
 	for (size_t i = 0; i < strlen(text); i++) {
+		
+		// If the character is a newline, move down and back over to the left.
+		if (text[i] == '\n') {
+			pos->x = init_pos.x;
+			pos->y -= atlas.atlas_height;
+			continue;
+		}
+
 		size_t glyph_index = text[i];
 
 		if (glyph_index >= GLYPH_METRICS_CAPACITY) {

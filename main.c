@@ -46,12 +46,15 @@ int main () {
 
     Renderer renderer;
     Render_Init(&renderer, color_from_hex(0x007777FF));
-	u32 font_id = Render_Load_Font(&renderer, "fonts/iosevka-firamono.ttf", 64);
+	u32 font_id = Render_Load_Font(&renderer, "fonts/iosevka-firamono.ttf", 48);
 
 	glfwSetWindowUserPointer(window, &renderer);
 	glfwSetFramebufferSizeCallback(window, resize_window);	
 
-	i8 *text = "Hello World, Goodbye World!";
+	i8 *loremIpsum = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore et dolore magna aliqua.\n"
+                         "Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut aliquip ex ea commodo consequat.\n"
+                         "Duis aute irure dolor in reprehenderit in voluptate velit esse cillum dolore eu fugiat nulla pariatur.\n"
+                         "Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim id est laborum.\n";
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
@@ -60,11 +63,11 @@ int main () {
         rect quad = rect_init(10, 10, 100, 100);
 		Color color = COLOR_MAGENTA;
 		Color color_font = COLOR_ORANGE;
-		vec2 text_pos = vec2_init(100, 500);
+		vec2 text_pos = vec2_init(10, 500);
         
 		// Render stuff goes here
 		Render_Push_Quad_C(&renderer, quad, color);
-		Render_Push_Char(&renderer, font_id, text, &text_pos, color_font);
+		Render_Push_Char(&renderer, font_id, loremIpsum, &text_pos, color_font);
 
         Render_End_Frame(&renderer);
         glfwSwapBuffers(window);
