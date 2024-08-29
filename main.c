@@ -68,7 +68,7 @@ int main () {
 	}
 
 	// Set the size of the font in pixels
-	FT_Set_Pixel_Sizes(face, 0, 64);
+	FT_Set_Pixel_Sizes(face, 0, 48);
 
 	Free_Glyph_Atlas atlas;
 	free_glyph_atlas_init(&atlas, face);
@@ -76,7 +76,12 @@ int main () {
 	glfwSetWindowUserPointer(window, &renderer);
 	glfwSetFramebufferSizeCallback(window, resize_window);	
 
-	u8 character = 32;
+	u8 text[128];
+
+	for (u8 i = 32; i < 128; i++) {
+		text[i - 32] = i;
+	}
+
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
         Render_Begin_Frame(&renderer);
@@ -84,14 +89,10 @@ int main () {
         rect quad = rect_init(10, 10, 100, 100);
         Color color = { .r=1.0, .g=0.4, .b=1.0, .a=1.0};
 		Color color_font = { .r=1.0, .g=1.0, .b=1.0, .a=1.0};
+		vec2 text_pos = vec2_init(100, 500);
         // Render stuff goes here
         Render_Push_Quad_T(&renderer, quad, color, white_texture);
-		Render_Push_Char(&renderer, &atlas, character, vec2_init(500, 500), color_font);
-		
-		character++;
-		if (character > 128) {
-			character = 32;
-		}
+		Render_Push_Char(&renderer, &atlas, text, &text_pos, color_font);
 
         Render_End_Frame(&renderer);
         glfwSwapBuffers(window);

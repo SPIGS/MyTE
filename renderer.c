@@ -278,37 +278,44 @@ void Render_Push_Quad_T(Renderer* r, rect quad, Color tint, u32 texture) {
                          uv_min, uv_max, vec2_init(uv_min.x, uv_max.y), texture);
 }
 
-void Render_Push_Char(Renderer* r, Free_Glyph_Atlas *atlas, u8 character, vec2 pos, Color tint) {
-	size_t glyph_index = character;
-	if (glyph_index >= GLYPH_METRICS_CAPACITY) {
-            glyph_index = '?';
-    }
-
-	Glyph_Metric metric = atlas->metrics[glyph_index];
-	float x2 = pos.x + metric.bl;
-	float y2 = pos.y - metric.bt;
-	float w  = metric.bw;
-	float h  = metric.bh;
-
-	float u0 = metric.tx;
-    float v0 = 0.0f;
-    float u1 = (metric.tx) + (w / (float)atlas->atlas_width);
-    float v1 = h / (float)atlas->atlas_height;
+void Render_Push_Char(Renderer* r, Free_Glyph_Atlas *atlas, const char* text, vec2 *pos, Color tint) {
 	
-	vec2 uv_min = vec2_init(u0, v1);
-	vec2 uv_max = vec2_init(u1, v0);
-		
-	Render_Push_Triangle(r,
-						vec2_init(x2, y2), 
-						vec2_init(x2 + w, y2),
-						vec2_init(x2 + w, y2 + h),
-						tint, tint, tint,
-						uv_min, vec2_init(uv_max.x, uv_min.y), uv_max, atlas->glyphs_texture);
-    Render_Push_Triangle(r,
-                         vec2_init(x2, y2), 
-                         vec2_init(x2 + w, y2 + h), 
-                         vec2_init(x2, y2 + h),
-                         tint, tint, tint,
-                         uv_min, uv_max, vec2_init(uv_min.x, uv_max.y), atlas->glyphs_texture);
+	
+	for (size_t i = 0; i < strlen(text); i++) {
+		size_t glyph_index = text[i];
+
+		if (glyph_index >= GLYPH_METRICS_CAPACITY) {
+            glyph_index = '?';
+    	}
+
+		Glyph_Metric metric = atlas->metrics[glyph_index];
+		float x2 = pos->x + metric.bl;
+		float y2 = pos->y - (metric.bh - metric.bt);
+		float w  = metric.bw;
+		float h  = metric.bh;
+
+		float u0 = metric.tx;
+		float v0 = 0.0f;
+		float u1 = (metric.tx) + (w / (float)atlas->atlas_width);
+		float v1 = h / (float)atlas->atlas_height;
+
+		vec2 uv_min = vec2_init(u0, v1);
+		vec2 uv_max = vec2_init(u1, v0);
+
+		pos->x += metric.ax;
+
+		Render_Push_Triangle(r,
+							vec2_init(x2, y2), 
+							vec2_init(x2 + w, y2),
+							vec2_init(x2 + w, y2 + h),
+							tint, tint, tint,
+							uv_min, vec2_init(uv_max.x, uv_min.y), uv_max, atlas->glyphs_texture);
+		Render_Push_Triangle(r,
+								vec2_init(x2, y2), 
+								vec2_init(x2 + w, y2 + h), 
+								vec2_init(x2, y2 + h),
+								tint, tint, tint,
+								uv_min, uv_max, vec2_init(uv_min.x, uv_max.y), atlas->glyphs_texture);
+	}
 }
 

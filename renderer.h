@@ -52,4 +52,4 @@ u32  Render_GetWhiteTexture();
 
 void Render_Push_Quad_C(Renderer* r, rect quad, Color color);
 void Render_Push_Quad_T(Renderer* r, rect quad, Color tint, u32 texture);
-void Render_Push_Char(Renderer* r, Free_Glyph_Atlas *atlas, u8 character, vec2 pos, Color tint);
+void Render_Push_Char(Renderer* r, Free_Glyph_Atlas *atlas, const char* text, vec2 *pos, Color tint);

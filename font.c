@@ -29,12 +29,9 @@ void free_glyph_atlas_init(Free_Glyph_Atlas *atlas, FT_Face face) {
 	glActiveTexture(GL_TEXTURE0);
 	glGenTextures(1, &(atlas->glyphs_texture));
 	glBindTexture(GL_TEXTURE_2D, atlas->glyphs_texture);
-	
-    printf("tex: %d\n", atlas->glyphs_texture);
 
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
 	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
 
@@ -63,8 +60,8 @@ void free_glyph_atlas_init(Free_Glyph_Atlas *atlas, FT_Face face) {
             continue;
         }
 
-        atlas->metrics[i].ax = face->glyph->advance.x;
-        atlas->metrics[i].ay = face->glyph->advance.y;
+        atlas->metrics[i].ax = face->glyph->advance.x >> 6;
+        atlas->metrics[i].ay = face->glyph->advance.y >> 6;
         atlas->metrics[i].bw = face->glyph->bitmap.width;
         atlas->metrics[i].bh = face->glyph->bitmap.rows;
         atlas->metrics[i].bl = face->glyph->bitmap_left;
