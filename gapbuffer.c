@@ -43,10 +43,7 @@ void resize_gap(GapBuffer *gb, size_t required_space) {
 
         gb->buffer_size = new_buffer_size;
         gb->gap_end = gb->buffer_size;
-        gb->gap_start = (new_buffer_size / 2);
-        
-        
-        //memmove(gb->buffer + gb->gap_end, gb->buffer + gb->buffer_size - gap_size, gb->buffer_size - gb->gap_end);
+        gb->gap_start = (new_buffer_size / 2);        
     }
 }
 

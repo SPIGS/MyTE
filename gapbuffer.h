@@ -2,10 +2,9 @@
 #include <stdlib.h>
 #include <string.h>
 
-#define INITIAL_SIZE 3
+#include "util.h"
 
-#define MAX(x, y) (((x) > (y)) ? (x) : (y))
-#define MIN(x, y) (((x) < (y)) ? (x) : (y))
+#define INITIAL_SIZE 3
 
 typedef struct
 {
@@ -22,4 +21,5 @@ void resize_gap(GapBuffer *gb, size_t required_space);
 void insert_char (GapBuffer *gb, size_t cursor_position, char c);
 void remove_char_before_buffer (GapBuffer *gb, size_t cursor_position);
 void remove_char_after_buffer (GapBuffer *gb, size_t cursor_position);
+void calculate_lines (GapBuffer *gb);
 char *buffer_string (GapBuffer *gb);
