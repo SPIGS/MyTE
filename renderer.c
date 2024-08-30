@@ -335,6 +335,67 @@ void Render_Push_Char(Renderer* r, u32 font_id, i8* text, vec2 *pos, Color tint)
 	}
 }
 
+void Render_Push_Buffer(Renderer* r, u32 font_id, char *data, size_t cursor_pos, vec2 *pos, Color tint) {
+	GlyphAtlas atlas = r->font_atlases[font_id];
+	vec2 init_pos = vec2_init(pos->x, pos->y);
+
+	
+	size_t len_data = strlen(data);
+	for (size_t i = 0; i < len_data; i++) {
+
+		if (i == cursor_pos) {
+			rect cursor_quad = rect_init(pos->x, pos->y, 2, atlas.atlas_height);
+			Render_Push_Quad_C(r, cursor_quad, tint);
+		}
+
+		// If the character is a newline, move down and back over to the left.
+		if (data[i] == '\n') {
+			pos->x = init_pos.x;
+			pos->y -= atlas.atlas_height;
+			continue;
+		}
+
+		size_t glyph_index = data[i];
+
+		if (glyph_index >= GLYPH_METRICS_CAPACITY) {
+            glyph_index = '?';
+    	}
+
+		GlyphMetric metric = atlas.metrics[glyph_index];
+		f32 x2 = pos->x + metric.bl;
+		f32 y2 = pos->y - (metric.bh - metric.bt);
+		f32 w  = metric.bw;
+		f32 h  = metric.bh;
+
+		f32 u0 = metric.tx;
+		f32 v0 = 0.0f;
+		f32 u1 = (metric.tx) + (w / (f32)atlas.atlas_width);
+		f32 v1 = h / (f32)atlas.atlas_height;
+
+		vec2 uv_min = vec2_init(u0, v1);
+		vec2 uv_max = vec2_init(u1, v0);
+
+		pos->x += metric.ax;
+
+		Render_Push_Triangle(r,
+							vec2_init(x2, y2), 
+							vec2_init(x2 + w, y2),
+							vec2_init(x2 + w, y2 + h),
+							tint, tint, tint,
+							uv_min, vec2_init(uv_max.x, uv_min.y), uv_max, atlas.glyphs_texture);
+		Render_Push_Triangle(r,
+							vec2_init(x2, y2), 
+							vec2_init(x2 + w, y2 + h), 
+							vec2_init(x2, y2 + h),
+							tint, tint, tint,
+							uv_min, uv_max, vec2_init(uv_min.x, uv_max.y), atlas.glyphs_texture);
+	}
+	if (cursor_pos == len_data) {
+		rect cursor_quad = rect_init(pos->x, pos->y, 2, atlas.atlas_height);
+		Render_Push_Quad_C(r, cursor_quad, tint);
+	}
+}
+
 u32 Render_Load_Font(Renderer *r, char *path, u32 size_px) {
 	// Load a face
 	FT_Face face;

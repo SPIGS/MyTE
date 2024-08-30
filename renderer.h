@@ -60,3 +60,4 @@ u32 Render_Load_Font(Renderer *r, char *path, u32 size_px);
 void Render_Push_Quad_C(Renderer* r, rect quad, Color color);
 void Render_Push_Quad_T(Renderer* r, rect quad, Color tint, u32 texture);
 void Render_Push_Char(Renderer* r, u32 font_id, i8* text, vec2 *pos, Color tint);
+void Render_Push_Buffer(Renderer* r, u32 font_id, char *data, size_t cursor_pos, vec2 *pos, Color tint);
