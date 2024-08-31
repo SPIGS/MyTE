@@ -10,6 +10,8 @@
 #define MAX(a,b) (((a)>(b))?(a):(b))
 #define CLAMP(a,x,b) (((x)<(a))?(a):((b)<(x))?(b):(x))
 
+#define UNUSED(x) ((void)x)
+
 // Unsigned int types
 typedef unsigned char u8;
 typedef unsigned short u16;

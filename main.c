@@ -11,74 +11,71 @@
 #include "font.h"
 #include "gapbuffer.h"
 
+#define TAB_WIDTH 4
 
 GapBuffer *gb;
 size_t cursor_pos = 0;
 
 void move_cursor_up(GapBuffer *gb) {
-    size_t column = get_column(gb, cursor_pos);
-    size_t beginning_of_prev_line = get_beginning_of_prev_line_cursor(gb, cursor_pos);
-    size_t prev_line_length = get_buffer_line_length(gb, beginning_of_prev_line);
-    if (get_beginning_of_line_cursor(gb, cursor_pos) == 0) {
+    size_t column = getBufColumn(gb, cursor_pos);
+    size_t beginning_of_prev_line = getBeginningOfPrevLineCursor(gb, cursor_pos);
+    size_t prev_line_length = getBufLineLength(gb, beginning_of_prev_line);
+    if (getBeginningOfLineCursor(gb, cursor_pos) == 0) {
         prev_line_length = 0;
     }
     cursor_pos = beginning_of_prev_line + MIN(prev_line_length, column);
 }
 
 void move_cursor_down (GapBuffer *gb) {
-    size_t column = get_column(gb, cursor_pos);
-    size_t beginning_of_next_line = get_beginning_of_next_line_cursor(gb, cursor_pos);
-    size_t next_line_length = get_end_of_line_cursor(gb, beginning_of_next_line) - beginning_of_next_line;
+    size_t column = getBufColumn(gb, cursor_pos);
+    size_t beginning_of_next_line = getBeginningOfNextLineCursor(gb, cursor_pos);
+    size_t next_line_length = getEndOfLineCursor(gb, beginning_of_next_line) - beginning_of_next_line;
     cursor_pos = beginning_of_next_line + MIN(next_line_length, column);
 }
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action , int mods)
 {
-    (void)window;
-    (void)scancode;
-    (void)mods;
+    UNUSED(window);
+    UNUSED(scancode);
+    UNUSED(mods);
 
     if (key == GLFW_KEY_LEFT && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        cursor_pos = get_prev_character_cursor(gb, cursor_pos);
-           output_buffer_string(gb, get_cursor_idx(gb, cursor_pos));
+        cursor_pos = getPrevCharCursor(gb, cursor_pos);
     } else if (key == GLFW_KEY_UP && (action == GLFW_REPEAT || action == GLFW_PRESS)){
         move_cursor_up(gb);
-           output_buffer_string(gb, get_cursor_idx(gb, cursor_pos));
     } else if (key == GLFW_KEY_DOWN && (action == GLFW_REPEAT || action == GLFW_PRESS)){
         move_cursor_down(gb);
-           output_buffer_string(gb, get_cursor_idx(gb, cursor_pos));
     } else if (key == GLFW_KEY_RIGHT && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        cursor_pos = get_next_character_cursor(gb, cursor_pos);
-           output_buffer_string(gb, get_cursor_idx(gb, cursor_pos));
+        cursor_pos = getNextCharCursor(gb, cursor_pos);
     } else if (key == GLFW_KEY_BACKSPACE && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        remove_char_before_gap (gb, cursor_pos);
-        cursor_pos = get_prev_character_cursor(gb, cursor_pos);
-           output_buffer_string(gb, get_cursor_idx(gb, cursor_pos));
+        removeCharBeforeGap (gb, cursor_pos);
+        cursor_pos = getPrevCharCursor(gb, cursor_pos);
     } else if (key == GLFW_KEY_DELETE && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        remove_char_after_gap (gb, cursor_pos);
-           output_buffer_string(gb, get_cursor_idx(gb, cursor_pos));
+        removeCharAfterGap (gb, cursor_pos);
     } else if (key == GLFW_KEY_ENTER && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        insert_char(gb, cursor_pos, '\n');
-        cursor_pos = get_next_character_cursor(gb, cursor_pos);
-           output_buffer_string(gb, get_cursor_idx(gb, cursor_pos));
+        insertCharIntoBuf(gb, cursor_pos, '\n');
+        cursor_pos = getNextCharCursor(gb, cursor_pos);
+    } else if (key == GLFW_KEY_TAB && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
+        for (size_t i = 0; i< TAB_WIDTH; i++) {
+            insertCharIntoBuf(gb, cursor_pos, ' ');
+            cursor_pos = getNextCharCursor(gb, cursor_pos);
+        }
     }
 }
 
 void character_callback(GLFWwindow* window, unsigned int codepoint) {
-    (void)window;
-
-    insert_char(gb, cursor_pos, (char)codepoint);
-    cursor_pos = get_next_character_cursor(gb, cursor_pos);
-    output_buffer_string(gb, get_cursor_idx(gb, cursor_pos));
+    UNUSED(window);
+    insertCharIntoBuf(gb, cursor_pos, (char)codepoint);
+    cursor_pos = getNextCharCursor(gb, cursor_pos);
 }
 
 void resize_window(GLFWwindow *window, int width, int height) {
 	Renderer *r = glfwGetWindowUserPointer(window);
-	Render_Resize_Window(r, width, height);
+	rendererResizeWindow(r, width, height);
 }
 
 int main () {
-	gb = create_gap_buffer(INITIAL_SIZE);
+	gb = gapBufferInit(INITIAL_SIZE);
 
     // Initialize glfw
 	if (!glfwInit()) {
@@ -107,8 +104,8 @@ int main () {
 	printf("OpenGL ver. %s\n", glGetString(GL_VERSION));
 
     Renderer renderer;
-    Render_Init(&renderer, color_from_hex(0x007777FF));
-	u32 font_id = Render_Load_Font(&renderer, "fonts/iosevka-firamono.ttf", 48);
+    rendererInit(&renderer, COLOR_BLACK);
+	u32 font_id = rendererLoadFont(&renderer, "fonts/iosevka-firamono.ttf", 48);
 
 	glfwSetWindowUserPointer(window, &renderer);
 	glfwSetFramebufferSizeCallback(window, resize_window);
@@ -117,23 +114,25 @@ int main () {
 
     while (!glfwWindowShouldClose(window)) {
         glfwPollEvents();
-        Render_Begin_Frame(&renderer);
-		char * buffer_string = get_buffer_string(gb);
+        rendererBegin(&renderer);
+		char * buffer_string = getBufString(gb);
         rect quad = rect_init(10, 10, 100, 100);
-		Color color = COLOR_MAGENTA;
-		Color color_font = COLOR_ORANGE;
+		Color color = COLOR_GRAY;
+		Color color_font = COLOR_WHITE;
 		vec2 text_pos = vec2_init(10, 500);
+        vec2 char_pos = vec2_init(10, 800);
         
 		// Render stuff goes here
-		Render_Push_Quad_C(&renderer, quad, color);
-		//Render_Push_Char(&renderer, font_id, loremIpsum, &text_pos, color_font);
-        Render_Push_Buffer(&renderer, font_id, buffer_string, cursor_pos, &text_pos, color_font);
+		renderQuad(&renderer, quad, color);
+		renderChar(&renderer, font_id, '@', &char_pos, color_font);
+        renderText(&renderer, font_id, buffer_string, cursor_pos, &text_pos, color_font);
         free(buffer_string);
-        Render_End_Frame(&renderer);
+        
+        rendererEnd(&renderer);
         glfwSwapBuffers(window);
     }
-    Render_Free(&renderer);
-    destroy_gap_buffer(gb);
+    rendererDestroy(&renderer);
+    gapBufferDestroy(gb);
 
     glfwDestroyWindow(window);
 	glfwTerminate();

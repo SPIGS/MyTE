@@ -247,6 +247,7 @@ quat quat_norm(quat q) {
 }
 
 quat quat_rotate_axis(quat q, f32 x, f32 y, f32 z, f32 a) {
+    UNUSED(q);
     f32 factor = sinf(a / 2.0f);
     
     quat r = {0};

@@ -26,4 +26,4 @@ typedef struct {
     GlyphMetric metrics[GLYPH_METRICS_CAPACITY];
 } GlyphAtlas;
 
-void glyph_atlas_init(GlyphAtlas *atlas, FT_Face face);
+void glyphAtlasInit(GlyphAtlas *atlas, FT_Face face);

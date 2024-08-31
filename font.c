@@ -1,7 +1,7 @@
 #include "util.h"
 #include "font.h"
 
-void glyph_atlas_init(GlyphAtlas *atlas, FT_Face face) {
+void glyphAtlasInit(GlyphAtlas *atlas, FT_Face face) {
     	//Creating a texture atlas
 	FT_GlyphSlot g = face->glyph;
 	u32 w = 0;
