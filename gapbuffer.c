@@ -86,11 +86,14 @@ void removeCharBeforeGap (GapBuffer *buf, size_t cursor) {
     }
 }
 
-void removeCharAfterGap(GapBuffer *buf, size_t cursor) {
+char removeCharAfterGap(GapBuffer *buf, size_t cursor) {
     if (cursor < getBufLength(buf)) {
         shiftGap(buf, cursor);
+        char removed_char = buf->data[buf->gap_end];
         buf->gap_end++;
+        return removed_char;
     }
+    return -1;
 }
 
 char *getBufString (GapBuffer *buf) {

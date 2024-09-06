@@ -2,7 +2,7 @@ CXX=gcc
 CFLAGS=-Wall -Wextra -std=c11 -pedantic -ggdb `pkg-config --cflags gl glew glfw3 freetype2`
 LDLIBS=-lm `pkg-config --libs gl glew glfw3 freetype2`
 TARGET=test
-SRCS=main.c renderer.c util.c font.c gapbuffer.c
+SRCS=main.c renderer.c util.c font.c gapbuffer.c editor.c
 OBJ=$(subst .c,.o,$(SRCS))
 
 all: $(OBJ)
@@ -22,6 +22,9 @@ font.o: font.c font.h
 
 gapbuffer.o: gapbuffer.c gapbuffer.h
 	$(CXX) $(CFLAGS) -c gapbuffer.c
+
+editor.o: editor.c editor.h
+	$(CXX) $(CFLAGS) -c editor.c
 
 clean:
 	rm -f *.o

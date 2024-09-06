@@ -1,6 +1,7 @@
 #pragma once
 #include "util.h"
 #include "font.h"
+#include "editor.h"
 
 #define INITIAL_SCREEN_WIDTH 1080
 #define INITIAL_SCREEN_HEIGHT 720
@@ -40,6 +41,10 @@ typedef struct {
 	GlyphAtlas font_atlases[8];
 	u32 font_atlas_count;
 
+	// Screen size info
+	f32 screen_width;
+	f32 screen_height;
+
 } Renderer;
 
 void rendererInit(Renderer* r, Color clear_color);
@@ -60,4 +65,5 @@ u32 rendererLoadFont(Renderer *r, char *path, u32 size_px);
 void renderQuad(Renderer* r, rect quad, Color color);
 void renderTexturedQuad(Renderer* r, rect quad, Color tint, u32 texture);
 void renderChar(Renderer* r, u32 font_id, char character, vec2 *pos, Color tint);
-void renderText(Renderer* r, u32 font_id, char *text, size_t cursor_pos, vec2 *pos, Color tint);
+void renderText(Renderer* r, u32 font_id, char *text, vec2 *pos, Color tint);
+void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time);

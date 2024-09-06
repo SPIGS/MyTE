@@ -51,6 +51,7 @@ static inline vec2 vec2_normalize(vec2 v) { return vec2_scale(v, 1.f / vec2_mag(
 static inline vec2 vec2_neg(vec2 v) { return (vec2) { .x = -v.x, .y = -v.y }; }
 static inline f32  vec2_dot(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
 vec2 vec2_clamp(vec2 vec, rect quad);
+vec2 lerp (vec2 start, vec2 end, f32 t);
 
 // Vec3
 typedef struct { f32 x; f32 y; f32 z; } vec3;
@@ -123,8 +124,8 @@ Color color_from_hex(u32 color_hex);
 
 #define COLOR_BLACK     color_from_hex(0x000000FF)
 #define COLOR_WHITE     color_from_hex(0xFFFFFFFF)
-#define COLOR_SILVER    color_from_hex(0xC0C0C0FF)
-#define COLOR_GRAY      color_from_hex(0x808080FF)
+#define COLOR_SILVER    color_from_hex(0x808080FF)
+#define COLOR_GRAY      color_from_hex(0x232323FF)
 #define COLOR_RED       color_from_hex(0xFF0000FF)
 #define COLOR_ORANGE    color_from_hex(0xFFA500FF)
 #define COLOR_GOLD      color_from_hex(0xFFD700FF)

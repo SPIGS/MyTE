@@ -27,6 +27,8 @@ void rendererInit(Renderer* r, Color clear_color) {
 	
 	// @hardcoded @resize
 	r->projection = mat4_ortho(0, INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, 0, -0.01, 1.0);
+	r->screen_width = INITIAL_SCREEN_WIDTH;
+	r->screen_height = INITIAL_SCREEN_HEIGHT;
 	
 	r->shader = glCreateProgram();
     u32 vert_module = glCreateShader(GL_VERTEX_SHADER);
@@ -176,6 +178,8 @@ void rendererResizeWindow (Renderer* r, i32 width, i32 height) {
 
 	// adjust the projection for the renderer
 	r->projection = mat4_ortho(0, (f32)width, (f32)height, 0, -0.01, 1.0);
+	r->screen_width = (f32)width;
+	r->screen_height = (f32)height;
 
 	// pass the updated projection to the shader
 	u32 proj_loc = glGetUniformLocation(r->shader, "u_proj");
@@ -327,19 +331,14 @@ void renderChar(Renderer* r, u32 font_id, char character, vec2 *pos, Color tint)
 					uv_min, uv_max, vec2_init(uv_min.x, uv_max.y), atlas.glyphs_texture);
 }
 
-void renderText(Renderer* r, u32 font_id, char *data, size_t cursor_pos, vec2 *pos, Color tint) {
+// TODO: get rid of the cursor requirement for this - this function should just render text
+void renderText(Renderer* r, u32 font_id, char *data, vec2 *pos, Color tint) {
 	GlyphAtlas atlas = r->font_atlases[font_id];
 	vec2 init_pos = vec2_init(pos->x, pos->y);
 
 	
 	size_t len_data = strlen(data);
 	for (size_t i = 0; i < len_data; i++) {
-
-		if (i == cursor_pos) {
-			rect cursor_quad = rect_init(pos->x, pos->y, 3, atlas.atlas_height);
-			renderQuad(r, cursor_quad, tint);
-		}
-
 		// If the character is a newline, move down and back over to the left.
 		if (data[i] == '\n') {
 			pos->x = init_pos.x;
@@ -350,11 +349,93 @@ void renderText(Renderer* r, u32 font_id, char *data, size_t cursor_pos, vec2 *p
 		// Render the character
 		renderChar(r, font_id, data[i], pos, tint);
 	}
+}
 
-	if (cursor_pos == len_data) {
-		rect cursor_quad = rect_init(pos->x, pos->y, 3, atlas.atlas_height);
-		renderQuad(r, cursor_quad, tint);
+void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time) {
+	char *data = getContents(e);
+	size_t len_data = strlen(data);
+
+	f32 PADDING = 90.0f;
+
+	GlyphAtlas atlas = r->font_atlases[font_id];
+	vec2 init_pos = vec2_init(e->text_pos.x + PADDING, e->text_pos.y - e->line_height);
+	vec2 adj_text_pos = vec2_add(init_pos, e->scroll_pos);
+
+	renderQuad(r, e->frame, COLOR_BLACK);
+	
+	for (size_t i = 0; i < len_data; i++) {
+
+		if (i == e->cursor.buffer_pos) {
+			
+			// set a new target position
+			e->cursor.target_screen_pos = vec2_init(adj_text_pos.x, adj_text_pos.y);
+			e->cursor.prev_screen_pos = e->cursor.screen_pos;
+
+			// increment the animation timer
+			e->cursor.anim_time += (f32)delta_time * CURSOR_SPEED;
+			if (e->cursor.anim_time >= 1.0f) {
+				e->cursor.anim_time = 1.0f;
+			}
+
+			// lerp the current postion
+			e->cursor.screen_pos =  lerp(e->cursor.prev_screen_pos, e->cursor.target_screen_pos, e->cursor.anim_time);
+			
+			rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
+			renderQuad(r, cursor_quad, COLOR_WHITE);
+		}
+
+		// If the character is a newline, move down and back over to the left.
+		if (data[i] == '\n') {
+			adj_text_pos.x = init_pos.x;
+			adj_text_pos.y -= atlas.atlas_height;
+			continue;
+		}
+
+		// Render the character
+		renderChar(r, font_id, data[i], &adj_text_pos, COLOR_WHITE);
 	}
+
+	if (e->cursor.buffer_pos == len_data) {
+		// set a new target position
+		e->cursor.target_screen_pos = vec2_init(adj_text_pos.x, adj_text_pos.y);
+		e->cursor.prev_screen_pos = e->cursor.screen_pos;
+
+		// increment the animation timer
+		e->cursor.anim_time += (f32)delta_time * CURSOR_SPEED;
+		if (e->cursor.anim_time >= 1.0f) {
+			e->cursor.anim_time = 1.0f;
+		}
+
+		// lerp the current postion
+		e->cursor.screen_pos =  lerp(e->cursor.prev_screen_pos, e->cursor.target_screen_pos, e->cursor.anim_time);
+		
+		rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
+		renderQuad(r, cursor_quad, COLOR_WHITE);
+		free(data);
+	}
+
+	// gutter
+	PADDING = 30.0f;
+	vec2 num_pos = vec2_init(0, e->frame.y + e->frame.h - e->line_height + e->scroll_pos.y);
+	renderQuad(r, rect_init(85.0, 0, 1, r->screen_height), COLOR_GRAY);
+	for (i32 i = 1; i <= (i32)e->line_count; ++i) {
+		char num[11];
+		sprintf(num, "%3d", i);
+		renderText(r, font_id, num, &num_pos, COLOR_SILVER);
+		num_pos.x = 0;
+		num_pos.y -= e->line_height;
+	}
+
+	// Status line
+	renderQuad(r, rect_init(0, 5, r->screen_width, e->line_height), COLOR_GRAY);
+	renderQuad(r, rect_init(5, 2.5, 155, e->line_height + 5), color_from_hex(0x2277FFFF));
+	vec2 mode_text_pos = vec2_init(10,12.5);
+	renderText(r, font_id, "NORMAL", &mode_text_pos, COLOR_WHITE);
+	char col_row_disp[24];
+	sprintf(col_row_disp, "%lu,%lu", e->cursor.disp_row, e->cursor.disp_column);
+	vec2 col_row_disp_pos = vec2_init(r->screen_width - 200, 12.5);
+	renderText(r, font_id, col_row_disp, &col_row_disp_pos,COLOR_WHITE);
+
 }
 
 u32 rendererLoadFont(Renderer *r, char *path, u32 size_px) {

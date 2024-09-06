@@ -9,29 +9,9 @@
 
 #include "renderer.h"
 #include "font.h"
-#include "gapbuffer.h"
+#include "editor.h"
 
-#define TAB_WIDTH 4
-
-GapBuffer *gb;
-size_t cursor_pos = 0;
-
-void move_cursor_up(GapBuffer *gb) {
-    size_t column = getBufColumn(gb, cursor_pos);
-    size_t beginning_of_prev_line = getBeginningOfPrevLineCursor(gb, cursor_pos);
-    size_t prev_line_length = getBufLineLength(gb, beginning_of_prev_line);
-    if (getBeginningOfLineCursor(gb, cursor_pos) == 0) {
-        prev_line_length = 0;
-    }
-    cursor_pos = beginning_of_prev_line + MIN(prev_line_length, column);
-}
-
-void move_cursor_down (GapBuffer *gb) {
-    size_t column = getBufColumn(gb, cursor_pos);
-    size_t beginning_of_next_line = getBeginningOfNextLineCursor(gb, cursor_pos);
-    size_t next_line_length = getEndOfLineCursor(gb, beginning_of_next_line) - beginning_of_next_line;
-    cursor_pos = beginning_of_next_line + MIN(next_line_length, column);
-}
+Editor *editor;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action , int mods)
 {
@@ -40,33 +20,56 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
     UNUSED(mods);
 
     if (key == GLFW_KEY_LEFT && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        cursor_pos = getPrevCharCursor(gb, cursor_pos);
+        moveCursorLeft(editor);
     } else if (key == GLFW_KEY_UP && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        move_cursor_up(gb);
+        moveCursorUp(editor);
     } else if (key == GLFW_KEY_DOWN && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        move_cursor_down(gb);
+       moveCursorDown(editor);
     } else if (key == GLFW_KEY_RIGHT && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        cursor_pos = getNextCharCursor(gb, cursor_pos);
+        moveCursorRight(editor);
     } else if (key == GLFW_KEY_BACKSPACE && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        removeCharBeforeGap (gb, cursor_pos);
-        cursor_pos = getPrevCharCursor(gb, cursor_pos);
+        deleteCharacterLeft(editor);
     } else if (key == GLFW_KEY_DELETE && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        removeCharAfterGap (gb, cursor_pos);
+        deleteCharacterRight(editor);
     } else if (key == GLFW_KEY_ENTER && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        insertCharIntoBuf(gb, cursor_pos, '\n');
-        cursor_pos = getNextCharCursor(gb, cursor_pos);
+        insertCharacter(editor, '\n', true);
     } else if (key == GLFW_KEY_TAB && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
         for (size_t i = 0; i< TAB_WIDTH; i++) {
-            insertCharIntoBuf(gb, cursor_pos, ' ');
-            cursor_pos = getNextCharCursor(gb, cursor_pos);
+            insertCharacter(editor, ' ', true);
         }
     }
 }
 
 void character_callback(GLFWwindow* window, unsigned int codepoint) {
     UNUSED(window);
-    insertCharIntoBuf(gb, cursor_pos, (char)codepoint);
-    cursor_pos = getNextCharCursor(gb, cursor_pos);
+
+    // TODO: keep track of the last character that the user entered,
+    // If they reflexively try to complete these pairs, we should ignore
+    // the second character
+    switch (codepoint) {
+    case '{':
+        insertCharacter(editor, (char)codepoint, true);
+        insertCharacter(editor, '}', false);
+        break;
+    case '(':
+        insertCharacter(editor, (char)codepoint, true);
+        insertCharacter(editor, ')', false);
+        break;
+    case '\'':
+        insertCharacter(editor, (char)codepoint, true);
+        insertCharacter(editor, '\'', false);
+        break;
+    case '"':
+        insertCharacter(editor, (char)codepoint, true);
+        insertCharacter(editor, '"', false);
+        break;
+    case '[':
+        insertCharacter(editor, (char)codepoint, true);
+        insertCharacter(editor, ']', false);
+        break;
+    default:
+        insertCharacter(editor, (char)codepoint, true);
+    }
 }
 
 void resize_window(GLFWwindow *window, int width, int height) {
@@ -75,7 +78,7 @@ void resize_window(GLFWwindow *window, int width, int height) {
 }
 
 int main () {
-	gb = gapBufferInit(INITIAL_SIZE);
+    
 
     // Initialize glfw
 	if (!glfwInit()) {
@@ -106,33 +109,33 @@ int main () {
     Renderer renderer;
     rendererInit(&renderer, COLOR_BLACK);
 	u32 font_id = rendererLoadFont(&renderer, "fonts/iosevka-firamono.ttf", 48);
+    editor = editorInit(10, 200, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200, renderer.font_atlases[font_id].atlas_height);
 
 	glfwSetWindowUserPointer(window, &renderer);
 	glfwSetFramebufferSizeCallback(window, resize_window);
 	glfwSetKeyCallback(window, key_callback);
     glfwSetCharCallback(window, character_callback);
 
+    f64 last_frame_time = 0.0f;
     while (!glfwWindowShouldClose(window)) {
+        f64 cur_fame_time = (f64)glfwGetTime();
+        f64 delta_time = cur_fame_time - last_frame_time;
+        last_frame_time = cur_fame_time;
+
         glfwPollEvents();
+        updateFrame(editor, renderer.screen_width, renderer.screen_height);
+        updateScroll(editor);
+        //printf("row: %lu, col: %lu, ttl lines: %lu\n", editor->cursor.disp_row, editor->cursor.disp_column, editor->line_count);
         rendererBegin(&renderer);
-		char * buffer_string = getBufString(gb);
-        rect quad = rect_init(10, 10, 100, 100);
-		Color color = COLOR_GRAY;
-		Color color_font = COLOR_WHITE;
-		vec2 text_pos = vec2_init(10, 500);
-        vec2 char_pos = vec2_init(10, 800);
         
 		// Render stuff goes here
-		renderQuad(&renderer, quad, color);
-		renderChar(&renderer, font_id, '@', &char_pos, color_font);
-        renderText(&renderer, font_id, buffer_string, cursor_pos, &text_pos, color_font);
-        free(buffer_string);
-        
+        renderEditor(&renderer, font_id, editor, delta_time);
+
         rendererEnd(&renderer);
         glfwSwapBuffers(window);
     }
     rendererDestroy(&renderer);
-    gapBufferDestroy(gb);
+    editorDestroy(editor);
 
     glfwDestroyWindow(window);
 	glfwTerminate();

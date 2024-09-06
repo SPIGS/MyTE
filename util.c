@@ -7,6 +7,13 @@ vec2 vec2_clamp(vec2 vec, rect quad) {
     };
 }
 
+vec2 lerp(vec2 start, vec2 end, f32 t) {
+    vec2 result;
+    result.x = start.x + t * (end.x - start.x);
+    result.y = start.y + t * (end.y - start.y);
+    return result;
+}
+
 vec3 vec3_mul(vec3 a, mat3 m) {
     return (vec3) {
         .x = (a.x * m.a[mat3_idx(0, 0)] + a.y * m.a[mat3_idx(1, 0)] + a.z * m.a[mat3_idx(2, 0)]),

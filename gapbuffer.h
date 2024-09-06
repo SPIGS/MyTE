@@ -4,7 +4,7 @@
 
 #include "util.h"
 
-#define INITIAL_SIZE 4
+#define INITIAL_BUFFER_SIZE 4
 
 typedef struct {
     char *data;
@@ -23,7 +23,7 @@ void shiftGap (GapBuffer *buf, size_t cursor);
 void resizeGap(GapBuffer *buf, size_t required_space);
 void insertCharIntoBuf (GapBuffer *buf, size_t cursor, char c);
 void removeCharBeforeGap (GapBuffer *buf, size_t cursor);
-void removeCharAfterGap (GapBuffer *buf, size_t cursor);
+char removeCharAfterGap (GapBuffer *buf, size_t cursor);
 char *getBufString (GapBuffer *buf);
 void outputBufString (GapBuffer *buf, size_t);
 
