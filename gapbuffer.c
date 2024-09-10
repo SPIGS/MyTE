@@ -169,6 +169,13 @@ size_t getEndOfPrevLineCursor(GapBuffer *buf, size_t cursor) {
 }
 
 size_t getBeginningOfPrevLineCursor(GapBuffer *buf, size_t cursor) {
+    // two consecutive newlines, just move back one
+    char prev_char = getBufChar(buf, getPrevCharCursor(buf, cursor));
+    char prev_prev_char = getBufChar(buf, getPrevCharCursor(buf, getPrevCharCursor(buf, cursor)));
+    if (prev_char == '\n' && prev_prev_char == prev_char) {
+        return getPrevCharCursor(buf, cursor);
+    }
+
     return getBeginningOfLineCursor(buf, getPrevCharCursor(buf, getBeginningOfLineCursor(buf, cursor)));
 }
 
