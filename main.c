@@ -37,6 +37,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
         for (size_t i = 0; i< TAB_WIDTH; i++) {
             insertCharacter(editor, ' ', true);
         }
+    } else if (key == GLFW_KEY_F3 && (action == GLFW_PRESS)) {
+        printf("---------------------------\n");
+        printf("%s\n", getContents(editor));
     }
 }
 
@@ -125,7 +128,7 @@ int main () {
         glfwPollEvents();
         updateFrame(editor, renderer.screen_width, renderer.screen_height);
         updateScroll(editor);
-        //printf("row: %lu, col: %lu, ttl lines: %lu\n", editor->cursor.disp_row, editor->cursor.disp_column, editor->line_count);
+        //printf("current char: %c, row: %lu, col: %lu, ttl lines: %lu\n", getBufChar(editor->buf, editor->cursor.prev_buffer_pos),editor->cursor.disp_row, editor->cursor.disp_column, editor->line_count);
         rendererBegin(&renderer);
         
 		// Render stuff goes here

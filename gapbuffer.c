@@ -77,6 +77,7 @@ void insertCharIntoBuf (GapBuffer *buf, size_t cursor, char c) {
     shiftGap(buf, cursor);
     buf->data[buf->gap_start] = c;
     buf->gap_start++;
+    shiftGap(buf, cursor);
 }
 
 void removeCharBeforeGap (GapBuffer *buf, size_t cursor) {

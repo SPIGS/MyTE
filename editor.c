@@ -79,6 +79,8 @@ void moveCursorUp(Editor *ed) {
 
     if (ed->cursor.disp_row > 1) {
         ed->cursor.disp_row--;
+    } else if (ed->cursor.disp_row == 1) {
+        setGoalColumn(ed);
     }
 }
 
@@ -97,8 +99,10 @@ void moveCursorDown(Editor *ed) {
     }
     ed->cursor.anim_time = 0.0f;
 
-    if (ed->cursor.buffer_pos != ed->cursor.prev_buffer_pos) {
+    if (ed->cursor.disp_row < ed->line_count) {
         ed->cursor.disp_row++;
+    } else if (ed->cursor.disp_row == ed->line_count) {
+        setGoalColumn(ed);
     }
 }
 

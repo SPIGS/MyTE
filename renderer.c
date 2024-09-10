@@ -3,6 +3,7 @@
 #include <string.h>
 #include <GL/glew.h>
 #include "renderer.h"
+#include "lexer.h"
 
 void rendererInit(Renderer* r, Color clear_color) {
 	glEnable(GL_BLEND);
@@ -355,6 +356,9 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time) {
 	char *data = getContents(e);
 	size_t len_data = strlen(data);
 
+	size_t token_count;
+	Token *tokens = lex(data, &token_count);
+
 	f32 PADDING = 90.0f;
 
 	GlyphAtlas atlas = r->font_atlases[font_id];
@@ -363,7 +367,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time) {
 
 	renderQuad(r, e->frame, COLOR_BLACK);
 	
-	for (size_t i = 0; i < len_data; i++) {
+	for (size_t i = 0; i < token_count; i++) {
 
 		if (i == e->cursor.buffer_pos) {
 			
@@ -392,7 +396,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time) {
 		}
 
 		// Render the character
-		renderChar(r, font_id, data[i], &adj_text_pos, COLOR_WHITE);
+		renderChar(r, font_id, tokens[i].character, &adj_text_pos, color_from_hex(tokens[i].color));
 	}
 
 	if (e->cursor.buffer_pos == len_data) {
