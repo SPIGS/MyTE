@@ -36,7 +36,7 @@ size_t getBufLength(GapBuffer *buf) {
 }
 
 size_t getCursorIdx(GapBuffer *buf, size_t cursor_pos) {
-    return ((cursor_pos <= buf->gap_start) ? cursor_pos : cursor_pos + getBufGapSize(buf));
+    return ((cursor_pos < buf->gap_start) ? cursor_pos : cursor_pos + getBufGapSize(buf));
 }
 
 char getBufChar(GapBuffer *buf, size_t cursor) {
