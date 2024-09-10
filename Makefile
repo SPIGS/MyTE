@@ -1,33 +1,23 @@
 CXX=gcc
 CFLAGS=-Wall -Wextra -std=c11 -pedantic -ggdb `pkg-config --cflags gl glew glfw3 freetype2`
 LDLIBS=-lm `pkg-config --libs gl glew glfw3 freetype2`
-TARGET=test
+TARGET=build/test
 SRCS=main.c renderer.c util.c font.c gapbuffer.c editor.c lexer.c
-OBJ=$(subst .c,.o,$(SRCS))
+OBJ=$(patsubst %.c, build/%.o, $(SRCS))
 
-all: $(OBJ)
-	$(CXX) $(CFLAGS) -o $(TARGET) $(OBJ) $(LDLIBS)
+all: build $(TARGET)
 
-main.o: main.c
-	$(CXX) $(CFLAGS) -c main.c
+# Link the object files into the final executable
+$(TARGET): $(OBJ)
+	$(CXX) $(CFLAGS) -o $@ $(OBJ) $(LDLIBS)
 
-renderer.o: renderer.c renderer.h util.h font.h
-	$(CXX) $(CFLAGS) -c renderer.c
+# Compile each source file into an object file in the build directory
+build/%.o: %.c
+	$(CXX) $(CFLAGS) -c $< -o $@
 
-util.o: util.c util.h
-	$(CXX) $(CFLAGS) -c util.c
-
-font.o: font.c font.h
-	$(CXX) $(CFLAGS) -c font.c
-
-gapbuffer.o: gapbuffer.c gapbuffer.h
-	$(CXX) $(CFLAGS) -c gapbuffer.c
-
-editor.o: editor.c editor.h
-	$(CXX) $(CFLAGS) -c editor.c
-
-lexer.o: lexer.c lexer.h
-	$(CXX) $(CFLAGS) -c lexer.c
+# Create the build directory if it doesn't exist
+build:
+	mkdir -p build
 
 clean:
-	rm -f *.o
+	rm -rf build
