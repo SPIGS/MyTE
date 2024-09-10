@@ -43,8 +43,28 @@ Token *lex(const char *source, size_t *token_count) {
         unsigned int color = UNKNOWN_COLOR;
         TokenType type = TOKEN_UNKNOWN;
 
-        // Handle string literals
-        if (source[i] == '"' || source[i] == '\'') {
+        // Handle single-line comments
+        if (strncmp(&source[i], COMMENT_SINGLE_PREFIX, strlen(COMMENT_SINGLE_PREFIX)) == 0) {
+            while (i < length && source[i] != '\n') {
+                i++;
+            }
+            color = COMMENT_SINGLE_COLOR;
+            type = TOKEN_COMMENT_SINGLE;
+        }
+        // Handle multi-line comments
+        else if (strncmp(&source[i], COMMENT_MULTI_BEGIN, strlen(COMMENT_MULTI_BEGIN)) == 0) {
+            i += strlen(COMMENT_MULTI_BEGIN);
+            while (i < length && strncmp(&source[i], COMMENT_MULTI_END, strlen(COMMENT_MULTI_END)) != 0) {
+                i++;
+            }
+            if (i < length) {
+                i += strlen(COMMENT_MULTI_END);
+            }
+            color = COMMENT_MULTI_COLOR;
+            type = TOKEN_COMMENT_MULTI;
+        }
+        // Handle double-quote string literals
+        else if (source[i] == '"') {
             char quote = source[i];
             i++;
             while (i < length && source[i] != quote) {
@@ -56,8 +76,24 @@ Token *lex(const char *source, size_t *token_count) {
             if (i < length && source[i] == quote) {
                 i++;
             }
-            color = STRING_LITERAL_COLOR;
-            type = TOKEN_STRING_LITERAL;
+            color = STRING_LITERAL_DOUBLE_COLOR;
+            type = TOKEN_STRING_LITERAL_DOUBLE;
+        }
+        // Handle single-quote string literals
+        else if (source[i] == '\'') {
+            char quote = source[i];
+            i++;
+            while (i < length && source[i] != quote) {
+                if (source[i] == '\\' && i + 1 < length) {
+                    i++;  // Skip escaped characters
+                }
+                i++;
+            }
+            if (i < length && source[i] == quote) {
+                i++;
+            }
+            color = STRING_LITERAL_SINGLE_COLOR;
+            type = TOKEN_STRING_LITERAL_SINGLE;
         }
         // Handle digits/numbers
         else if (isdigit((unsigned char)source[i])) {
@@ -125,6 +161,3 @@ Token *lex(const char *source, size_t *token_count) {
 
     return tokens;
 }
-
-
-

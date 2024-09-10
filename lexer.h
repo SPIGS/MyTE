@@ -10,13 +10,17 @@
 #define MAX_SYMBOLS 50
 #define MAX_TYPES 50
 
+// Token types
 typedef enum {
     TOKEN_KEYWORD,
     TOKEN_SYMBOL,
-    TOKEN_STRING_LITERAL,
+    TOKEN_STRING_LITERAL_DOUBLE,
+    TOKEN_STRING_LITERAL_SINGLE,
     TOKEN_NUMBER,
     TOKEN_TYPE,
     TOKEN_WHITESPACE,
+    TOKEN_COMMENT_SINGLE,
+    TOKEN_COMMENT_MULTI,
     TOKEN_UNKNOWN
 } TokenType;
 
@@ -30,6 +34,14 @@ typedef struct {
 #define NUM_KEYWORDS 20
 #define NUM_SYMBOLS 9
 #define NUM_TYPES 9
+
+// Comment configuration
+#define COMMENT_SINGLE_PREFIX "//"
+#define COMMENT_MULTI_BEGIN "/*"
+#define COMMENT_MULTI_END "*/"
+
+#define COMMENT_SINGLE_COLOR 0x686f9aFF
+#define COMMENT_MULTI_COLOR 0x686f9aFF
 
 // Keywords and their color
 static const char *KEYWORDS[NUM_KEYWORDS] = {
@@ -66,7 +78,8 @@ static const char SYMBOLS[NUM_SYMBOLS] = {
 #define SYMBOL_COLOR 0xCE6F8FFF  // Purple
 
 // String literals and their color
-#define STRING_LITERAL_COLOR 0x00A3CCFF  // Cyan
+#define STRING_LITERAL_DOUBLE_COLOR 0x00A3CCFF  // Cyan
+#define STRING_LITERAL_SINGLE_COLOR 0xF2CE00FF
 
 // Numbers and their color
 #define NUMBER_COLOR 0xF2CE00FF // Yellow
