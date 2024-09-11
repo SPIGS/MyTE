@@ -183,3 +183,30 @@ void updateFrame(Editor *ed, f32 screen_width, f32 screen_height) {
     ed->frame = rect_init(0,0 + STATUS_LINE_HEIGHT, screen_width, screen_height - STATUS_LINE_HEIGHT);
     ed->text_pos = vec2_init(0, 0 + screen_height);
 }
+
+void loadFromFile(Editor *ed, const char *file_path) {
+     // If there's stuff in the editor already, we don't care for now just over write it
+    FILE *f = fopen(file_path, "r");
+    if (f == NULL) {
+        fprintf(stderr, "ERROR: could not open file '%s'\n", file_path);
+        exit(1);
+    }
+
+    #define CHUNK 1024
+    char read_buf[CHUNK];
+    size_t nread;
+
+    while ((nread = fread(read_buf, 1, sizeof(read_buf), f)) > 0) {
+        for (size_t i = 0; i < nread; i++) {
+            if (read_buf[i] == '\t') {
+                insertCharacter(ed, ' ', true);
+                insertCharacter(ed, ' ', true);
+                insertCharacter(ed, ' ', true);
+            } else {
+                insertCharacter(ed, read_buf[i], true);
+            }
+        }
+    }
+
+    fclose(f);
+}

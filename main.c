@@ -80,7 +80,7 @@ void resize_window(GLFWwindow *window, int width, int height) {
 	rendererResizeWindow(r, width, height);
 }
 
-int main () {
+int main (int argc, char **argv) {
     
 
     // Initialize glfw
@@ -118,6 +118,11 @@ int main () {
 	glfwSetFramebufferSizeCallback(window, resize_window);
 	glfwSetKeyCallback(window, key_callback);
     glfwSetCharCallback(window, character_callback);
+
+    if (argc > 1) {
+        const char *file_path = argv[1];
+        loadFromFile(editor, file_path);
+    }
 
     f64 last_frame_time = 0.0f;
     while (!glfwWindowShouldClose(window)) {

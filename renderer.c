@@ -214,7 +214,8 @@ void renderTriangle(Renderer* r,
 	// Flush the batch if it is full. We don't like segfaults on this channel.
 	if (r->triangle_count == MAX_TRIANGLES || tex_index == 1248) {
 		rendererEnd(r);
-		rendererBegin(r);
+		r->triangle_count = 0;
+		r->texture_count = 0;
 	}
 	
 	r->triangle_data[r->triangle_count * 3 + 0].pos = a;

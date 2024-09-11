@@ -47,3 +47,4 @@ void updateScroll(Editor *ed);
 void updateFrame(Editor *ed, f32 screen_width, f32 screen_height);
 
 char *getContents(Editor *ed);
+void loadFromFile(Editor *ed, const char *file_path);
