@@ -14,7 +14,6 @@ Cursor cursorInit(vec2 init_screen_pos) {
     };
 }
 
-
 // TODO CHange this to be like renderer - pass this by reference
 Editor *editorInit(f32 x, f32 y, f32 width, f32 height,f32 line_height) {
     Editor *ed = (Editor*)malloc(sizeof(Editor));
@@ -32,8 +31,6 @@ Editor *editorInit(f32 x, f32 y, f32 width, f32 height,f32 line_height) {
 void editorDestroy(Editor *ed) {
     gapBufferDestroy(ed->buf);
 }
-
-// TODO: keep track of cursor row and column as it moves.
 
 // Cursor Movements
 void moveCursorLeft(Editor *ed) {
@@ -60,17 +57,32 @@ void moveCursorRight(Editor *ed) {
 
 // TODO: make a favored column like how emacs has it
 void moveCursorUp(Editor *ed) {
+    
+    // Set the goal column if we haven't already
     if (ed->goal_column == -1) {
         setGoalColumn(ed);
     }
+
+    // Find the beginning of the prev line and the lenght of the prev line
     ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
     size_t beginning_of_prev_line = getBeginningOfPrevLineCursor(ed->buf, ed->cursor.buffer_pos);
     size_t prev_line_length = getBufLineLength(ed->buf, beginning_of_prev_line);
+
+    // if the position of the beginning of current line is 0, that means we are on the first line
+    // we should act as if the length of the previous line is 0.
     if (getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_pos) == 0) {
         prev_line_length = 0;
     }
-    ed->cursor.buffer_pos = beginning_of_prev_line + MIN(prev_line_length, (size_t)ed->goal_column);
-    ed->cursor.disp_column = MIN(prev_line_length, (size_t)ed->goal_column);
+
+    // If the length of the prev line is 0, we should just move to the end of the previous line
+    if (prev_line_length == 0) {
+        ed->cursor.buffer_pos = getEndOfPrevLineCursor(ed->buf, ed->cursor.buffer_pos);
+        ed->cursor.disp_column = MIN(prev_line_length, (size_t)ed->goal_column);
+    } else {
+        ed->cursor.buffer_pos = beginning_of_prev_line + MIN(prev_line_length, (size_t)ed->goal_column);
+        ed->cursor.disp_column = MIN(prev_line_length, (size_t)ed->goal_column);
+    }
+
     if (ed->cursor.disp_column < 1) {
         ed->cursor.disp_column = 1;
     }
@@ -84,7 +96,6 @@ void moveCursorUp(Editor *ed) {
     }
 }
 
-// TODO: make a favored column like how emacs has it
 void moveCursorDown(Editor *ed) {
     if (ed->goal_column == -1) {
         setGoalColumn(ed);
@@ -137,12 +148,9 @@ void deleteCharacterLeft(Editor *ed) {
 // TODO handle deletion of lines more elloquently
 // currently tracking the line count of the document is all over the place
 // maybe create a function to keep track?
-// Add that function here - currently deletin from the right doesn't decrement
-// the line count.
 void deleteCharacterRight(Editor *ed) {
     if (removeCharAfterGap (ed->buf, ed->cursor.buffer_pos) == '\n') {
         ed->line_count = (ed->line_count - 1 < 1) ? 1 : ed->line_count - 1;
-        printf("removed newline\n");
     }
 }
 
@@ -164,7 +172,6 @@ void updateScroll(Editor *ed) {
         ed->scroll_pos.y += ed->line_height;
 
     // If the cursor is moving up
-
     } else if (ed->cursor.target_screen_pos.y >= (ed->frame.y + ed->frame.h - (SCROLL_UP_LINE_FACTOR * ed->line_height)) && ed->scroll_pos.y > 0.0) {
         ed->cursor.target_screen_pos.y = (ed->frame.y + ed->frame.h) - ed->line_height;
         ed->scroll_pos.y -= ed->line_height;
@@ -173,7 +180,6 @@ void updateScroll(Editor *ed) {
 
 void updateFrame(Editor *ed, f32 screen_width, f32 screen_height) {
     f32 STATUS_LINE_HEIGHT = ed->line_height + 5;
-
     ed->frame = rect_init(0,0 + STATUS_LINE_HEIGHT, screen_width, screen_height - STATUS_LINE_HEIGHT);
     ed->text_pos = vec2_init(0, 0 + screen_height);
 }

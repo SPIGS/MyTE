@@ -111,7 +111,7 @@ int main () {
 
     Renderer renderer;
     rendererInit(&renderer, COLOR_BLACK);
-	u32 font_id = rendererLoadFont(&renderer, "fonts/iosevka-firamono.ttf", 24);
+	u32 font_id = rendererLoadFont(&renderer, "./fonts/iosevka-firamono.ttf", 24);
     editor = editorInit(10, 200, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200, renderer.font_atlases[font_id].atlas_height);
 
 	glfwSetWindowUserPointer(window, &renderer);
