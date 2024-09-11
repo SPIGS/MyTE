@@ -39,7 +39,9 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
         }
     } else if (key == GLFW_KEY_F3 && (action == GLFW_PRESS)) {
         printf("---------------------------\n");
-        printf("%s\n", getContents(editor));
+        char *content = getContents(editor);
+        printf("%s\n", content);
+        free(content);
     }
 }
 

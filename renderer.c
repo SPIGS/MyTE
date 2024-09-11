@@ -150,6 +150,7 @@ void rendererDestroy(Renderer* r) {
 	glDeleteBuffers(1, &r->vbo);
 	glDeleteVertexArrays(1, &r->vao);
 	glDeleteProgram(r->shader);
+	FT_Done_FreeType(r->ft);
 }
 
 void rendererBegin(Renderer* r) {
@@ -416,8 +417,11 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time) {
 		
 		rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
 		renderQuad(r, cursor_quad, COLOR_WHITE);
-		free(data);
+		
 	}
+
+	free(tokens);
+	free(data);
 
 	// gutter
 	PADDING = 30.0f;

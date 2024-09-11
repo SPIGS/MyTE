@@ -209,4 +209,11 @@ void loadFromFile(Editor *ed, const char *file_path) {
     }
 
     fclose(f);
+
+    // move the cursor position back to the start of the file
+    ed->cursor.buffer_pos = 0;
+    ed->cursor.prev_buffer_pos = 0;
+    ed->cursor.disp_row = 1;
+    ed->cursor.disp_column = 1;
+    ed->goal_column = -1;
 }
