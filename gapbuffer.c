@@ -12,6 +12,14 @@ GapBuffer *gapBufferInit(size_t inital_size) {
     return buf;
 }
 
+static size_t getBufGapSize(GapBuffer *buf) {
+    return buf->gap_end - buf->gap_start;
+}
+
+static size_t getBufLength(GapBuffer *buf) {
+    return buf->end - getBufGapSize(buf);
+}
+
 static void assertBufferInvariants(GapBuffer* buf) {
 	assert(buf->data);
 	assert(buf->gap_start <= buf->gap_end);
@@ -22,21 +30,13 @@ static void assertCursorInvariants(GapBuffer* buf, size_t cursor) {
 	assert(cursor <= getBufLength(buf));
 }
 
+static size_t getCursorIdx(GapBuffer *buf, size_t cursor_pos) {
+    return ((cursor_pos < buf->gap_start) ? cursor_pos : cursor_pos + getBufGapSize(buf));
+}
+
 void gapBufferDestroy(GapBuffer *buf) {
     free(buf->data);
     free(buf);
-}
-
-size_t getBufGapSize(GapBuffer *buf) {
-    return buf->gap_end - buf->gap_start;
-}
-
-size_t getBufLength(GapBuffer *buf) {
-    return buf->end - getBufGapSize(buf);
-}
-
-size_t getCursorIdx(GapBuffer *buf, size_t cursor_pos) {
-    return ((cursor_pos < buf->gap_start) ? cursor_pos : cursor_pos + getBufGapSize(buf));
 }
 
 char getBufChar(GapBuffer *buf, size_t cursor) {

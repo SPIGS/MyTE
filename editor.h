@@ -31,7 +31,7 @@ typedef struct {
     f32 line_height;
 } Editor;
 
-Editor *editorInit(f32 x, f32 y, f32 width, f32 height, f32 line_height);
+void editorInit(Editor *ed, rect frame, f32 line_height);
 void editorDestroy(Editor *ed);
 
 // Cursor Movements

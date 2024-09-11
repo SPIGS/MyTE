@@ -52,18 +52,18 @@ void rendererDestroy(Renderer* r);
 void rendererBegin(Renderer* r);
 void rendererEnd(Renderer* r);
 void rendererResizeWindow (Renderer* r, i32 width, i32 height);
+
 void renderTriangle(Renderer* r,
 						  vec2 a, vec2 b, vec2 c,
 						  Color a_color, Color b_color, Color c_color,
 						  vec2 a_uv, vec2 b_uv, vec2 c_uv,
 						  u32 texture);
 
-// Helpers and Extensions
 u32  rendererGetWhiteTexture();
-u32 rendererLoadFont(Renderer *r, char *path, u32 size_px);
-
 void renderQuad(Renderer* r, rect quad, Color color);
 void renderTexturedQuad(Renderer* r, rect quad, Color tint, u32 texture);
 void renderChar(Renderer* r, u32 font_id, char character, vec2 *pos, Color tint);
 void renderText(Renderer* r, u32 font_id, char *text, vec2 *pos, Color tint);
 void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time);
+
+u32 rendererLoadFont(Renderer *r, char *path, u32 size_px);

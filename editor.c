@@ -15,17 +15,15 @@ Cursor cursorInit(vec2 init_screen_pos) {
 }
 
 // TODO CHange this to be like renderer - pass this by reference
-Editor *editorInit(f32 x, f32 y, f32 width, f32 height,f32 line_height) {
-    Editor *ed = (Editor*)malloc(sizeof(Editor));
+void editorInit(Editor *ed, rect frame, f32 line_height) {
     ed->buf = gapBufferInit(INITIAL_BUFFER_SIZE);
-    ed->cursor = cursorInit(vec2_init(x, height));
+    ed->cursor = cursorInit(vec2_init(frame.x, frame.h));
     ed->goal_column = -1;
-    ed->frame = rect_init(x, y, width, height);
-    ed->text_pos = vec2_init(x,y + height);
+    ed->frame = rect_init(frame.x, frame.y, frame.w, frame.h);
+    ed->text_pos = vec2_init(frame.x, frame.y + frame.h);
     ed->scroll_pos = vec2_init(0,0);
     ed->line_count = 1;
     ed->line_height = line_height;
-    return ed;
 }
 
 void editorDestroy(Editor *ed) {

@@ -122,6 +122,7 @@ rect rect_uv_cull(rect quad, rect uv, rect cull_quad);
 typedef struct { f32 r; f32 g; f32 b; f32 a; } Color;
 Color color_from_hex(u32 color_hex);
 
+// Common Colors
 #define COLOR_BLACK     color_from_hex(0x000000FF)
 #define COLOR_WHITE     color_from_hex(0xFFFFFFFF)
 #define COLOR_SILVER    color_from_hex(0x808080FF)
