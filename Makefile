@@ -2,7 +2,7 @@ CXX=gcc
 CFLAGS=-Wall -Wextra -std=c11 -pedantic -ggdb `pkg-config --cflags gl glew glfw3 freetype2`
 LDLIBS=-lm `pkg-config --libs gl glew glfw3 freetype2`
 TARGET=build/test
-SRCS=main.c renderer.c util.c font.c gapbuffer.c editor.c lexer.c
+SRCS=main.c renderer.c util.c font.c gapbuffer.c editor.c lexer.c toml.c
 OBJ=$(patsubst %.c, build/%.o, $(SRCS))
 
 all: build $(TARGET)

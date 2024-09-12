@@ -1,4 +1,7 @@
 #include "util.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 
 vec2 vec2_clamp(vec2 vec, rect quad) {
     return (vec2) {
@@ -349,4 +352,60 @@ Color color_from_hex(u32 color_hex) {
     result.b = b / 255.0f;
     result.a = a / 255.0f;
     return result;
+}
+
+bool isFile (const char *path) {
+    struct stat s;
+    if (stat(path, &s) == 0) {
+        if (s.st_mode & __S_IFREG) {
+             return true;
+        } else {
+            return false;
+        }
+    } else {
+        return false;
+    }
+}
+
+const char *getFileExtFromPath (const char *path) {
+    const char *dot = strrchr(path, '.');
+    if (!dot || dot == path) {
+        return "";
+    }
+    return dot + 1;
+}
+
+/* Be sure to call free()! */
+char *getFileNameFromPath(const char *path) {
+    const char *last_slash = strrchr(path, '/');
+
+    // Need to check for WIN32 here for // slashes
+
+    if (last_slash) {
+        path = last_slash + 1;
+    }
+
+    const char *last_dot = strrchr(path, '.');
+    size_t name_length = (last_dot) ? (last_dot - path) : strlen(path);
+
+    char *file_name = malloc(name_length + 1);
+    if (!file_name) {
+        return NULL;
+    }
+    strncpy(file_name, path, name_length);
+    file_name[name_length] = '\0';
+
+    return file_name;
+}
+
+FileType getFileType(const char *file_name, const char *file_ext) {
+    if (!strcmp(file_name, "Makefile") || !strcmp(file_name, "makefile")) {
+        return FILE_TYPE_MAKEFILE;
+    } else if (!strcmp(file_ext, "c") || !strcmp(file_ext, "C") || !strcmp(file_ext, "h") || !strcmp(file_ext, "H")) {
+        return FILE_TYPE_C;
+    } else if (!strcmp(file_ext, "toml") || !strcmp(file_ext, "TOML")) {
+        return FILE_TYPE_TOML;
+    } else {
+        return FILE_TYPE_UNKNOWN;
+    }
 }

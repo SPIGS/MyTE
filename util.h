@@ -1,6 +1,7 @@
 #pragma once
 #include <stdbool.h>
 #include <math.h>
+#include <sys/stat.h>
 
 // Defines
 #define DEG_TO_RAD 0.0174532925f
@@ -137,3 +138,19 @@ Color color_from_hex(u32 color_hex);
 #define COLOR_NAVY      color_from_hex(0x000080FF)
 #define COLOR_PURPLE    color_from_hex(0x800080FF)
 #define COLOR_MAGENTA   color_from_hex(0xFF00FFFF)
+
+// File handling
+typedef enum {
+    FILE_TYPE_C,
+    FILE_TYPE_MAKEFILE,
+    FILE_TYPE_TOML,
+    FILE_TYPE_UNKNOWN
+} FileType;
+
+bool isFile (const char *path);
+const char *getFileExtFromPath(const char *path);
+
+/* Be sure to call free()! */
+char *getFileNameFromPath(const char *path);
+
+FileType getFileType(const char *file_name, const char *file_ext);

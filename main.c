@@ -11,6 +11,7 @@
 #include "font.h"
 #include "editor.h"
 
+
 Editor editor;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action , int mods)
@@ -122,7 +123,11 @@ int main (int argc, char **argv) {
 
     if (argc > 1) {
         const char *file_path = argv[1];
-        loadFromFile(&editor, file_path);
+        if (isFile(file_path)) {
+            loadFromFile(&editor, file_path);
+        } else {
+            printf("WARN: Error evaluating path. The file might be moved or missing or a directory (not supported)!\n");
+        }
     }
 
     f64 last_frame_time = 0.0f;

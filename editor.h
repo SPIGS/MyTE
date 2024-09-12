@@ -2,6 +2,8 @@
 #include <stdlib.h>
 #include <stdbool.h>
 #include "gapbuffer.h"
+#include "util.h"
+#include "lexer.h"
 
 #define TAB_WIDTH 4
 #define CURSOR_SPEED 3.5
@@ -29,6 +31,7 @@ typedef struct {
     vec2 scroll_pos;
     size_t line_count;
     f32 line_height;
+    Lexer *lexer;
 } Editor;
 
 void editorInit(Editor *ed, rect frame, f32 line_height);

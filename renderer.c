@@ -359,7 +359,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time) {
 	size_t len_data = strlen(data);
 
 	size_t token_count;
-	Token *tokens = lex(data, &token_count);
+	Token *tokens = lex(e->lexer, data, &token_count);
 
 	f32 PADDING = 90.0f;
 

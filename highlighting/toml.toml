@@ -1,0 +1,8 @@
+[highlighting]
+    keywords = ["true", "false", "inf", "nan"]
+    symbols = [ "(", ")", "{", "}", "[", "]", "*", "=", "+", "-", ":" ]
+    built_in_types = []
+    comment_single_prefix = "#"
+    comment_multi_begin = "/*"
+    comment_multi_end = "*/"
+    additional_colors = false

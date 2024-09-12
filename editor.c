@@ -24,10 +24,12 @@ void editorInit(Editor *ed, rect frame, f32 line_height) {
     ed->scroll_pos = vec2_init(0,0);
     ed->line_count = 1;
     ed->line_height = line_height;
+    ed->lexer = lexerInit();
 }
 
 void editorDestroy(Editor *ed) {
     gapBufferDestroy(ed->buf);
+    lexerDestroy(ed->lexer);
 }
 
 // Cursor Movements
@@ -183,6 +185,16 @@ void updateFrame(Editor *ed, f32 screen_width, f32 screen_height) {
 }
 
 void loadFromFile(Editor *ed, const char *file_path) {
+
+    // Get file info
+    char *file_ext = getFileExtFromPath(file_path);
+    char *file_name = getFileNameFromPath(file_path);
+    FileType ftype = getFileType(file_name, file_ext);
+    
+    // Update lexer info
+    lexerUpdateFileType(ed->lexer, ftype);
+    free(file_name);
+
      // If there's stuff in the editor already, we don't care for now just over write it
     FILE *f = fopen(file_path, "r");
     if (f == NULL) {
@@ -205,8 +217,9 @@ void loadFromFile(Editor *ed, const char *file_path) {
             }
         }
     }
-
     fclose(f);
+
+
 
     // move the cursor position back to the start of the file
     ed->cursor.buffer_pos = 0;
