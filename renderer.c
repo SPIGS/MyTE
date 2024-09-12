@@ -354,12 +354,12 @@ void renderText(Renderer* r, u32 font_id, char *data, vec2 *pos, Color tint) {
 	}
 }
 
-void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time) {
+void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorTheme theme) {
 	char *data = getContents(e);
 	size_t len_data = strlen(data);
 
 	size_t token_count;
-	Token *tokens = lex(e->lexer, data, &token_count);
+	Token *tokens = lex(e->lexer, data, &token_count, theme);
 
 	f32 PADDING = 90.0f;
 
@@ -367,7 +367,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time) {
 	vec2 init_pos = vec2_init(e->text_pos.x + PADDING, e->text_pos.y - e->line_height);
 	vec2 adj_text_pos = vec2_add(init_pos, e->scroll_pos);
 
-	renderQuad(r, e->frame, COLOR_BLACK);
+	renderQuad(r, e->frame, color_from_hex(theme.background_color));
 	
 	for (size_t i = 0; i < token_count; i++) {
 

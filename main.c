@@ -10,6 +10,7 @@
 #include "renderer.h"
 #include "font.h"
 #include "editor.h"
+#include "theme.h"
 
 
 Editor editor;
@@ -130,6 +131,9 @@ int main (int argc, char **argv) {
         }
     }
 
+    ColorTheme theme = colorThemeInit();
+    colorThemeLoad(&theme, "./config/themes/gruvbox.toml");
+
     f64 last_frame_time = 0.0f;
     while (!glfwWindowShouldClose(window)) {
         f64 cur_fame_time = (f64)glfwGetTime();
@@ -143,7 +147,7 @@ int main (int argc, char **argv) {
         rendererBegin(&renderer);
         
 		// Render stuff goes here
-        renderEditor(&renderer, font_id, &editor, delta_time);
+        renderEditor(&renderer, font_id, &editor, delta_time, theme);
 
         rendererEnd(&renderer);
         glfwSwapBuffers(window);

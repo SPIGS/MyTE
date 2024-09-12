@@ -7,6 +7,7 @@
 
 #include "util.h"
 #include "toml.h"
+#include "theme.h"
 
 // Token types
 typedef enum {
@@ -57,4 +58,4 @@ typedef struct {
     unsigned int color;
 } Token;
 
-Token *lex(Lexer *lexer, const char *source, size_t *token_count);
+Token *lex(Lexer *lexer, const char *source, size_t *token_count, ColorTheme theme);

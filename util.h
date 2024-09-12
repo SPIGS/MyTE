@@ -144,6 +144,7 @@ typedef enum {
     FILE_TYPE_C,
     FILE_TYPE_MAKEFILE,
     FILE_TYPE_TOML,
+    FILE_TYPE_PYTHON,
     FILE_TYPE_UNKNOWN
 } FileType;
 

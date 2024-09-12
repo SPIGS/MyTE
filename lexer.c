@@ -2,23 +2,15 @@
 #include "lexer.h"
 
 // Highlighting files (hardcoded for now)
-#define C_HIGHLIGHTING_FILE "./highlighting/c.toml"
-#define MAKEFILE_HIGHLIGHTING_FILE "./highlighting/makefile.toml"
-#define TOML_HIGHLIGHTING_FILE "./highlighting/toml.toml"
+#define C_HIGHLIGHTING_FILE "./config/syntaxes/c.toml"
+#define MAKEFILE_HIGHLIGHTING_FILE "./config/syntaxes/makefile.toml"
+#define TOML_HIGHLIGHTING_FILE "./config/syntaxes/toml.toml"
+#define PYTHON_HIGHLIGHTING_FILE "./config/syntaxes/python.toml"
 
-// Colors - the theme is Space Duck (https://github.com/pineapplegiant/spaceduck)
-#define KEYWORD_COLOR               0x7A5CCCFF  // Purple
-#define SYMBOL_COLOR                0xCE6F8FFF  // Magenta
-#define STRING_LITERAL_DOUBLE_COLOR 0x00A3CCFF  // Cyan
-#define STRING_LITERAL_SINGLE_COLOR 0xF2CE00FF  // Yellow
-#define NUMBER_COLOR                0xF2CE00FF  // Yellow
-#define BUILT_IN_TYPE_COLOR         0x5CCC96FF  // Green
-#define TYPE_COLOR                  0xF2CE00FF  // Yellow
-#define FUNCTION_NAME_COLOR         0x5CCC96FF  // Green
-#define WHITESPACE_COLOR            0xFFFFFFFF  // White
-#define COMMENT_SINGLE_COLOR        0x686f9aFF  // Dark purple
-#define COMMENT_MULTI_COLOR         0x686f9aFF  // dark purple
-#define UNKNOWN_COLOR               0xFFFFFFFF  // white
+static void error(const char* msg, const char* msg1)
+{
+    fprintf(stderr, "ERROR: %s%s\n", msg, msg1?msg1:"");
+}
 
 static int is_keyword(Lexer *lexer, const char *word) {
     for (size_t i = 0; i < lexer->keywords_count; i++) {
@@ -138,11 +130,6 @@ void lexerDestroy(Lexer *lexer) {
     free(lexer);
 }
 
-static void error(const char* msg, const char* msg1)
-{
-    fprintf(stderr, "ERROR: %s%s\n", msg, msg1?msg1:"");
-}
-
 static void loadHighlightingInfo (Lexer *lexer, FileType file_type) {
     FILE *fp;
     char errbuf[200];
@@ -159,6 +146,10 @@ static void loadHighlightingInfo (Lexer *lexer, FileType file_type) {
 
     case FILE_TYPE_TOML:
         fp = fopen(TOML_HIGHLIGHTING_FILE, "r");
+        break;
+
+    case FILE_TYPE_PYTHON:
+        fp = fopen(PYTHON_HIGHLIGHTING_FILE, "r");
         break;
     
     default:
@@ -258,7 +249,7 @@ void lexerUpdateFileType(Lexer *lexer, FileType file_type) {
     }
 }
 
-Token *lex(Lexer *lexer, const char *source, size_t *token_count) {
+Token *lex(Lexer *lexer, const char *source, size_t *token_count, ColorTheme theme) {
     size_t length = strlen(source);
     size_t capacity = 10;
     *token_count = 0;
@@ -281,21 +272,21 @@ Token *lex(Lexer *lexer, const char *source, size_t *token_count) {
                 tokens = new_tokens;
             }
             tokens[*token_count].character = source[j];
-            tokens[*token_count].color = UNKNOWN_COLOR;
+            tokens[*token_count].color = theme.foreground_color;
             (*token_count)++;
         }
     } else {
         size_t i = 0;
         while (i < length) {
             size_t start = i;
-            unsigned int color = UNKNOWN_COLOR;
+            unsigned int color = theme.foreground_color;
 
             // Handle single-line comments
             if (strncmp(&source[i], lexer->comment_single_prefix.u.s, strlen(lexer->comment_single_prefix.u.s)) == 0) {
                 while (i < length && source[i] != '\n') {
                     i++;
                 }
-                color = COMMENT_SINGLE_COLOR;
+                color = theme.comment_single_color;
             }
             // Handle multi-line comments
             else if (strncmp(&source[i], lexer->comment_multi_begin.u.s, strlen(lexer->comment_multi_begin.u.s)) == 0) {
@@ -306,7 +297,7 @@ Token *lex(Lexer *lexer, const char *source, size_t *token_count) {
                 if (i < length) {
                     i += strlen(lexer->comment_multi_end.u.s);
                 }
-                color = COMMENT_MULTI_COLOR;
+                color = theme.comment_multi_color;
             }
             // Handle double-quote string literals
             else if (source[i] == '"') {
@@ -320,7 +311,7 @@ Token *lex(Lexer *lexer, const char *source, size_t *token_count) {
                 if (i < length && source[i] == '"') {
                     i++;
                 }
-                color = STRING_LITERAL_DOUBLE_COLOR;
+                color = theme.string_literal_double_color;
             }
             // Handle single-quote string literals
             else if (source[i] == '\'') {
@@ -334,14 +325,14 @@ Token *lex(Lexer *lexer, const char *source, size_t *token_count) {
                 if (i < length && source[i] == '\'') {
                     i++;
                 }
-                color = STRING_LITERAL_SINGLE_COLOR;
+                color = theme.string_literal_single_color;
             }
             // Handle digits/numbers
             else if (isdigit((unsigned char)source[i])) {
                 while (i < length && isdigit((unsigned char)source[i])) {
                     i++;
                 }
-                color = NUMBER_COLOR;
+                color = theme.number_color;
             }
             // Handle built-in types and user-defined types in specific contexts
             else if (isalpha((unsigned char)source[i])) {
@@ -355,16 +346,16 @@ Token *lex(Lexer *lexer, const char *source, size_t *token_count) {
 
                     // Check in order of precedence: built-in types > keywords > types > function names
                     if (is_builtin_type(lexer, word)) {
-                        color = BUILT_IN_TYPE_COLOR;
+                        color = theme.built_in_type_color;
                     } else if (is_keyword(lexer, word)) {
-                        color = KEYWORD_COLOR;
+                        color = theme.keyword_color;
                     }else if (is_function_name(source, start, i - start)) {
-                        color = FUNCTION_NAME_COLOR;
+                        color = theme.function_name_color;
                     } 
                     else if (is_type(source, start, i - start) && lexer->additional_colors) {
-                        color = TYPE_COLOR;
+                        color = theme.type_color;
                     } else {
-                        color = UNKNOWN_COLOR;
+                        color = theme.foreground_color;
                     }
 
                     free(word);
@@ -373,16 +364,16 @@ Token *lex(Lexer *lexer, const char *source, size_t *token_count) {
             // Handle symbols
             else if (is_symbol(lexer, source[i])) {
                 i++;
-                color = SYMBOL_COLOR;
+                color = theme.symbol_color;
             }
             // Handle whitespace
             else if (isspace((unsigned char)source[i])) {
-                color = WHITESPACE_COLOR;
+                color = theme.foreground_color;
                 i++;
             }
             // Handle unknown characters
             else {
-                color = UNKNOWN_COLOR;
+                color = theme.foreground_color;
                 i++;
             }
 

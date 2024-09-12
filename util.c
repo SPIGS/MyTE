@@ -405,6 +405,8 @@ FileType getFileType(const char *file_name, const char *file_ext) {
         return FILE_TYPE_C;
     } else if (!strcmp(file_ext, "toml") || !strcmp(file_ext, "TOML")) {
         return FILE_TYPE_TOML;
+    } else if (!strcmp(file_ext, "py")) {
+        return FILE_TYPE_PYTHON;
     } else {
         return FILE_TYPE_UNKNOWN;
     }
