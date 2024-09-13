@@ -38,7 +38,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
     } else if (key == GLFW_KEY_ENTER && (action == GLFW_REPEAT || action == GLFW_PRESS)){
         insertCharacter(&editor, '\n', true);
     } else if (key == GLFW_KEY_TAB && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        for (size_t i = 0; i< TAB_WIDTH; i++) {
+        for (size_t i = 0; i< (size_t)editor.tab_stop; i++) {
             insertCharacter(&editor, ' ', true);
         }
     } else if (key == GLFW_KEY_F3 && (action == GLFW_PRESS)) {
@@ -47,16 +47,21 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
         printf("%s\n", content);
         free(content);
     } else if (key == GLFW_KEY_F5 && (action == GLFW_PRESS)) {
-        printf("Reloading Config...\n");
+        LOG_INFO("Reloading Config...", "");
         configDestroy(&config);
         config = configInit();
         loadConfigFromFile(&config, "./config/config.toml");
-
+        editorLoadConfig(&editor, &config);
+        clearBuffer(&editor);
+        loadFromFile(&editor, editor.file_path);
         theme = colorThemeInit();
         if (config.theme_path)
             colorThemeLoad(&theme, config.theme_path);
 
-        printf("Config reloaded\n");
+        LOG_INFO("Config reloaded.", "");
+    }  else if (key == GLFW_KEY_F12 && (action == GLFW_PRESS)) {
+        LOG_INFO("Clearing Buffer...", "");
+        clearBuffer(&editor);
     }
 }
 
@@ -151,7 +156,7 @@ int main (int argc, char **argv) {
     if (config.theme_path)
         colorThemeLoad(&theme, config.theme_path);
 
-    printf("Single comment: %x\n", theme.comment_single_color);
+    editorLoadConfig(&editor, &config);
 
     f64 last_frame_time = 0.0f;
     while (!glfwWindowShouldClose(window)) {
@@ -162,7 +167,6 @@ int main (int argc, char **argv) {
         glfwPollEvents();
         updateFrame(&editor, renderer.screen_width, renderer.screen_height);
         updateScroll(&editor);
-        //printf("current char: %c, row: %lu, col: %lu, ttl lines: %lu\n", getBufChar(editor->buf, editor->cursor.prev_buffer_pos),editor->cursor.disp_row, editor->cursor.disp_column, editor->line_count);
         rendererBegin(&renderer);
         
 		// Render stuff goes here

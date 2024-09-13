@@ -24,12 +24,18 @@ void editorInit(Editor *ed, rect frame, f32 line_height) {
     ed->scroll_pos = vec2_init(0,0);
     ed->line_count = 1;
     ed->line_height = line_height;
+    ed->file_path = NULL;
     ed->lexer = lexerInit();
+    ed->tab_stop = 4;
 }
 
 void editorDestroy(Editor *ed) {
     gapBufferDestroy(ed->buf);
     lexerDestroy(ed->lexer);
+}
+
+void editorLoadConfig(Editor *ed, Config *config) {
+    ed->tab_stop = config->tab_stop;
 }
 
 // Cursor Movements
@@ -165,7 +171,7 @@ void setGoalColumn(Editor *ed) {
 
 void updateScroll(Editor *ed) {
 
-    f32 SCROLL_UP_LINE_FACTOR = 3;
+    f32 SCROLL_UP_LINE_FACTOR = 6;
     // If  the cursor is moving down
     if (ed->cursor.target_screen_pos.y <= ed->frame.y) {
         ed->cursor.target_screen_pos.y = ed->frame.y;
@@ -209,9 +215,9 @@ void loadFromFile(Editor *ed, const char *file_path) {
     while ((nread = fread(read_buf, 1, sizeof(read_buf), f)) > 0) {
         for (size_t i = 0; i < nread; i++) {
             if (read_buf[i] == '\t') {
-                insertCharacter(ed, ' ', true);
-                insertCharacter(ed, ' ', true);
-                insertCharacter(ed, ' ', true);
+                for (size_t i = 0; i < ed->tab_stop; i++) {
+                    insertCharacter(ed, ' ', true);
+                }
             } else {
                 insertCharacter(ed, read_buf[i], true);
             }
@@ -219,12 +225,20 @@ void loadFromFile(Editor *ed, const char *file_path) {
     }
     fclose(f);
 
-
-
     // move the cursor position back to the start of the file
     ed->cursor.buffer_pos = 0;
     ed->cursor.prev_buffer_pos = 0;
     ed->cursor.disp_row = 1;
     ed->cursor.disp_column = 1;
     ed->goal_column = -1;
+    ed->file_path = file_path;
+}
+
+void clearBuffer(Editor *ed) {
+    gapBufferDestroy(ed->buf);
+    ed->buf = gapBufferInit(INITIAL_BUFFER_SIZE);
+    ed->cursor = cursorInit(vec2_init(ed->frame.x, ed->frame.h));
+    ed->goal_column = -1;
+    ed->scroll_pos = vec2_init(0,0);
+    ed->line_count = 1;
 }

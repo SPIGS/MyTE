@@ -1,2 +1,3 @@
 [editor]
     color_theme = "./config/themes/spaceduck.toml"
+    tab_stop = 3

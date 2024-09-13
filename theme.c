@@ -4,12 +4,6 @@
 #include <string.h>
 #include "theme.h"
 
-static void error(const char* msg, const char* msg1)
-{
-    fprintf(stderr, "ERROR: %s%s\n", msg, msg1?msg1:"");
-}
-
-
 ColorTheme colorThemeInit() {
     // Colors - the default theme is Space Duck (https://github.com/pineapplegiant/spaceduck)
     ColorTheme theme;
@@ -38,87 +32,28 @@ void colorThemeLoad(ColorTheme *theme, const char *path) {
     fclose(fp);
 
     if (!color_conf) {
-        error("cannot open color theme file - ", strerror(errno));
+        LOG_ERROR("cannot open color theme file - ", strerror(errno));
         return;
     }
 
     toml_table_t* color_table = toml_table_in(color_conf, "colors");
     if (!color_conf) {
-        error("Color Theme file missing [colors]", "");
+        LOG_ERROR("Color Theme file missing [colors]", "");
         return;
     }
 
-    toml_datum_t keyword_color = toml_int_in(color_table, "keyword_color");
-    if (!keyword_color.ok) {
-        error("cannot read colors.keyword_color", "");
-        return;
-    }
-
-    toml_datum_t symbol_color = toml_int_in(color_table, "symbol_color");
-    if (!symbol_color.ok) {
-        error("cannot read colors.symbol_color", "");
-        return;
-    }
-
-    toml_datum_t string_literal_double_color = toml_int_in(color_table, "string_literal_double_color");
-    if (!string_literal_double_color.ok) {
-        error("cannot read colors.string_literal_double_color", "");
-        return;
-    }
-
-    toml_datum_t string_literal_single_color = toml_int_in(color_table, "string_literal_single_color");
-    if (!string_literal_single_color.ok) {
-        error("cannot read colors.string_literal_single_color", "");
-        return;
-    }
-    
-    toml_datum_t number_color = toml_int_in(color_table, "number_color");
-    if (!number_color.ok) {
-        error("cannot read colors.number_color", "");
-        return;
-    }
-
-    toml_datum_t built_in_type_color = toml_int_in(color_table, "built_in_type_color");
-    if (!built_in_type_color.ok) {
-        error("cannot read colors.built_in_type_color", "");
-        return;
-    }
-
-    toml_datum_t type_color = toml_int_in(color_table, "type_color");
-    if (!type_color.ok) {
-        error("cannot read colors.type_color", "");
-        return;
-    }
-
-    toml_datum_t function_name_color = toml_int_in(color_table, "function_name_color");
-    if (!function_name_color.ok) {
-        error("cannot read colors.function_name_color", "");
-        return;
-    }
-
-    toml_datum_t foreground_color = toml_int_in(color_table, "foreground_color");
-    if (!foreground_color.ok) {
-        error("cannot read colors.foreground_color", "");
-        return;
-    }
-
-    toml_datum_t background_color = toml_int_in(color_table, "background_color");
-    if (!background_color.ok) {
-        error("cannot read colors.background_color", "");
-        return;
-    }
-
-    toml_datum_t comment_single_color = toml_int_in(color_table, "comment_single_color");
-    if (!comment_single_color.ok) {
-        error("cannot read colors.comment_single_color", "");
-        return;
-    }
-
-    toml_datum_t comment_multi_color = toml_int_in(color_table, "comment_multi_color");
-    if (!comment_multi_color.ok) {
-        error("cannot read colors.comment_multi_color", "");
-        return;
-    }
+    LOAD_TOML_INT(color_table, "keyword_color", keyword_color);
+    LOAD_TOML_INT(color_table, "symbol_color", symbol_color);
+    LOAD_TOML_INT(color_table, "string_literal_double_color", string_literal_double_color);
+    LOAD_TOML_INT(color_table, "string_literal_single_color", string_literal_single_color);
+    LOAD_TOML_INT(color_table, "number_color", number_color);
+    LOAD_TOML_INT(color_table, "built_in_type_color", built_in_type_color);
+    LOAD_TOML_INT(color_table, "type_color", type_color);
+    LOAD_TOML_INT(color_table, "function_name_color", function_name_color);
+    LOAD_TOML_INT(color_table, "foreground_color", foreground_color);
+    LOAD_TOML_INT(color_table, "background_color", background_color);
+    LOAD_TOML_INT(color_table, "comment_single_color", comment_single_color);
+    LOAD_TOML_INT(color_table, "comment_multi_color", comment_multi_color);
 
     theme-> keyword_color = keyword_color.u.i;
     theme-> symbol_color = symbol_color.u.i;
@@ -133,13 +68,13 @@ void colorThemeLoad(ColorTheme *theme, const char *path) {
     theme-> comment_single_color = comment_single_color.u.i;
     theme-> comment_multi_color = comment_multi_color.u.i;
 
-    printf("Loaded color theme: %s\n", path);
     free(color_conf);
 }
 
 Config configInit() {
     Config config;
     config.theme_path = NULL;
+    config.tab_stop = 3;
     return config;
 }
 void configDestroy(Config *config) {
@@ -157,24 +92,21 @@ void loadConfigFromFile(Config *config, const char* path) {
     fclose(fp);
 
     if (!config_conf) {
-        error("cannot open editor config file - ", strerror(errno));
+        LOG_ERROR("cannot open editor config file - ", strerror(errno));
         return;
     }
 
     toml_table_t* editor_table = toml_table_in(config_conf, "editor");
     if (!editor_table) {
-        error("Config file missing [editor]", "");
+        LOG_ERROR("Config file missing [editor]", "");
         return;
     }
 
     // Get data
-    toml_datum_t color_theme = toml_string_in(editor_table, "color_theme");
-    if (!color_theme.ok) {
-        error("cannot read editor.color_theme", "");
-        return;
-    }
+    LOAD_TOML_STR(editor_table, "color_theme", color_theme);
+    LOAD_TOML_INT(editor_table, "tab_stop", tab_stop);
     config->theme_path = color_theme.u.s;
-    printf("Theme path: %s\n", config->theme_path);
+    config->tab_stop = tab_stop.u.i;
 
     free(config_conf);
 }

@@ -155,3 +155,17 @@ const char *getFileExtFromPath(const char *path);
 char *getFileNameFromPath(const char *path);
 
 FileType getFileType(const char *file_name, const char *file_ext);
+
+// Some logging macros
+
+#define LOG_ERROR(msg, msg1) \
+    fprintf(stderr, "ERROR: %s%s\n", msg, msg1?msg1:"");
+
+#define LOG_WARN(msg, msg1) \
+    fprintf(stderr, "WARN: %s%s\n", msg, msg1?msg1:"");
+
+#define LOG_INFO(msg, msg1) \
+    fprintf(stderr, "INFO: %s%s\n", msg, msg1?msg1:"");
+
+#define LOG_DEBUG(msg, msg1) \
+    fprintf(stderr, "DEBUG: %s%s\n", msg, msg1?msg1:"");

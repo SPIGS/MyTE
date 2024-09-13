@@ -7,11 +7,6 @@
 #define TOML_HIGHLIGHTING_FILE "./config/syntaxes/toml.toml"
 #define PYTHON_HIGHLIGHTING_FILE "./config/syntaxes/python.toml"
 
-static void error(const char* msg, const char* msg1)
-{
-    fprintf(stderr, "ERROR: %s%s\n", msg, msg1?msg1:"");
-}
-
 static int is_keyword(Lexer *lexer, const char *word) {
     for (size_t i = 0; i < lexer->keywords_count; i++) {
         toml_datum_t keyword = toml_string_at(lexer->keywords, i);
@@ -161,75 +156,33 @@ static void loadHighlightingInfo (Lexer *lexer, FileType file_type) {
     fclose(fp);
 
     if (!hl_conf) {
-        error("cannot open highlighting file - ", strerror(errno));
+        LOG_ERROR("cannot open highlighting file - ", strerror(errno));
         return;
     }
 
     toml_table_t* hl_table = toml_table_in(hl_conf, "highlighting");
-    if (!hl_conf) {
-        error("Highlight file missing [highlighting]", "");
+    if (!hl_table) {
+        LOG_ERROR("Highlight file missing [highlighting]", "");
         return;
     }
 
     // Get data
-    toml_datum_t comment_single_prefix = toml_string_in(hl_table, "comment_single_prefix");
-    if (!comment_single_prefix.ok) {
-        error("cannot read highlighting.comment_single_prefix", "");
-        return;
-    }
-    lexer->comment_single_prefix = comment_single_prefix;
-    printf("comment_single_prefix: %s\n", comment_single_prefix.u.s);
+    LOAD_TOML_STR(hl_table, "comment_single_prefix", comment_single_prefix);
+    LOAD_TOML_STR(hl_table, "comment_multi_begin", comment_multi_begin);
+    LOAD_TOML_STR(hl_table, "comment_multi_end", comment_multi_end);
+    LOAD_TOML_BOOL(hl_table, "additional_colors", additional_colors);
+    LOAD_TOML_ARRAY(hl_table, "keywords", keywords_array);
+    LOAD_TOML_ARRAY(hl_table, "symbols", symbols_array);
+    LOAD_TOML_ARRAY(hl_table, "built_in_types", built_in_types_array);
 
-
-    toml_datum_t comment_multi_begin = toml_string_in(hl_table, "comment_multi_begin");
-    if (!comment_multi_begin.ok) {
-        error("cannot read highlighting.comment_multi_begin", "");
-        return;
-    }
-    lexer->comment_multi_begin = comment_multi_begin;
-    printf("comment_multi_begin: %s\n", comment_multi_begin.u.s);
-
-
-    toml_datum_t comment_multi_end = toml_string_in(hl_table, "comment_multi_end");
-    if (!comment_multi_end.ok) {
-        error("cannot read highlighting.comment_multi_end", "");
-        return;
-    }
+    lexer->comment_single_prefix = comment_single_prefix;  
+    lexer->comment_multi_begin = comment_multi_begin;   
     lexer->comment_multi_end = comment_multi_end;
-    printf("comment_multi_end: %s\n", comment_multi_end.u.s);
-
-    toml_datum_t additional_colors = toml_bool_in(hl_table, "additional_colors");
-    if (!additional_colors.ok) {
-        error("cannot read highlighting.additional_colors", "");
-        return;
-    }
     lexer->additional_colors = additional_colors.u.b;
-    printf("additional_colors: %d\n", additional_colors.u.b);
-
-
-    toml_array_t* keywords_array = toml_array_in(hl_table, "keywords");
-    if (!keywords_array) {
-        error("cannot read highlighting.keywords", "");
-        return;
-    }
     lexer->keywords_count = toml_array_nelem(keywords_array);
     lexer->keywords = keywords_array;
-
-
-    toml_array_t* symbols_array = toml_array_in(hl_table, "symbols");
-    if (!symbols_array) {
-        error("cannot read highlighting.symbols", "");
-        return;
-    }
     lexer->symbols_count = toml_array_nelem(symbols_array);
     lexer->symbols = symbols_array;
-
-
-    toml_array_t* built_in_types_array = toml_array_in(hl_table, "built_in_types");
-    if (!built_in_types_array) {
-        error("cannot read highlighting.built_in_types", "");
-        return;
-    }
     lexer->built_in_types_count = toml_array_nelem(built_in_types_array);
     lexer->built_in_types = built_in_types_array;
 

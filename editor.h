@@ -5,7 +5,6 @@
 #include "util.h"
 #include "lexer.h"
 
-#define TAB_WIDTH 4
 #define CURSOR_SPEED 3.5
 
 typedef struct {
@@ -23,19 +22,31 @@ typedef struct {
 Cursor cursorInit();
 
 typedef struct {
+    // Buffer / cursor movement
     GapBuffer *buf;
     Cursor cursor;
     i32 goal_column;
+
+    // Used to draw the editor
     rect frame;
     vec2 text_pos;
     vec2 scroll_pos;
+
+    // Stats to keep track of
     size_t line_count;
     f32 line_height;
+    char *file_path;
+
+    // Lexing stuff
     Lexer *lexer;
+
+    // Configuration stuff
+    i32 tab_stop;
 } Editor;
 
 void editorInit(Editor *ed, rect frame, f32 line_height);
 void editorDestroy(Editor *ed);
+void editorLoadConfig(Editor *ed, Config *config);
 
 // Cursor Movements
 void moveCursorLeft(Editor *ed);
@@ -51,3 +62,4 @@ void updateFrame(Editor *ed, f32 screen_width, f32 screen_height);
 
 char *getContents(Editor *ed);
 void loadFromFile(Editor *ed, const char *file_path);
+void clearBuffer(Editor *ed);
