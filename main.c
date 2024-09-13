@@ -46,6 +46,17 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
         char *content = getContents(&editor);
         printf("%s\n", content);
         free(content);
+    } else if (key == GLFW_KEY_F5 && (action == GLFW_PRESS)) {
+        printf("Reloading Config...\n");
+        configDestroy(&config);
+        config = configInit();
+        loadConfigFromFile(&config, "./config/config.toml");
+
+        theme = colorThemeInit();
+        if (config.theme_path)
+            colorThemeLoad(&theme, config.theme_path);
+
+        printf("Config reloaded\n");
     }
 }
 
@@ -139,6 +150,8 @@ int main (int argc, char **argv) {
     theme = colorThemeInit();
     if (config.theme_path)
         colorThemeLoad(&theme, config.theme_path);
+
+    printf("Single comment: %x\n", theme.comment_single_color);
 
     f64 last_frame_time = 0.0f;
     while (!glfwWindowShouldClose(window)) {

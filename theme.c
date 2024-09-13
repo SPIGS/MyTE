@@ -24,7 +24,7 @@ ColorTheme colorThemeInit() {
     theme.foreground_color = 0xFFFFFFFF;
     theme.background_color = 0x0F111BFF;      
     theme.comment_single_color = 0x686f9aFF;    
-    theme.comment_multi_color = 0xFFFFFFFF;
+    theme.comment_multi_color = 0x686f9aFF;
     return theme;
 }
 
@@ -140,6 +140,7 @@ void colorThemeLoad(ColorTheme *theme, const char *path) {
 Config configInit() {
     Config config;
     config.theme_path = NULL;
+    return config;
 }
 void configDestroy(Config *config) {
     if (config->theme_path)
