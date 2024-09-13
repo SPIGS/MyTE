@@ -136,3 +136,44 @@ void colorThemeLoad(ColorTheme *theme, const char *path) {
     printf("Loaded color theme: %s\n", path);
     free(color_conf);
 }
+
+Config configInit() {
+    Config config;
+    config.theme_path = NULL;
+}
+void configDestroy(Config *config) {
+    if (config->theme_path)
+        free(config->theme_path);
+}
+
+void loadConfigFromFile(Config *config, const char* path) {
+    FILE *fp;
+    char errbuf[200];
+
+    fp = fopen(path, "r");
+    
+    toml_table_t *config_conf = toml_parse_file(fp, errbuf, sizeof(errbuf));
+    fclose(fp);
+
+    if (!config_conf) {
+        error("cannot open editor config file - ", strerror(errno));
+        return;
+    }
+
+    toml_table_t* editor_table = toml_table_in(config_conf, "editor");
+    if (!editor_table) {
+        error("Config file missing [editor]", "");
+        return;
+    }
+
+    // Get data
+    toml_datum_t color_theme = toml_string_in(editor_table, "color_theme");
+    if (!color_theme.ok) {
+        error("cannot read editor.color_theme", "");
+        return;
+    }
+    config->theme_path = color_theme.u.s;
+    printf("Theme path: %s\n", config->theme_path);
+
+    free(config_conf);
+}

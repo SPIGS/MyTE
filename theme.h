@@ -19,3 +19,11 @@ typedef struct {
 
 ColorTheme colorThemeInit();
 void colorThemeLoad(ColorTheme *theme, const char *path);
+
+typedef struct {
+    char *theme_path;
+} Config;
+
+Config configInit();
+void configDestroy(Config *config);
+void loadConfigFromFile(Config *config, const char* path);

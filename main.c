@@ -14,6 +14,8 @@
 
 
 Editor editor;
+Config config;
+ColorTheme theme;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action , int mods)
 {
@@ -131,8 +133,12 @@ int main (int argc, char **argv) {
         }
     }
 
-    ColorTheme theme = colorThemeInit();
-    colorThemeLoad(&theme, "./config/themes/gruvbox.toml");
+    config = configInit();
+    loadConfigFromFile(&config, "./config/config.toml");
+
+    theme = colorThemeInit();
+    if (config.theme_path)
+        colorThemeLoad(&theme, config.theme_path);
 
     f64 last_frame_time = 0.0f;
     while (!glfwWindowShouldClose(window)) {
@@ -154,6 +160,7 @@ int main (int argc, char **argv) {
     }
     rendererDestroy(&renderer);
     editorDestroy(&editor);
+    configDestroy(&config);
 
     glfwDestroyWindow(window);
 	glfwTerminate();
