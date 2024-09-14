@@ -59,8 +59,7 @@ void insertCharacter(Editor *ed, char character, bool move_cursor_forward);
 void deleteCharacterLeft(Editor *ed);
 void deleteCharacterRight(Editor *ed);
 void setGoalColumn(Editor *ed);
-void updateScroll(Editor *ed, f64 delta_time);
-void updateFrame(Editor *ed, f32 screen_width, f32 screen_height);
+void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme theme, f64 delta_time);
 
 char *getContents(Editor *ed);
 void loadFromFile(Editor *ed, const char *file_path);

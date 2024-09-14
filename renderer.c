@@ -355,16 +355,6 @@ void renderText(Renderer* r, u32 font_id, char *data, vec2 *pos, Color tint) {
 }
 
 void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorTheme theme) {
-	char *data = getContents(e);
-	size_t len_data = strlen(data);
-
-	size_t token_count;
-	if (e->dirty) {
-		free(e->lexer.tokens);
-		lex(&e->lexer, data, &token_count, theme);
-		e->dirty = false;
-	}
-	
 	f32 PADDING = 90.0f;
 
 	GlyphAtlas atlas = r->font_atlases[font_id];
@@ -373,11 +363,10 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 
 	renderQuad(r, e->frame, color_from_hex(theme.background_color));
 	
-	for (size_t i = 0; i < token_count; i++) {
+	for (size_t i = 0; i < e->lexer.token_count; i++) {
 
 		if (i == e->cursor.buffer_pos) {
 			
-
 			//TODO: this code shouldn't be here!
 			// set a new target position
 			e->cursor.target_screen_pos = vec2_init(adj_text_pos.x, adj_text_pos.y);
@@ -397,7 +386,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 		}
 
 		// If the character is a newline, move down and back over to the left.
-		if (data[i] == '\n') {
+		if (e->lexer.tokens[i].character == '\n') {
 			adj_text_pos.x = init_pos.x;
 			adj_text_pos.y -= atlas.atlas_height;
 			continue;
@@ -407,7 +396,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 		renderChar(r, font_id, e->lexer.tokens[i].character, &adj_text_pos, color_from_hex(e->lexer.tokens[i].color));
 	}
 
-	if (e->cursor.buffer_pos == len_data) {
+	if (e->cursor.buffer_pos == e->lexer.token_count) {
 		//TODO: this code shouldn't be here!
 		// set a new target position
 		e->cursor.target_screen_pos = vec2_init(adj_text_pos.x, adj_text_pos.y);
@@ -425,8 +414,6 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 		rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
 		renderQuad(r, cursor_quad, COLOR_WHITE);
 	}
-
-	free(data);
 
 	// gutter
 	PADDING = 30.0f;

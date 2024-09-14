@@ -70,6 +70,7 @@ static int is_function_name(const char *source, size_t start, size_t length) {
 
 void lexerInit(Lexer* lexer) {
     lexer->tokens = NULL;
+    lexer->token_count = 0;
     lexer->file_type = FILE_TYPE_UNKNOWN;
         // sizes of data buffers
     lexer->keywords_count = 0;
@@ -201,10 +202,10 @@ void lexerUpdateFileType(Lexer *lexer, FileType file_type) {
     }
 }
 
-Token *lex(Lexer *lexer, const char *source, size_t *token_count, ColorTheme theme) {
+Token *lex(Lexer *lexer, const char *source, ColorTheme theme) {
     size_t length = strlen(source);
     size_t capacity = 10;
-    *token_count = 0;
+    lexer->token_count = 0;
     lexer->tokens = (Token *)malloc(capacity * sizeof(Token));
 
     if (!lexer->tokens) {
@@ -214,7 +215,7 @@ Token *lex(Lexer *lexer, const char *source, size_t *token_count, ColorTheme the
     if (lexer->file_type == FILE_TYPE_UNKNOWN) {
         // If the file type is unknown, don't highlight anything.
         for (size_t j = 0; j < length; j++) {
-            if (*token_count >= capacity) {
+            if (lexer->token_count >= capacity) {
                 capacity *= 2;
                 Token *new_tokens = (Token *)realloc(lexer->tokens, capacity * sizeof(Token));
                 if (!new_tokens) {
@@ -223,9 +224,9 @@ Token *lex(Lexer *lexer, const char *source, size_t *token_count, ColorTheme the
                 }
                 lexer->tokens = new_tokens;
             }
-            lexer->tokens[*token_count].character = source[j];
-            lexer->tokens[*token_count].color = theme.foreground_color;
-            (*token_count)++;
+            lexer->tokens[lexer->token_count].character = source[j];
+            lexer->tokens[lexer->token_count].color = theme.foreground_color;
+            (lexer->token_count)++;
         }
     } else {
         size_t i = 0;
@@ -331,7 +332,7 @@ Token *lex(Lexer *lexer, const char *source, size_t *token_count, ColorTheme the
 
             // Add tokens character by character
             for (size_t j = start; j < i; j++) {
-                if (*token_count >= capacity) {
+                if (lexer->token_count >= capacity) {
                     capacity *= 2;
                     Token *new_tokens = (Token *)realloc(lexer->tokens, capacity * sizeof(Token));
                     if (!new_tokens) {
@@ -340,9 +341,9 @@ Token *lex(Lexer *lexer, const char *source, size_t *token_count, ColorTheme the
                     }
                     lexer->tokens = new_tokens;
                 }
-                lexer->tokens[*token_count].character = source[j];
-                lexer->tokens[*token_count].color = color;
-                (*token_count)++;
+                lexer->tokens[lexer->token_count].character = source[j];
+                lexer->tokens[lexer->token_count].color = color;
+                (lexer->token_count)++;
             }
         }
     }

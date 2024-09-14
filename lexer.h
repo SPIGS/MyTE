@@ -34,6 +34,7 @@ typedef struct {
 
 typedef struct {
     Token *tokens;
+    size_t token_count;
 
     // The file type association for this lexer
     FileType file_type;
@@ -62,4 +63,4 @@ void lexerDestroy(Lexer *lexer);
 void lexerUpdateFileType(Lexer *lexer, FileType file_type);
 
 
-Token *lex(Lexer *lexer, const char *source, size_t *token_count, ColorTheme theme);
+Token *lex(Lexer *lexer, const char *source, ColorTheme theme);

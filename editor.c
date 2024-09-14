@@ -176,8 +176,8 @@ void setGoalColumn(Editor *ed) {
     ed->cursor.disp_column = ed->goal_column+1;
 }
 
-void updateScroll(Editor *ed, f64 delta_time) {
-
+void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme theme, f64 delta_time) {
+    // Update scroll
     f32 SCROLL_UP_LINE_FACTOR = 6;
     f32 SCROLL_DOWN_LINE_FACTOR = 2;
     // If  the cursor is moving down
@@ -190,12 +190,20 @@ void updateScroll(Editor *ed, f64 delta_time) {
         ed->cursor.target_screen_pos.y = (ed->frame.y + ed->frame.h) - ed->line_height;
         ed->scroll_pos.y -= ed->line_height;
     }
-}
 
-void updateFrame(Editor *ed, f32 screen_width, f32 screen_height) {
+    // Update frame
     f32 STATUS_LINE_HEIGHT = ed->line_height + 5;
     ed->frame = rect_init(0,0 + STATUS_LINE_HEIGHT, screen_width, screen_height - STATUS_LINE_HEIGHT);
     ed->text_pos = vec2_init(0, 0 + screen_height);
+
+    // Update the lexer
+    if (ed->dirty && ed->lexer.file_type != FILE_TYPE_UNKNOWN) {
+        char *data = getBufString(ed->buf);
+        size_t len_data = strlen(data);
+        free(ed->lexer.tokens);
+        lex(&ed->lexer, data, theme);
+        ed->dirty = false;
+    }
 }
 
 void loadFromFile(Editor *ed, const char *file_path) {

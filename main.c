@@ -173,8 +173,7 @@ int main (int argc, char **argv) {
         last_frame_time = cur_fame_time;
 
         glfwPollEvents();
-        updateFrame(&editor, renderer.screen_width, renderer.screen_height);
-        updateScroll(&editor, delta_time);
+        editorUpdate(&editor, renderer.screen_width, renderer.screen_height, theme, delta_time);
         rendererBegin(&renderer);
         
 		// Render stuff goes here
@@ -190,4 +189,4 @@ int main (int argc, char **argv) {
     glfwDestroyWindow(window);
 	glfwTerminate();
     return 0;
-} 
+}
