@@ -1,3 +1,4 @@
 [editor]
     color_theme = "./config/themes/spaceduck.toml"
     tab_stop = 3
+    cursor_speed = 3.5

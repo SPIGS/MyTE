@@ -24,13 +24,21 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
     UNUSED(mods);
 
     if (key == GLFW_KEY_LEFT && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        moveCursorLeft(&editor);
+        if (mods == GLFW_MOD_CONTROL) {
+            moveCursorWordBackward(&editor);
+        } else {
+            moveCursorLeft(&editor);
+        }
     } else if (key == GLFW_KEY_UP && (action == GLFW_REPEAT || action == GLFW_PRESS)){
         moveCursorUp(&editor);
     } else if (key == GLFW_KEY_DOWN && (action == GLFW_REPEAT || action == GLFW_PRESS)){
        moveCursorDown(&editor);
     } else if (key == GLFW_KEY_RIGHT && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        moveCursorRight(&editor);
+        if (mods == GLFW_MOD_CONTROL) {
+            moveCursorWordForward(&editor);
+        } else {
+            moveCursorRight(&editor);
+        }
     } else if (key == GLFW_KEY_BACKSPACE && (action == GLFW_REPEAT || action == GLFW_PRESS)){
         deleteCharacterLeft(&editor);
     } else if (key == GLFW_KEY_DELETE && (action == GLFW_REPEAT || action == GLFW_PRESS)){
@@ -166,7 +174,7 @@ int main (int argc, char **argv) {
 
         glfwPollEvents();
         updateFrame(&editor, renderer.screen_width, renderer.screen_height);
-        updateScroll(&editor);
+        updateScroll(&editor, delta_time);
         rendererBegin(&renderer);
         
 		// Render stuff goes here

@@ -9,12 +9,9 @@
 
 static int is_keyword(Lexer *lexer, const char *word) {
     for (size_t i = 0; i < lexer->keywords_count; i++) {
-        toml_datum_t keyword = toml_string_at(lexer->keywords, i);
-        if (strcmp(word, keyword.u.s) == 0) {
-            free(keyword.u.s);
+        char *keyword = lexer->keywords[i];
+        if (strcmp(word, keyword) == 0) {
             return 1;
-        } else {
-            free(keyword.u.s);
         }
     }
     return 0;
@@ -22,12 +19,9 @@ static int is_keyword(Lexer *lexer, const char *word) {
 
 static int is_symbol(Lexer *lexer, char character) {
     for (size_t i = 0; i < lexer->symbols_count; i++) {
-        toml_datum_t symbol = toml_string_at(lexer->symbols, i);
-        if (character == symbol.u.s[0]) {
-            free(symbol.u.s);
+        char *symbol = lexer->symbols[i];
+        if (symbol && character == symbol[0]) {
             return 1;
-        } else {
-            free(symbol.u.s);
         }
     }
     return 0;
@@ -35,12 +29,9 @@ static int is_symbol(Lexer *lexer, char character) {
 
 static int is_builtin_type(Lexer *lexer, const char *word) {
     for (size_t i = 0; i < lexer->built_in_types_count; i++) {
-        toml_datum_t built_in_type = toml_string_at(lexer->built_in_types, i);
-        if (strcmp(word, built_in_type.u.s) == 0) {
-            free(built_in_type.u.s);
+        char *built_in_type = lexer->built_in_types[i];
+        if (strcmp(word, built_in_type) == 0) {
             return 1;
-        } else {
-            free(built_in_type.u.s);
         }
     }
     return 0;
@@ -77,8 +68,8 @@ static int is_function_name(const char *source, size_t start, size_t length) {
     return 0;
 }
 
-Lexer *lexerInit() {
-    Lexer *lexer = (Lexer*)malloc(sizeof(Lexer));
+void lexerInit(Lexer* lexer) {
+    lexer->tokens = NULL;
     lexer->file_type = FILE_TYPE_UNKNOWN;
         // sizes of data buffers
     lexer->keywords_count = 0;
@@ -99,19 +90,29 @@ Lexer *lexerInit() {
     lexer->comment_multi_end.u.ts = NULL;
 
     lexer->additional_colors = false;
-
-    return lexer;
 }
 
 void lexerDestroy(Lexer *lexer) {
-    if (lexer->keywords)
-        free(lexer->keywords);
-    
-    if (lexer->symbols)
-        free(lexer->symbols);
+    if (lexer->tokens)
+        free(lexer->tokens);
 
-    if (lexer->built_in_types)
-        free(lexer->built_in_types);
+    if (lexer->keywords) {
+        for (size_t i = 0; i< lexer->keywords_count; i++) {
+            free(lexer->keywords[i]);
+        }
+    }
+    
+    if (lexer->symbols) {
+        for (size_t i = 0; i< lexer->symbols_count; i++) {
+            free(lexer->symbols[i]);
+        }
+    }
+
+    if (lexer->built_in_types) {
+        for (size_t i = 0; i< lexer->built_in_types_count; i++) {
+            free(lexer->built_in_types[i]);
+        }
+    }
 
     if (lexer->comment_single_prefix.u.s)
         free(lexer->comment_single_prefix.u.s);
@@ -121,8 +122,6 @@ void lexerDestroy(Lexer *lexer) {
 
     if (lexer->comment_multi_end.u.s)
         free(lexer->comment_multi_end.u.s);
-
-    free(lexer);
 }
 
 static void loadHighlightingInfo (Lexer *lexer, FileType file_type) {
@@ -171,24 +170,24 @@ static void loadHighlightingInfo (Lexer *lexer, FileType file_type) {
     LOAD_TOML_STR(hl_table, "comment_multi_begin", comment_multi_begin);
     LOAD_TOML_STR(hl_table, "comment_multi_end", comment_multi_end);
     LOAD_TOML_BOOL(hl_table, "additional_colors", additional_colors);
-    LOAD_TOML_ARRAY(hl_table, "keywords", keywords_array);
-    LOAD_TOML_ARRAY(hl_table, "symbols", symbols_array);
-    LOAD_TOML_ARRAY(hl_table, "built_in_types", built_in_types_array);
+    LOAD_TOML_STR_ARRAY(hl_table, "keywords", keywords_array, keywords_array_len, keywords, keywords_count);
+    LOAD_TOML_STR_ARRAY(hl_table, "symbols", symbols_array, symbols_array_len, symbols, symbols_count);
+    LOAD_TOML_STR_ARRAY(hl_table, "built_in_types", built_in_types_array, built_in_types_array_len, built_in_types, built_in_types_count);
 
     lexer->comment_single_prefix = comment_single_prefix;  
     lexer->comment_multi_begin = comment_multi_begin;   
     lexer->comment_multi_end = comment_multi_end;
     lexer->additional_colors = additional_colors.u.b;
-    lexer->keywords_count = toml_array_nelem(keywords_array);
-    lexer->keywords = keywords_array;
-    lexer->symbols_count = toml_array_nelem(symbols_array);
-    lexer->symbols = symbols_array;
-    lexer->built_in_types_count = toml_array_nelem(built_in_types_array);
-    lexer->built_in_types = built_in_types_array;
+    lexer->keywords_count = keywords_count;
+    lexer->keywords = keywords;
+    lexer->symbols_count = symbols_count;
+    lexer->symbols = symbols;
+    lexer->built_in_types_count = built_in_types_count;
+    lexer->built_in_types = built_in_types;
 
     lexer->file_type = file_type;
 
-    free(hl_conf);
+    toml_free(hl_conf);
 }
 
 void lexerUpdateFileType(Lexer *lexer, FileType file_type) {
@@ -206,9 +205,9 @@ Token *lex(Lexer *lexer, const char *source, size_t *token_count, ColorTheme the
     size_t length = strlen(source);
     size_t capacity = 10;
     *token_count = 0;
-    Token *tokens = (Token *)malloc(capacity * sizeof(Token));
+    lexer->tokens = (Token *)malloc(capacity * sizeof(Token));
 
-    if (!tokens) {
+    if (!lexer->tokens) {
         return NULL;
     }
 
@@ -217,15 +216,15 @@ Token *lex(Lexer *lexer, const char *source, size_t *token_count, ColorTheme the
         for (size_t j = 0; j < length; j++) {
             if (*token_count >= capacity) {
                 capacity *= 2;
-                Token *new_tokens = (Token *)realloc(tokens, capacity * sizeof(Token));
+                Token *new_tokens = (Token *)realloc(lexer->tokens, capacity * sizeof(Token));
                 if (!new_tokens) {
-                    free(tokens);
+                    free(lexer->tokens);
                     return NULL;
                 }
-                tokens = new_tokens;
+                lexer->tokens = new_tokens;
             }
-            tokens[*token_count].character = source[j];
-            tokens[*token_count].color = theme.foreground_color;
+            lexer->tokens[*token_count].character = source[j];
+            lexer->tokens[*token_count].color = theme.foreground_color;
             (*token_count)++;
         }
     } else {
@@ -334,18 +333,18 @@ Token *lex(Lexer *lexer, const char *source, size_t *token_count, ColorTheme the
             for (size_t j = start; j < i; j++) {
                 if (*token_count >= capacity) {
                     capacity *= 2;
-                    Token *new_tokens = (Token *)realloc(tokens, capacity * sizeof(Token));
+                    Token *new_tokens = (Token *)realloc(lexer->tokens, capacity * sizeof(Token));
                     if (!new_tokens) {
-                        free(tokens);
+                        free(lexer->tokens);
                         return NULL;
                     }
-                    tokens = new_tokens;
+                    lexer->tokens = new_tokens;
                 }
-                tokens[*token_count].character = source[j];
-                tokens[*token_count].color = color;
+                lexer->tokens[*token_count].character = source[j];
+                lexer->tokens[*token_count].color = color;
                 (*token_count)++;
             }
         }
     }
-    return tokens;
+    return lexer->tokens;
 }

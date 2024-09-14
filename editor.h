@@ -38,10 +38,12 @@ typedef struct {
     char *file_path;
 
     // Lexing stuff
-    Lexer *lexer;
+    Lexer lexer;
+    bool dirty;
 
     // Configuration stuff
     i32 tab_stop;
+    f64 cursor_speed;
 } Editor;
 
 void editorInit(Editor *ed, rect frame, f32 line_height);
@@ -57,9 +59,11 @@ void insertCharacter(Editor *ed, char character, bool move_cursor_forward);
 void deleteCharacterLeft(Editor *ed);
 void deleteCharacterRight(Editor *ed);
 void setGoalColumn(Editor *ed);
-void updateScroll(Editor *ed);
+void updateScroll(Editor *ed, f64 delta_time);
 void updateFrame(Editor *ed, f32 screen_width, f32 screen_height);
 
 char *getContents(Editor *ed);
 void loadFromFile(Editor *ed, const char *file_path);
 void clearBuffer(Editor *ed);
+void moveCursorWordForward(Editor *ed);
+void moveCursorWordBackward(Editor *ed);

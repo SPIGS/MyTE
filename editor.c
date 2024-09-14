@@ -25,17 +25,21 @@ void editorInit(Editor *ed, rect frame, f32 line_height) {
     ed->line_count = 1;
     ed->line_height = line_height;
     ed->file_path = NULL;
-    ed->lexer = lexerInit();
+    lexerInit(&ed->lexer);
+    ed->dirty = true;
     ed->tab_stop = 4;
+    ed->cursor_speed = 3.5;
 }
 
 void editorDestroy(Editor *ed) {
     gapBufferDestroy(ed->buf);
-    lexerDestroy(ed->lexer);
+    lexerDestroy(&ed->lexer);
 }
 
 void editorLoadConfig(Editor *ed, Config *config) {
     ed->tab_stop = config->tab_stop;
+    ed->cursor_speed = config->cursor_speed;
+    ed->dirty = true;
 }
 
 // Cursor Movements
@@ -136,6 +140,7 @@ void insertCharacter(Editor *ed, char character, bool move_cursor_forward) {
         setGoalColumn(ed);
         ed->cursor.anim_time = 0.0f;
     }
+    ed->dirty = true;
 }
 
 void deleteCharacterLeft(Editor *ed) {
@@ -149,6 +154,7 @@ void deleteCharacterLeft(Editor *ed) {
     ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
     setGoalColumn(ed);
     ed->cursor.anim_time = 0.0f;
+    ed->dirty = true;
 }
 
 // TODO handle deletion of lines more elloquently
@@ -158,6 +164,7 @@ void deleteCharacterRight(Editor *ed) {
     if (removeCharAfterGap (ed->buf, ed->cursor.buffer_pos) == '\n') {
         ed->line_count = (ed->line_count - 1 < 1) ? 1 : ed->line_count - 1;
     }
+    ed->dirty = true;
 }
 
 char *getContents(Editor *ed) {
@@ -169,11 +176,12 @@ void setGoalColumn(Editor *ed) {
     ed->cursor.disp_column = ed->goal_column+1;
 }
 
-void updateScroll(Editor *ed) {
+void updateScroll(Editor *ed, f64 delta_time) {
 
     f32 SCROLL_UP_LINE_FACTOR = 6;
+    f32 SCROLL_DOWN_LINE_FACTOR = 2;
     // If  the cursor is moving down
-    if (ed->cursor.target_screen_pos.y <= ed->frame.y) {
+    if (ed->cursor.target_screen_pos.y <= (ed->frame.y + (SCROLL_DOWN_LINE_FACTOR * ed->line_height)) && ed->scroll_pos.y < (ed->line_height * ed->line_count)) {
         ed->cursor.target_screen_pos.y = ed->frame.y;
         ed->scroll_pos.y += ed->line_height;
 
@@ -198,7 +206,7 @@ void loadFromFile(Editor *ed, const char *file_path) {
     FileType ftype = getFileType(file_name, file_ext);
     
     // Update lexer info
-    lexerUpdateFileType(ed->lexer, ftype);
+    lexerUpdateFileType(&ed->lexer, ftype);
     free(file_name);
 
      // If there's stuff in the editor already, we don't care for now just over write it
@@ -232,6 +240,7 @@ void loadFromFile(Editor *ed, const char *file_path) {
     ed->cursor.disp_column = 1;
     ed->goal_column = -1;
     ed->file_path = file_path;
+    ed->dirty = true;
 }
 
 void clearBuffer(Editor *ed) {
@@ -241,4 +250,53 @@ void clearBuffer(Editor *ed) {
     ed->goal_column = -1;
     ed->scroll_pos = vec2_init(0,0);
     ed->line_count = 1;
+    ed->dirty = true;
+}
+
+// TODO: These arent perfect but they are ok for now
+void moveCursorWordForward(Editor *ed) {
+    if (ed->cursor.buffer_pos >= ed->buf->end)
+        return;
+
+    size_t new_cursor_pos = ed->cursor.buffer_pos;
+    if (isspace(getBufChar(ed->buf, new_cursor_pos))) {
+        while (!isalnum(getBufChar(ed->buf, new_cursor_pos))) {
+            new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
+            moveCursorRight(ed);
+        }
+    } else {
+        while (!isalnum(getBufChar(ed->buf, new_cursor_pos)) && !isspace(getBufChar(ed->buf, new_cursor_pos))) {
+            new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
+            moveCursorRight(ed);
+        }
+    }
+    
+    while (isalnum(getBufChar(ed->buf, new_cursor_pos))) {    
+        new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
+        moveCursorRight(ed);
+    }
+}
+
+void moveCursorWordBackward(Editor *ed) {
+    if (ed->cursor.buffer_pos <= 0)
+        return;
+
+    size_t new_cursor_pos = ed->cursor.buffer_pos;
+    if (isspace(getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos)))) {
+        while (!isalnum(getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos)))) {
+            new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
+            moveCursorLeft(ed);
+        }
+    } else {
+        while (!isalnum(getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos))) 
+            && !isspace(getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos)))) {
+            new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
+            moveCursorLeft(ed);
+        }
+    }
+    
+    while (isalnum(getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos)))) {    
+        new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
+        moveCursorLeft(ed);
+    }
 }

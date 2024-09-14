@@ -359,8 +359,12 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 	size_t len_data = strlen(data);
 
 	size_t token_count;
-	Token *tokens = lex(e->lexer, data, &token_count, theme);
-
+	if (e->dirty) {
+		free(e->lexer.tokens);
+		lex(&e->lexer, data, &token_count, theme);
+		e->dirty = false;
+	}
+	
 	f32 PADDING = 90.0f;
 
 	GlyphAtlas atlas = r->font_atlases[font_id];
@@ -373,12 +377,14 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 
 		if (i == e->cursor.buffer_pos) {
 			
+
+			//TODO: this code shouldn't be here!
 			// set a new target position
 			e->cursor.target_screen_pos = vec2_init(adj_text_pos.x, adj_text_pos.y);
 			e->cursor.prev_screen_pos = e->cursor.screen_pos;
 
 			// increment the animation timer
-			e->cursor.anim_time += (f32)delta_time * CURSOR_SPEED;
+			e->cursor.anim_time += (f32)delta_time * e->cursor_speed;
 			if (e->cursor.anim_time >= 1.0f) {
 				e->cursor.anim_time = 1.0f;
 			}
@@ -398,16 +404,17 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 		}
 
 		// Render the character
-		renderChar(r, font_id, tokens[i].character, &adj_text_pos, color_from_hex(tokens[i].color));
+		renderChar(r, font_id, e->lexer.tokens[i].character, &adj_text_pos, color_from_hex(e->lexer.tokens[i].color));
 	}
 
 	if (e->cursor.buffer_pos == len_data) {
+		//TODO: this code shouldn't be here!
 		// set a new target position
 		e->cursor.target_screen_pos = vec2_init(adj_text_pos.x, adj_text_pos.y);
 		e->cursor.prev_screen_pos = e->cursor.screen_pos;
 
 		// increment the animation timer
-		e->cursor.anim_time += (f32)delta_time * CURSOR_SPEED;
+		e->cursor.anim_time += (f32)delta_time * e->cursor_speed;
 		if (e->cursor.anim_time >= 1.0f) {
 			e->cursor.anim_time = 1.0f;
 		}
@@ -417,10 +424,8 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 		
 		rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
 		renderQuad(r, cursor_quad, COLOR_WHITE);
-		
 	}
 
-	free(tokens);
 	free(data);
 
 	// gutter

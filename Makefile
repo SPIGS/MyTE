@@ -5,7 +5,7 @@ TARGET=build/test
 SRCS=main.c renderer.c util.c font.c gapbuffer.c editor.c lexer.c toml.c theme.c
 OBJ=$(patsubst %.c, build/%.o, $(SRCS))
 
-all: build $(TARGET)
+all: clean build $(TARGET)
 
 # Link the object files into the final executable
 $(TARGET): $(OBJ)

@@ -25,7 +25,16 @@ typedef enum {
     TOKEN_UNKNOWN
 } TokenType;
 
+// Token structure
 typedef struct {
+    char character;
+    unsigned int color;
+} Token;
+
+
+typedef struct {
+    Token *tokens;
+
     // The file type association for this lexer
     FileType file_type;
 
@@ -35,9 +44,9 @@ typedef struct {
     size_t built_in_types_count;
 
     // data buffers
-    toml_array_t *keywords;
-    toml_array_t *symbols;
-    toml_array_t *built_in_types;
+    char **keywords;
+    char **symbols;
+    char **built_in_types;
 
     // Comments
     toml_datum_t comment_single_prefix;
@@ -47,15 +56,10 @@ typedef struct {
     bool additional_colors;
 } Lexer;
 
-Lexer *lexerInit();
+void lexerInit(Lexer *lexer);
 void lexerDestroy(Lexer *lexer);
 
 void lexerUpdateFileType(Lexer *lexer, FileType file_type);
 
-// Token structure
-typedef struct {
-    char character;
-    unsigned int color;
-} Token;
 
 Token *lex(Lexer *lexer, const char *source, size_t *token_count, ColorTheme theme);

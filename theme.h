@@ -23,9 +23,26 @@
         return; \
     }
 
-#define LOAD_TOML_ARRAY(table, key, var) \
-    toml_array_t *var = toml_array_in(table, key); \
-    if (!var) { \
+#define LOAD_TOML_STR_ARRAY(table, key, array, array_count, var, count) \
+    toml_array_t *array = toml_array_in(table, key); \
+    if (!array) { \
+        LOG_ERROR("cannot read ", key); \
+        return; \
+    } \
+    size_t array_count = toml_array_nelem(array); \
+    char **var = malloc(array_count * sizeof(char *)); \
+    size_t count = 0; \
+    for (size_t i = 0; i < array_count; i++) { \
+        char *str = toml_string_at(array, i).u.s; \
+        var[count] = malloc(strlen(str) + 1); \
+        strcpy(var[count], str); \
+        free(str); \
+        count++; \
+    }
+
+#define LOAD_TOML_DOUBLE(table, key, var) \
+    toml_datum_t var = toml_double_in(table, key); \
+    if (!var.ok) { \
         LOG_ERROR("cannot read ", key); \
         return; \
     }
@@ -52,6 +69,7 @@ void colorThemeLoad(ColorTheme *theme, const char *path);
 typedef struct {
     char *theme_path;
     i32 tab_stop;
+    f64 cursor_speed;
 } Config;
 
 Config configInit();

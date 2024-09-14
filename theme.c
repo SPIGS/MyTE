@@ -36,7 +36,7 @@ void colorThemeLoad(ColorTheme *theme, const char *path) {
         return;
     }
 
-    toml_table_t* color_table = toml_table_in(color_conf, "colors");
+    toml_table_t *color_table = toml_table_in(color_conf, "colors");
     if (!color_conf) {
         LOG_ERROR("Color Theme file missing [colors]", "");
         return;
@@ -68,13 +68,14 @@ void colorThemeLoad(ColorTheme *theme, const char *path) {
     theme-> comment_single_color = comment_single_color.u.i;
     theme-> comment_multi_color = comment_multi_color.u.i;
 
-    free(color_conf);
+    toml_free(color_conf);    
 }
 
 Config configInit() {
     Config config;
     config.theme_path = NULL;
     config.tab_stop = 3;
+    config.cursor_speed = 3.5;
     return config;
 }
 void configDestroy(Config *config) {
@@ -105,8 +106,10 @@ void loadConfigFromFile(Config *config, const char* path) {
     // Get data
     LOAD_TOML_STR(editor_table, "color_theme", color_theme);
     LOAD_TOML_INT(editor_table, "tab_stop", tab_stop);
+    LOAD_TOML_DOUBLE(editor_table, "cursor_speed", cursor_speed);
     config->theme_path = color_theme.u.s;
     config->tab_stop = tab_stop.u.i;
+    config->cursor_speed= cursor_speed.u.d;
 
-    free(config_conf);
+    toml_free(config_conf);
 }
