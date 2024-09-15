@@ -35,7 +35,7 @@ typedef struct {
     // Stats to keep track of
     size_t line_count;
     f32 line_height;
-    char *file_path;
+    const char *file_path;
 
     // Lexing stuff
     Lexer lexer;
@@ -63,6 +63,7 @@ void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme th
 
 char *getContents(Editor *ed);
 void loadFromFile(Editor *ed, const char *file_path);
+void writeToFile(Editor *ed);
 void clearBuffer(Editor *ed);
 void moveCursorWordForward(Editor *ed);
 void moveCursorWordBackward(Editor *ed);

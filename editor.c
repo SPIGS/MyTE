@@ -14,7 +14,6 @@ Cursor cursorInit(vec2 init_screen_pos) {
     };
 }
 
-// TODO CHange this to be like renderer - pass this by reference
 void editorInit(Editor *ed, rect frame, f32 line_height) {
     ed->buf = gapBufferInit(INITIAL_BUFFER_SIZE);
     ed->cursor = cursorInit(vec2_init(frame.x, frame.h));
@@ -65,7 +64,6 @@ void moveCursorRight(Editor *ed) {
     }
 }
 
-// TODO: make a favored column like how emacs has it
 void moveCursorUp(Editor *ed) {
     
     // Set the goal column if we haven't already
@@ -177,6 +175,8 @@ void setGoalColumn(Editor *ed) {
 }
 
 void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme theme, f64 delta_time) {
+    UNUSED(delta_time);
+
     // Update scroll
     f32 SCROLL_UP_LINE_FACTOR = 6;
     f32 SCROLL_DOWN_LINE_FACTOR = 2;
@@ -199,7 +199,6 @@ void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme th
     // Update the lexer
     if (ed->dirty && ed->lexer.file_type != FILE_TYPE_UNKNOWN) {
         char *data = getBufString(ed->buf);
-        size_t len_data = strlen(data);
         free(ed->lexer.tokens);
         lex(&ed->lexer, data, theme);
         ed->dirty = false;
@@ -207,9 +206,8 @@ void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme th
 }
 
 void loadFromFile(Editor *ed, const char *file_path) {
-
     // Get file info
-    char *file_ext = getFileExtFromPath(file_path);
+    const char *file_ext = getFileExtFromPath(file_path);
     char *file_name = getFileNameFromPath(file_path);
     FileType ftype = getFileType(file_name, file_ext);
     
@@ -231,7 +229,7 @@ void loadFromFile(Editor *ed, const char *file_path) {
     while ((nread = fread(read_buf, 1, sizeof(read_buf), f)) > 0) {
         for (size_t i = 0; i < nread; i++) {
             if (read_buf[i] == '\t') {
-                for (size_t i = 0; i < ed->tab_stop; i++) {
+                for (size_t i = 0; i < (size_t)ed->tab_stop; i++) {
                     insertCharacter(ed, ' ', true);
                 }
             } else {
@@ -249,6 +247,26 @@ void loadFromFile(Editor *ed, const char *file_path) {
     ed->goal_column = -1;
     ed->file_path = file_path;
     ed->dirty = true;
+}
+
+void writeToFile(Editor *ed) {
+    if (!ed->file_path)
+        LOG_ERROR("Writing a blank file to disk is not supported!", "");
+
+    FILE *f = fopen(ed->file_path, "w");
+    if (f == NULL) {
+        LOG_ERROR("Couldn't open file with write access: ", ed->file_path);
+        return;
+    }
+
+    if (fputs(getBufString(ed->buf), f) == EOF) {
+        LOG_ERROR("Couldn't write to file: ", ed->file_path);
+        fclose(f);
+        return;
+    }
+    fclose(f);
+
+    LOG_INFO("Wrote to disk: ", ed->file_path);
 }
 
 void clearBuffer(Editor *ed) {
@@ -292,7 +310,6 @@ void moveCursorWordBackward(Editor *ed) {
     if (ed->cursor.buffer_pos <= 0)
         return;
 
-    
     size_t new_cursor_pos = ed->cursor.buffer_pos;
     char prev_char = getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos));
     if (isspace(prev_char)) {

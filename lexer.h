@@ -7,7 +7,7 @@
 
 #include "util.h"
 #include "toml.h"
-#include "theme.h"
+#include "config.h"
 
 // Token types
 typedef enum {

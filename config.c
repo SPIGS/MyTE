@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <errno.h>
 #include <string.h>
-#include "theme.h"
+#include "config.h"
 
 ColorTheme colorThemeInit() {
     // Colors - the default theme is Space Duck (https://github.com/pineapplegiant/spaceduck)

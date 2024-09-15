@@ -335,7 +335,6 @@ void renderChar(Renderer* r, u32 font_id, char character, vec2 *pos, Color tint)
 					uv_min, uv_max, vec2_init(uv_min.x, uv_max.y), atlas.glyphs_texture);
 }
 
-// TODO: get rid of the cursor requirement for this - this function should just render text
 void renderText(Renderer* r, u32 font_id, char *data, vec2 *pos, Color tint) {
 	GlyphAtlas atlas = r->font_atlases[font_id];
 	vec2 init_pos = vec2_init(pos->x, pos->y);
