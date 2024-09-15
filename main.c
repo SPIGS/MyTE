@@ -12,10 +12,12 @@
 #include "editor.h"
 #include "theme.h"
 
-
+// TODO: Move this into an application struct
 Editor editor;
+Renderer renderer;
 Config config;
 ColorTheme theme;
+u32 font_id;
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action , int mods)
 {
@@ -59,9 +61,14 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
         configDestroy(&config);
         config = configInit();
         loadConfigFromFile(&config, "./config/config.toml");
+        font_id = rendererLoadFont(&renderer, config.font_path, 24);
+        char *file_path = malloc(strlen(editor.file_path) + 1);
+        strcpy(file_path, editor.file_path);
+        editorDestroy(&editor);
+        rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
+        editorInit(&editor, editor_frame, renderer.font_atlases[font_id].atlas_height);
+        loadFromFile(&editor, file_path);
         editorLoadConfig(&editor, &config);
-        clearBuffer(&editor);
-        loadFromFile(&editor, editor.file_path);
         theme = colorThemeInit();
         if (config.theme_path)
             colorThemeLoad(&theme, config.theme_path);
@@ -137,10 +144,12 @@ int main (int argc, char **argv) {
 
 	printf("OpenGL ver. %s\n", glGetString(GL_VERSION));
 
-    Renderer renderer;
+    config = configInit();
+    loadConfigFromFile(&config, "./config/config.toml");
+
     rendererInit(&renderer, COLOR_BLACK);
-	u32 font_id = rendererLoadFont(&renderer, "./fonts/iosevka-firamono.ttf", 24);
-    rect editor_frame = rect_init(10, 200, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
+	font_id = rendererLoadFont(&renderer, config.font_path, 24);
+    rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
     editorInit(&editor, editor_frame, renderer.font_atlases[font_id].atlas_height);
 
 	glfwSetWindowUserPointer(window, &renderer);
@@ -156,9 +165,6 @@ int main (int argc, char **argv) {
             printf("WARN: Error evaluating path. The file might be moved or missing or a directory (not supported)!\n");
         }
     }
-
-    config = configInit();
-    loadConfigFromFile(&config, "./config/config.toml");
 
     theme = colorThemeInit();
     if (config.theme_path)
@@ -178,6 +184,11 @@ int main (int argc, char **argv) {
         
 		// Render stuff goes here
         renderEditor(&renderer, font_id, &editor, delta_time, theme);
+        f64 fps = 1.0f / delta_time;
+        char fps_str[200];
+        sprintf(fps_str, "FPS: %f", fps);
+        vec2 fps_pos = vec2_init(renderer.screen_width - 200, 30);
+        renderText(&renderer, font_id, fps_str, &fps_pos, COLOR_RED);
 
         rendererEnd(&renderer);
         glfwSwapBuffers(window);

@@ -144,6 +144,7 @@ void rendererInit(Renderer* r, Color clear_color) {
 		exit(1);
 	}
 	r->font_atlas_count = 0;
+	r->glyph_adv = 0;
 }
 
 void rendererDestroy(Renderer* r) {
@@ -355,10 +356,10 @@ void renderText(Renderer* r, u32 font_id, char *data, vec2 *pos, Color tint) {
 }
 
 void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorTheme theme) {
-	f32 PADDING = 90.0f;
+	f32 PADDING = 30.0f;
 
 	GlyphAtlas atlas = r->font_atlases[font_id];
-	vec2 init_pos = vec2_init(e->text_pos.x + PADDING, e->text_pos.y - e->line_height);
+	vec2 init_pos = vec2_init(((r->glyph_adv * 3) + PADDING), e->text_pos.y - e->line_height);
 	vec2 adj_text_pos = vec2_add(init_pos, e->scroll_pos);
 
 	renderQuad(r, e->frame, color_from_hex(theme.background_color));
@@ -416,30 +417,34 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 	}
 
 	// gutter
-	PADDING = 30.0f;
-	vec2 num_pos = vec2_init(0, e->frame.y + e->frame.h - e->line_height + e->scroll_pos.y);
-	renderQuad(r, rect_init(85.0, 0, 1, r->screen_height), COLOR_GRAY);
+	PADDING = 10.0f;
+	vec2 gutter_pos = vec2_init(0, e->frame.y + e->frame.h - e->line_height);
+	gutter_pos = vec2_add(gutter_pos, e->scroll_pos);
+	renderQuad(r, rect_init((r->glyph_adv * 3) + PADDING, 0, 1, r->screen_height), COLOR_GRAY);
 	for (i32 i = 1; i <= (i32)e->line_count; ++i) {
 		char num[11];
 		sprintf(num, "%3d", i);
-		renderText(r, font_id, num, &num_pos, COLOR_SILVER);
-		num_pos.x = 0;
-		num_pos.y -= e->line_height;
+		renderText(r, font_id, num, &gutter_pos, COLOR_SILVER);
+		gutter_pos.x = 0;
+		gutter_pos.y -= e->line_height;
 	}
 
 	// Status line
-	renderQuad(r, rect_init(0, 5, r->screen_width, e->line_height), COLOR_GRAY);
-	renderQuad(r, rect_init(5, 2.5, 155, e->line_height + 5), color_from_hex(0x2277FFFF));
-	vec2 mode_text_pos = vec2_init(10,12.5);
-	renderText(r, font_id, "NORMAL", &mode_text_pos, COLOR_WHITE);
+	renderQuad(r, rect_init(0, 0, r->screen_width, e->line_height), COLOR_GRAY);
+	
+	char *mode_text = "NORMAL";
+	renderQuad(r, rect_init((r->glyph_adv * 3) + PADDING, 0, (strlen(mode_text) * r->glyph_adv) + PADDING, e->line_height), color_from_hex(0x2277FFFF));
+	vec2 mode_text_pos = vec2_init((r->glyph_adv * 3) + (PADDING * 1.5), (PADDING / 2));
+	renderText(r, font_id, mode_text, &mode_text_pos, COLOR_WHITE);
+	
 	char col_row_disp[24];
 	sprintf(col_row_disp, "%lu,%lu", e->cursor.disp_row, e->cursor.disp_column);
-	vec2 col_row_disp_pos = vec2_init(r->screen_width - 200, 12.5);
+	vec2 col_row_disp_pos = vec2_init(r->screen_width - (strlen(col_row_disp) * r->glyph_adv) - PADDING, 5);
 	renderText(r, font_id, col_row_disp, &col_row_disp_pos,COLOR_WHITE);
 
 }
 
-u32 rendererLoadFont(Renderer *r, char *path, u32 size_px) {
+u32 rendererLoadFont(Renderer *r, const char *path, u32 size_px) {
 	// Load a face
 	FT_Face face;
 	if(FT_New_Face(r->ft, path, 0, &face)) {
@@ -452,7 +457,7 @@ u32 rendererLoadFont(Renderer *r, char *path, u32 size_px) {
 
 	//Make the atlas
 	GlyphAtlas atlas;
-	glyphAtlasInit(&atlas, face);
+	glyphAtlasInit(&atlas, face, &r->glyph_adv);
 
 	//Store atlas
 	u32 font_id = r->font_atlas_count;

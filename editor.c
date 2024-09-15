@@ -192,7 +192,7 @@ void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme th
     }
 
     // Update frame
-    f32 STATUS_LINE_HEIGHT = ed->line_height + 5;
+    f32 STATUS_LINE_HEIGHT = ed->line_height;
     ed->frame = rect_init(0,0 + STATUS_LINE_HEIGHT, screen_width, screen_height - STATUS_LINE_HEIGHT);
     ed->text_pos = vec2_init(0, 0 + screen_height);
 
@@ -267,15 +267,18 @@ void moveCursorWordForward(Editor *ed) {
         return;
 
     size_t new_cursor_pos = ed->cursor.buffer_pos;
-    if (isspace(getBufChar(ed->buf, new_cursor_pos))) {
-        while (!isalnum(getBufChar(ed->buf, new_cursor_pos))) {
+    char cur_char = getBufChar(ed->buf, new_cursor_pos);
+    if (isspace(cur_char)) {
+        while (!isalnum(cur_char) && cur_char != '\0') {
             new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
             moveCursorRight(ed);
+            cur_char = getBufChar(ed->buf, new_cursor_pos);
         }
     } else {
-        while (!isalnum(getBufChar(ed->buf, new_cursor_pos)) && !isspace(getBufChar(ed->buf, new_cursor_pos))) {
+        while (!isalnum(cur_char) && !isspace(cur_char) && cur_char != '\0') {
             new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
             moveCursorRight(ed);
+            cur_char = getBufChar(ed->buf, new_cursor_pos);
         }
     }
     
@@ -289,17 +292,20 @@ void moveCursorWordBackward(Editor *ed) {
     if (ed->cursor.buffer_pos <= 0)
         return;
 
+    
     size_t new_cursor_pos = ed->cursor.buffer_pos;
-    if (isspace(getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos)))) {
-        while (!isalnum(getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos)))) {
+    char prev_char = getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos));
+    if (isspace(prev_char)) {
+        while (!isalnum(prev_char) && new_cursor_pos != 0) {
             new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
             moveCursorLeft(ed);
+            prev_char = getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos));
         }
     } else {
-        while (!isalnum(getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos))) 
-            && !isspace(getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos)))) {
+        while (!isalnum(prev_char) && !isspace(prev_char) && new_cursor_pos != 0) {
             new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
             moveCursorLeft(ed);
+            prev_char = getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos));
         }
     }
     

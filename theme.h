@@ -67,6 +67,7 @@ ColorTheme colorThemeInit();
 void colorThemeLoad(ColorTheme *theme, const char *path);
 
 typedef struct {
+    char *font_path;
     char *theme_path;
     i32 tab_stop;
     f64 cursor_speed;

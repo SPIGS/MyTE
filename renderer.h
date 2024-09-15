@@ -40,6 +40,7 @@ typedef struct {
 	FT_Library ft;
 	GlyphAtlas font_atlases[8];
 	u32 font_atlas_count;
+	f32 glyph_adv;
 
 	// Screen size info
 	f32 screen_width;
@@ -66,4 +67,4 @@ void renderChar(Renderer* r, u32 font_id, char character, vec2 *pos, Color tint)
 void renderText(Renderer* r, u32 font_id, char *text, vec2 *pos, Color tint);
 void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorTheme theme);
 
-u32 rendererLoadFont(Renderer *r, char *path, u32 size_px);
+u32 rendererLoadFont(Renderer *r, const char *path, u32 size_px);

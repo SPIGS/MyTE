@@ -73,12 +73,16 @@ void colorThemeLoad(ColorTheme *theme, const char *path) {
 
 Config configInit() {
     Config config;
+    config.font_path = NULL;
     config.theme_path = NULL;
     config.tab_stop = 3;
     config.cursor_speed = 3.5;
     return config;
 }
 void configDestroy(Config *config) {
+    if (config->font_path)
+        free(config->font_path);
+
     if (config->theme_path)
         free(config->theme_path);
 }
@@ -104,9 +108,11 @@ void loadConfigFromFile(Config *config, const char* path) {
     }
 
     // Get data
+    LOAD_TOML_STR(editor_table, "font", font_path);
     LOAD_TOML_STR(editor_table, "color_theme", color_theme);
     LOAD_TOML_INT(editor_table, "tab_stop", tab_stop);
     LOAD_TOML_DOUBLE(editor_table, "cursor_speed", cursor_speed);
+    config->font_path = font_path.u.s;
     config->theme_path = color_theme.u.s;
     config->tab_stop = tab_stop.u.i;
     config->cursor_speed= cursor_speed.u.d;
