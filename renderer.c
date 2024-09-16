@@ -4,6 +4,7 @@
 #include <GL/glew.h>
 #include "renderer.h"
 #include "lexer.h"
+#include "browser.h"
 
 void rendererInit(Renderer* r, Color clear_color) {
 	glEnable(GL_BLEND);
@@ -356,17 +357,47 @@ void renderText(Renderer* r, u32 font_id, char *data, vec2 *pos, Color tint) {
 
 void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorTheme theme) {
 	f32 PADDING = 30.0f;
-
-	GlyphAtlas atlas = r->font_atlases[font_id];
-	vec2 init_pos = vec2_init(((r->glyph_adv * 3) + PADDING), e->text_pos.y - e->line_height);
-	vec2 adj_text_pos = vec2_add(init_pos, e->scroll_pos);
-
 	renderQuad(r, e->frame, color_from_hex(theme.background_color));
+	GlyphAtlas atlas = r->font_atlases[font_id];
 	
-	for (size_t i = 0; i < e->lexer.token_count; i++) {
+	if (e->mode != EDITOR_MODE_OPEN) {
+		vec2 init_pos = vec2_init(((r->glyph_adv * 3) + PADDING), e->text_pos.y - e->line_height);
+		vec2 adj_text_pos = vec2_add(init_pos, e->scroll_pos);
 
-		if (i == e->cursor.buffer_pos) {
-			
+		for (size_t i = 0; i < e->lexer.token_count; i++) {
+
+			if (i == e->cursor.buffer_pos) {
+				
+				//TODO: this code shouldn't be here!
+				// set a new target position
+				e->cursor.target_screen_pos = vec2_init(adj_text_pos.x, adj_text_pos.y);
+				e->cursor.prev_screen_pos = e->cursor.screen_pos;
+
+				// increment the animation timer
+				e->cursor.anim_time += (f32)delta_time * e->cursor_speed;
+				if (e->cursor.anim_time >= 1.0f) {
+					e->cursor.anim_time = 1.0f;
+				}
+
+				// lerp the current postion
+				e->cursor.screen_pos =  lerp(e->cursor.prev_screen_pos, e->cursor.target_screen_pos, e->cursor.anim_time);
+				
+				rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
+				renderQuad(r, cursor_quad, COLOR_WHITE);
+			}
+
+			// If the character is a newline, move down and back over to the left.
+			if (e->lexer.tokens[i].character == '\n') {
+				adj_text_pos.x = init_pos.x;
+				adj_text_pos.y -= atlas.atlas_height;
+				continue;
+			}
+
+			// Render the character
+			renderChar(r, font_id, e->lexer.tokens[i].character, &adj_text_pos, color_from_hex(e->lexer.tokens[i].color));
+		}
+
+		if (e->cursor.buffer_pos == e->lexer.token_count) {
 			//TODO: this code shouldn't be here!
 			// set a new target position
 			e->cursor.target_screen_pos = vec2_init(adj_text_pos.x, adj_text_pos.y);
@@ -384,55 +415,88 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 			rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
 			renderQuad(r, cursor_quad, COLOR_WHITE);
 		}
-
-		// If the character is a newline, move down and back over to the left.
-		if (e->lexer.tokens[i].character == '\n') {
-			adj_text_pos.x = init_pos.x;
-			adj_text_pos.y -= atlas.atlas_height;
-			continue;
-		}
-
-		// Render the character
-		renderChar(r, font_id, e->lexer.tokens[i].character, &adj_text_pos, color_from_hex(e->lexer.tokens[i].color));
-	}
-
-	if (e->cursor.buffer_pos == e->lexer.token_count) {
-		//TODO: this code shouldn't be here!
-		// set a new target position
-		e->cursor.target_screen_pos = vec2_init(adj_text_pos.x, adj_text_pos.y);
-		e->cursor.prev_screen_pos = e->cursor.screen_pos;
-
-		// increment the animation timer
-		e->cursor.anim_time += (f32)delta_time * e->cursor_speed;
-		if (e->cursor.anim_time >= 1.0f) {
-			e->cursor.anim_time = 1.0f;
-		}
-
-		// lerp the current postion
-		e->cursor.screen_pos =  lerp(e->cursor.prev_screen_pos, e->cursor.target_screen_pos, e->cursor.anim_time);
+	} else {
+		getPaths(&e->browser, ".");
+		vec2 init_pos = vec2_init(((r->glyph_adv * 3) + PADDING), e->text_pos.y - e->line_height);
 		
-		rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
-		renderQuad(r, cursor_quad, COLOR_WHITE);
+		// Render the selection highlight
+		e->browser.sel_target_screen_pos = vec2_init(init_pos.x, e->text_pos.y - (e->line_height * (e->browser.selection + 1)));
+		e->browser.sel_prev_screen_pos = e->browser.sel_screen_pos;
+		e->browser.sel_target_size = vec2_init((strlen(e->browser.items[e->browser.selection].name_ext ) * r->glyph_adv) + 5, e->line_height);
+		e->browser.sel_prev_size = e->browser.sel_size;
+
+		e->browser.anim_time += (f32)delta_time * e->cursor_speed;
+		if (e->browser.anim_time >= 1.0f)
+			e->browser.anim_time = 1.0f;
+
+		e->browser.sel_screen_pos = lerp(e->browser.sel_prev_screen_pos, e->browser.sel_target_screen_pos, e->browser.anim_time);
+		e->browser.sel_size = lerp(e->browser.sel_prev_size, e->browser.sel_target_size, e->browser.anim_time);
+
+		rect selection_higlight = rect_init(e->browser.sel_screen_pos.x, e->browser.sel_screen_pos.y, e->browser.sel_size.x, e->browser.sel_size.y);
+		renderQuad(r, selection_higlight, color_from_hex(theme.highlight_color));
+
+
+		for (size_t i = 0; i < e->browser.num_paths; i++){
+			renderText(r, font_id, e->browser.items[i].name_ext, &init_pos, COLOR_WHITE);
+			renderText(r, font_id, "\n", &init_pos, COLOR_WHITE);
+			init_pos.x = ((r->glyph_adv * 3) + PADDING);
+		}
 	}
+	
 
 	// gutter
 	PADDING = 10.0f;
 	vec2 gutter_pos = vec2_init(0, e->frame.y + e->frame.h - e->line_height);
 	gutter_pos = vec2_add(gutter_pos, e->scroll_pos);
 	renderQuad(r, rect_init((r->glyph_adv * 3) + PADDING, 0, 1, r->screen_height), COLOR_GRAY);
-	for (i32 i = 1; i <= (i32)e->line_count; ++i) {
-		char num[11];
-		sprintf(num, "%3d", i);
-		renderText(r, font_id, num, &gutter_pos, COLOR_SILVER);
-		gutter_pos.x = 0;
-		gutter_pos.y -= e->line_height;
+
+	if (e->mode != EDITOR_MODE_OPEN) {
+		for (i32 i = 1; i <= (i32)e->line_count; ++i) {
+			char num[11];
+			sprintf(num, "%3d", i);
+			renderText(r, font_id, num, &gutter_pos, COLOR_SILVER);
+			gutter_pos.x = 0;
+			gutter_pos.y -= e->line_height;
+		}
+	} else {
+		for (size_t i = 0; i <= e->browser.num_paths; i++) {
+			char num[4];
+			sprintf(num, "%3s", "~");
+			renderText(r, font_id, num, &gutter_pos, COLOR_SILVER);
+			gutter_pos.x = 0;
+			gutter_pos.y -= e->line_height;
+		}
 	}
 
 	// Status line
 	renderQuad(r, rect_init(0, 0, r->screen_width, e->line_height), COLOR_GRAY);
 	
-	char *mode_text = "NORMAL";
-	renderQuad(r, rect_init((r->glyph_adv * 3) + PADDING, 0, (strlen(mode_text) * r->glyph_adv) + PADDING, e->line_height), color_from_hex(0x2277FFFF));
+	char mode_text[7];
+	Color mode_color;
+	switch (e->mode)
+	{
+	case EDITOR_MODE_NORMAL:
+		strcpy(mode_text, "NORMAL");
+		mode_color = color_from_hex(0x2277FFFF);
+		break;
+
+	case EDITOR_MODE_OPEN:
+		strcpy(mode_text, "OPEN");
+		mode_color = color_from_hex(0xFAC748FF);
+		break;
+
+	case EDITOR_MODE_SAVE:
+		strcpy(mode_text, "SAVE");
+		mode_color = color_from_hex(0xD30C7BFF);
+		break;
+	
+	default:
+		strcpy(mode_text, "NORMAL");
+		mode_color = color_from_hex(0x2277FFFF);
+		break;
+	}
+
+	renderQuad(r, rect_init((r->glyph_adv * 3) + PADDING, 0, (strlen(mode_text) * r->glyph_adv) + PADDING, e->line_height), mode_color);
 	vec2 mode_text_pos = vec2_init((r->glyph_adv * 3) + (PADDING * 1.5), (PADDING / 2));
 	renderText(r, font_id, mode_text, &mode_text_pos, COLOR_WHITE);
 	

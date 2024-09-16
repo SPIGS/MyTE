@@ -19,6 +19,7 @@ ColorTheme colorThemeInit() {
     theme.background_color = 0x0F111BFF;      
     theme.comment_single_color = 0x686f9aFF;    
     theme.comment_multi_color = 0x686f9aFF;
+    theme.highlight_color = 0x30365FFF;
     return theme;
 }
 
@@ -54,6 +55,7 @@ void colorThemeLoad(ColorTheme *theme, const char *path) {
     LOAD_TOML_INT(color_table, "background_color", background_color);
     LOAD_TOML_INT(color_table, "comment_single_color", comment_single_color);
     LOAD_TOML_INT(color_table, "comment_multi_color", comment_multi_color);
+    LOAD_TOML_INT(color_table, "highlight_color", highlight_color);
 
     theme-> keyword_color = keyword_color.u.i;
     theme-> symbol_color = symbol_color.u.i;
@@ -67,6 +69,7 @@ void colorThemeLoad(ColorTheme *theme, const char *path) {
     theme-> background_color = background_color.u.i;
     theme-> comment_single_color = comment_single_color.u.i;
     theme-> comment_multi_color = comment_multi_color.u.i;
+    theme-> highlight_color = highlight_color.u.i;
 
     toml_free(color_conf);    
 }

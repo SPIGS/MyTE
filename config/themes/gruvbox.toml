@@ -11,3 +11,4 @@
     comment_multi_color = 0x928374FF
     foreground_color = 0xFBF1C7FF
     background_color = 0x282828FF
+    highlight_color = 0x303F34FF

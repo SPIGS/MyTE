@@ -4,8 +4,15 @@
 #include "gapbuffer.h"
 #include "util.h"
 #include "lexer.h"
+#include "browser.h"
 
 #define CURSOR_SPEED 3.5
+
+typedef enum {
+    EDITOR_MODE_NORMAL,
+    EDITOR_MODE_OPEN,
+    EDITOR_MODE_SAVE
+} EditorMode;
 
 typedef struct {
     size_t buffer_pos;
@@ -44,11 +51,18 @@ typedef struct {
     // Configuration stuff
     i32 tab_stop;
     f64 cursor_speed;
+
+    // Editor modes
+    EditorMode mode;
+
+    // File Browser stuff
+    FileBrowser browser;
 } Editor;
 
 void editorInit(Editor *ed, rect frame, f32 line_height);
 void editorDestroy(Editor *ed);
 void editorLoadConfig(Editor *ed, Config *config);
+void editorChangeMode(Editor *ed, EditorMode new_mode);
 
 // Cursor Movements
 void moveCursorLeft(Editor *ed);

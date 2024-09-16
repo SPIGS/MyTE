@@ -28,11 +28,14 @@ void editorInit(Editor *ed, rect frame, f32 line_height) {
     ed->dirty = true;
     ed->tab_stop = 4;
     ed->cursor_speed = 3.5;
+    ed->mode = EDITOR_MODE_NORMAL;
+    fileBrowserInit(&ed->browser, vec2_init(frame.x, frame.h));
 }
 
 void editorDestroy(Editor *ed) {
     gapBufferDestroy(ed->buf);
     lexerDestroy(&ed->lexer);
+    fileBrowserDestroy(&ed->browser);
 }
 
 void editorLoadConfig(Editor *ed, Config *config) {
@@ -41,128 +44,169 @@ void editorLoadConfig(Editor *ed, Config *config) {
     ed->dirty = true;
 }
 
+void editorChangeMode(Editor *ed, EditorMode new_mode) {
+    switch (new_mode)
+    {
+    case EDITOR_MODE_OPEN:
+        LOG_INFO("Load paths", "");
+        break;
+    
+    default:
+        break;
+    }
+    ed->mode = new_mode;
+}
+
 // Cursor Movements
 void moveCursorLeft(Editor *ed) {
-     ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-     ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
-     ed->cursor.anim_time = 0.0f;
-     setGoalColumn(ed);
+    if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
+        ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
+        ed->cursor.anim_time = 0.0f;
+        setGoalColumn(ed);
 
-     if (getBufChar(ed->buf, ed->cursor.buffer_pos) == '\n' && ed->cursor.disp_row > 1) {
-        ed->cursor.disp_row--;
-     }
+        if (getBufChar(ed->buf, ed->cursor.buffer_pos) == '\n' && ed->cursor.disp_row > 1) {
+            ed->cursor.disp_row--;
+        }
+    } else {
+
+    }  
 }
 
 void moveCursorRight(Editor *ed) {
-    ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-    ed->cursor.buffer_pos = getNextCharCursor(ed->buf, ed->cursor.buffer_pos);
-    ed->cursor.anim_time = 0.0f;
-    setGoalColumn(ed);
+    if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
+        ed->cursor.buffer_pos = getNextCharCursor(ed->buf, ed->cursor.buffer_pos);
+        ed->cursor.anim_time = 0.0f;
+        setGoalColumn(ed);
 
-    if (getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos)) == '\n' && ed->cursor.buffer_pos != ed->cursor.prev_buffer_pos) {
-        ed->cursor.disp_row++;
+        if (getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos)) == '\n' && ed->cursor.buffer_pos != ed->cursor.prev_buffer_pos) {
+            ed->cursor.disp_row++;
+        }
+    } else {
+
     }
 }
 
 void moveCursorUp(Editor *ed) {
-    
-    // Set the goal column if we haven't already
-    if (ed->goal_column == -1) {
-        setGoalColumn(ed);
-    }
 
-    // Find the beginning of the prev line and the lenght of the prev line
-    ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-    size_t beginning_of_prev_line = getBeginningOfPrevLineCursor(ed->buf, ed->cursor.buffer_pos);
-    size_t prev_line_length = getBufLineLength(ed->buf, beginning_of_prev_line);
+    if (ed->mode != EDITOR_MODE_OPEN) {
+        // Set the goal column if we haven't already
+        if (ed->goal_column == -1) {
+            setGoalColumn(ed);
+        }
 
-    // if the position of the beginning of current line is 0, that means we are on the first line
-    // we should act as if the length of the previous line is 0.
-    if (getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_pos) == 0) {
-        prev_line_length = 0;
-    }
+        // Find the beginning of the prev line and the lenght of the prev line
+        ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
+        size_t beginning_of_prev_line = getBeginningOfPrevLineCursor(ed->buf, ed->cursor.buffer_pos);
+        size_t prev_line_length = getBufLineLength(ed->buf, beginning_of_prev_line);
 
-    // If the length of the prev line is 0, we should just move to the end of the previous line
-    if (prev_line_length == 0) {
-        ed->cursor.buffer_pos = getEndOfPrevLineCursor(ed->buf, ed->cursor.buffer_pos);
-        ed->cursor.disp_column = MIN(prev_line_length, (size_t)ed->goal_column);
+        // if the position of the beginning of current line is 0, that means we are on the first line
+        // we should act as if the length of the previous line is 0.
+        if (getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_pos) == 0) {
+            prev_line_length = 0;
+        }
+
+        // If the length of the prev line is 0, we should just move to the end of the previous line
+        if (prev_line_length == 0) {
+            ed->cursor.buffer_pos = getEndOfPrevLineCursor(ed->buf, ed->cursor.buffer_pos);
+            ed->cursor.disp_column = MIN(prev_line_length, (size_t)ed->goal_column);
+        } else {
+            ed->cursor.buffer_pos = beginning_of_prev_line + MIN(prev_line_length, (size_t)ed->goal_column);
+            ed->cursor.disp_column = MIN(prev_line_length, (size_t)ed->goal_column);
+        }
+
+        if (ed->cursor.disp_column < 1) {
+            ed->cursor.disp_column = 1;
+        }
+
+        ed->cursor.anim_time = 0.0f;
+
+        if (ed->cursor.disp_row > 1) {
+            ed->cursor.disp_row--;
+        } else if (ed->cursor.disp_row == 1) {
+            setGoalColumn(ed);
+        }
     } else {
-        ed->cursor.buffer_pos = beginning_of_prev_line + MIN(prev_line_length, (size_t)ed->goal_column);
-        ed->cursor.disp_column = MIN(prev_line_length, (size_t)ed->goal_column);
-    }
-
-    if (ed->cursor.disp_column < 1) {
-        ed->cursor.disp_column = 1;
-    }
-
-    ed->cursor.anim_time = 0.0f;
-
-    if (ed->cursor.disp_row > 1) {
-        ed->cursor.disp_row--;
-    } else if (ed->cursor.disp_row == 1) {
-        setGoalColumn(ed);
+        decrementSelection(&ed->browser);
     }
 }
 
 void moveCursorDown(Editor *ed) {
-    if (ed->goal_column == -1) {
-        setGoalColumn(ed);
-    }
-    ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-    size_t beginning_of_next_line = getBeginningOfNextLineCursor(ed->buf, ed->cursor.buffer_pos);
-    size_t next_line_length = getEndOfLineCursor(ed->buf, beginning_of_next_line) - beginning_of_next_line;
-    ed->cursor.buffer_pos = beginning_of_next_line + MIN(next_line_length, (size_t)ed->goal_column);
-    ed->cursor.disp_column = MIN(next_line_length, (size_t)ed->goal_column);
-    if (ed->cursor.disp_column < 1) {
-        ed->cursor.disp_column = 1;
-    }
-    ed->cursor.anim_time = 0.0f;
+    if (ed->mode != EDITOR_MODE_OPEN) {
+        if (ed->goal_column == -1) {
+            setGoalColumn(ed);
+        }
+        ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
+        size_t beginning_of_next_line = getBeginningOfNextLineCursor(ed->buf, ed->cursor.buffer_pos);
+        size_t next_line_length = getEndOfLineCursor(ed->buf, beginning_of_next_line) - beginning_of_next_line;
+        ed->cursor.buffer_pos = beginning_of_next_line + MIN(next_line_length, (size_t)ed->goal_column);
+        ed->cursor.disp_column = MIN(next_line_length, (size_t)ed->goal_column);
+        if (ed->cursor.disp_column < 1) {
+            ed->cursor.disp_column = 1;
+        }
+        ed->cursor.anim_time = 0.0f;
 
-    if (ed->cursor.disp_row < ed->line_count) {
-        ed->cursor.disp_row++;
-    } else if (ed->cursor.disp_row == ed->line_count) {
-        setGoalColumn(ed);
+        if (ed->cursor.disp_row < ed->line_count) {
+            ed->cursor.disp_row++;
+        } else if (ed->cursor.disp_row == ed->line_count) {
+            setGoalColumn(ed);
+        }
+    } else {
+        incrementSelection(&ed->browser);
     }
 }
 
 void insertCharacter(Editor *ed, char character, bool move_cursor_forward) {
-    if (character == '\n') {
-        ed->line_count ++;
-        ed->cursor.disp_row++;
-    }
+    if (ed->mode != EDITOR_MODE_OPEN) {
+        if (character == '\n') {
+            ed->line_count ++;
+            ed->cursor.disp_row++;
+        }
 
-    insertCharIntoBuf(ed->buf, ed->cursor.buffer_pos, character);
-    if (move_cursor_forward) {
-        ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-        ed->cursor.buffer_pos = getNextCharCursor(ed->buf, ed->cursor.buffer_pos);
-        setGoalColumn(ed);
-        ed->cursor.anim_time = 0.0f;
+        insertCharIntoBuf(ed->buf, ed->cursor.buffer_pos, character);
+        if (move_cursor_forward) {
+            ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
+            ed->cursor.buffer_pos = getNextCharCursor(ed->buf, ed->cursor.buffer_pos);
+            setGoalColumn(ed);
+            ed->cursor.anim_time = 0.0f;
+        }
+        ed->dirty = true;
+    } else {
+        
     }
-    ed->dirty = true;
 }
 
 void deleteCharacterLeft(Editor *ed) {
-    if (getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos)) == '\n' && ed->line_count > 1) {
-        ed->line_count--;
-        ed->cursor.disp_row--;
-    }
+    if (ed->mode != EDITOR_MODE_OPEN) {
+        if (getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos)) == '\n' && ed->line_count > 1) {
+            ed->line_count--;
+            ed->cursor.disp_row--;
+        }
 
-    removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
-    ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-    ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
-    setGoalColumn(ed);
-    ed->cursor.anim_time = 0.0f;
-    ed->dirty = true;
+        removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
+        ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
+        ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
+        setGoalColumn(ed);
+        ed->cursor.anim_time = 0.0f;
+        ed->dirty = true;
+    } else {
+        
+    }
 }
 
 // TODO handle deletion of lines more elloquently
 // currently tracking the line count of the document is all over the place
 // maybe create a function to keep track?
 void deleteCharacterRight(Editor *ed) {
-    if (removeCharAfterGap (ed->buf, ed->cursor.buffer_pos) == '\n') {
-        ed->line_count = (ed->line_count - 1 < 1) ? 1 : ed->line_count - 1;
+    if (ed->mode != EDITOR_MODE_OPEN) {
+        if (removeCharAfterGap (ed->buf, ed->cursor.buffer_pos) == '\n') {
+            ed->line_count = (ed->line_count - 1 < 1) ? 1 : ed->line_count - 1;
+        }
+        ed->dirty = true;
+    } else {
+        
     }
-    ed->dirty = true;
 }
 
 char *getContents(Editor *ed) {
@@ -197,7 +241,7 @@ void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme th
     ed->text_pos = vec2_init(0, 0 + screen_height);
 
     // Update the lexer
-    if (ed->dirty && ed->lexer.file_type != FILE_TYPE_UNKNOWN) {
+    if (ed->dirty) {
         char *data = getBufString(ed->buf);
         free(ed->lexer.tokens);
         lex(&ed->lexer, data, theme);
@@ -281,53 +325,65 @@ void clearBuffer(Editor *ed) {
 
 // TODO: These arent perfect but they are ok for now
 void moveCursorWordForward(Editor *ed) {
-    if (ed->cursor.buffer_pos >= ed->buf->end)
-        return;
+    if (ed->mode != EDITOR_MODE_OPEN) {
+        if (ed->cursor.buffer_pos >= ed->buf->end)
+            return;
 
-    size_t new_cursor_pos = ed->cursor.buffer_pos;
-    char cur_char = getBufChar(ed->buf, new_cursor_pos);
-    if (isspace(cur_char)) {
-        while (!isalnum(cur_char) && cur_char != '\0') {
+        size_t new_cursor_pos = ed->cursor.buffer_pos;
+        char cur_char = getBufChar(ed->buf, new_cursor_pos);
+        if (isspace(cur_char)) {
+            while (!isalnum(cur_char) && cur_char != '\0') {
+                new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
+                moveCursorRight(ed);
+                cur_char = getBufChar(ed->buf, new_cursor_pos);
+            }
+        } else {
+            while (!isalnum(cur_char) && !isspace(cur_char) && cur_char != '\0') {
+                new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
+                moveCursorRight(ed);
+                cur_char = getBufChar(ed->buf, new_cursor_pos);
+            }
+        }
+        
+        while (isalnum(getBufChar(ed->buf, new_cursor_pos))) {    
             new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
             moveCursorRight(ed);
-            cur_char = getBufChar(ed->buf, new_cursor_pos);
         }
     } else {
-        while (!isalnum(cur_char) && !isspace(cur_char) && cur_char != '\0') {
-            new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
-            moveCursorRight(ed);
-            cur_char = getBufChar(ed->buf, new_cursor_pos);
-        }
+        
     }
+
     
-    while (isalnum(getBufChar(ed->buf, new_cursor_pos))) {    
-        new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
-        moveCursorRight(ed);
-    }
 }
 
 void moveCursorWordBackward(Editor *ed) {
-    if (ed->cursor.buffer_pos <= 0)
-        return;
+    if (ed->mode != EDITOR_MODE_OPEN) {
+        if (ed->cursor.buffer_pos <= 0)
+            return;
 
-    size_t new_cursor_pos = ed->cursor.buffer_pos;
-    char prev_char = getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos));
-    if (isspace(prev_char)) {
-        while (!isalnum(prev_char) && new_cursor_pos != 0) {
+        size_t new_cursor_pos = ed->cursor.buffer_pos;
+        char prev_char = getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos));
+        if (isspace(prev_char)) {
+            while (!isalnum(prev_char) && new_cursor_pos != 0) {
+                new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
+                moveCursorLeft(ed);
+                prev_char = getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos));
+            }
+        } else {
+            while (!isalnum(prev_char) && !isspace(prev_char) && new_cursor_pos != 0) {
+                new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
+                moveCursorLeft(ed);
+                prev_char = getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos));
+            }
+        }
+        
+        while (isalnum(getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos)))) {    
             new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
             moveCursorLeft(ed);
-            prev_char = getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos));
         }
     } else {
-        while (!isalnum(prev_char) && !isspace(prev_char) && new_cursor_pos != 0) {
-            new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
-            moveCursorLeft(ed);
-            prev_char = getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos));
-        }
+        
     }
+
     
-    while (isalnum(getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos)))) {    
-        new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
-        moveCursorLeft(ed);
-    }
 }

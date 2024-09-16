@@ -35,7 +35,19 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
     } else if (key == GLFW_KEY_DELETE && (action == GLFW_REPEAT || action == GLFW_PRESS)){
         deleteCharacterRight(&app->editor);
     } else if (key == GLFW_KEY_ENTER && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        insertCharacter(&app->editor, '\n', true);
+        if (app->editor.mode != EDITOR_MODE_OPEN) {
+            insertCharacter(&app->editor, '\n', true);
+        } else {
+            char *file_path = malloc(strlen(getSelection(&app->editor.browser)) + 1);
+            strcpy(file_path, getSelection(&app->editor.browser));
+            editorDestroy(&app->editor);
+            rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
+            editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height);
+            loadFromFile(&app->editor, file_path);
+            editorLoadConfig(&app->editor, &app->config);
+            loadFromFile(&app->editor, file_path);
+        }
+        
     } else if (key == GLFW_KEY_TAB && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
         for (size_t i = 0; i< (size_t)app->editor.tab_stop; i++) {
             insertCharacter(&app->editor, ' ', true);
@@ -54,6 +66,14 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
         clearBuffer(&app->editor);
     } else if (key == GLFW_KEY_F1 && (action == GLFW_PRESS)) {
         writeToFile(&app->editor);
+    } else if (key == GLFW_KEY_ESCAPE && (action == GLFW_PRESS)) {
+        editorChangeMode(&app->editor, EDITOR_MODE_NORMAL);
+    } else if (key == GLFW_KEY_O && (action == GLFW_PRESS)) {
+        if (mods == GLFW_MOD_CONTROL)
+            editorChangeMode(&app->editor, EDITOR_MODE_OPEN);
+    } else if (key == GLFW_KEY_S && (action == GLFW_PRESS)) {
+        if (mods == GLFW_MOD_CONTROL)
+            editorChangeMode(&app->editor, EDITOR_MODE_SAVE);
     }
 }
 

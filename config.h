@@ -61,6 +61,7 @@ typedef struct {
     i32 background_color;
     i32 comment_single_color;
     i32 comment_multi_color;
+    i32 highlight_color;
 } ColorTheme;
 
 ColorTheme colorThemeInit();
