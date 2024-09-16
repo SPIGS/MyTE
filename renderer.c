@@ -322,18 +322,21 @@ void renderChar(Renderer* r, u32 font_id, char character, vec2 *pos, Color tint)
 	// advance the position by the width of the character
 	pos->x += metric.ax;
 
-	renderTriangle(r,
-					vec2_init(x2, y2), 
+	// cull
+	if (!((x2 + w) < 0 || (y2 + h) < 0 || x2 > r->screen_width || y2 > r->screen_height)) {
+		renderTriangle(r,
+					vec2_init(x2, y2),
 					vec2_init(x2 + w, y2),
 					vec2_init(x2 + w, y2 + h),
 					tint, tint, tint,
 					uv_min, vec2_init(uv_max.x, uv_min.y), uv_max, atlas.glyphs_texture);
-	renderTriangle(r,
-					vec2_init(x2, y2), 
-					vec2_init(x2 + w, y2 + h), 
+		renderTriangle(r,
+					vec2_init(x2, y2),
+					vec2_init(x2 + w, y2 + h),
 					vec2_init(x2, y2 + h),
 					tint, tint, tint,
 					uv_min, uv_max, vec2_init(uv_min.x, uv_max.y), atlas.glyphs_texture);
+	}
 }
 
 void renderText(Renderer* r, u32 font_id, char *data, vec2 *pos, Color tint) {
