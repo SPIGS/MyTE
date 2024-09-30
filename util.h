@@ -52,7 +52,7 @@ static inline vec2 vec2_normalize(vec2 v) { return vec2_scale(v, 1.f / vec2_mag(
 static inline vec2 vec2_neg(vec2 v) { return (vec2) { .x = -v.x, .y = -v.y }; }
 static inline f32  vec2_dot(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
 vec2 vec2_clamp(vec2 vec, rect quad);
-vec2 lerp (vec2 start, vec2 end, f32 t);
+vec2 vec2_lerp (vec2 start, vec2 end, f32 t);
 
 // Vec3
 typedef struct { f32 x; f32 y; f32 z; } vec3;
@@ -62,6 +62,7 @@ static inline vec3 vec3_sub(vec3 a, vec3 b) { return (vec3) { .x = a.x - b.x, .y
 static inline vec3 vec3_scale(vec3 a, f32 s) { return (vec3) { .x = a.x * s, .y = a.y * s, .z = a.z * s }; }
 static inline vec3 vec3_cross(vec3 a, vec3 b) { return (vec3) { .x = a.y * b.z - b.y * a.z, .y = a.x * b.z - b.x * a.z, .z = a.x * b.y + b.x * a.y }; }
 vec3 vec3_mul(vec3 a, mat3 m);
+vec3 vec3_lerp(vec3 start, vec3 end, f32 t);
 
 // Vec4
 typedef struct { f32 x; f32 y; f32 z; f32 w; } vec4;

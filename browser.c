@@ -22,17 +22,16 @@ static char *allocate_and_copy(const char *src, int is_dir) {
     char *dst = malloc(len);
     if (dst) {
         strcpy(dst, src);
-        if (is_dir) {
-            strcat(dst, "/"); // Append "/" if it's a directory
-        }
     }
     return dst;
 }
 
-void fileBrowserInit(FileBrowser *fb, vec2 selection_screen_pos) {
+void fileBrowserInit(FileBrowser *fb, vec2 selection_screen_pos, const char *cur_dir) {
     fb->items = NULL;
     fb->num_paths = 0;
     fb->selection = 0;
+    fb->cur_dir = malloc(strlen(cur_dir) + 1);
+    strcpy(fb->cur_dir, cur_dir);
 
     fb->sel_screen_pos = selection_screen_pos;
     fb->sel_prev_screen_pos = selection_screen_pos;
@@ -49,11 +48,16 @@ void fileBrowserDestroy(FileBrowser *fb) {
             free(fb->items[i].full_path);
             free(fb->items[i].name_ext);
         }
-    }       
+    }
+
+    if (fb->cur_dir) {
+        free(fb->cur_dir);
+    }
 }
 
+
 // Function to list paths (../ first) and store in path_list, appending "/" to directories
-void getPaths(FileBrowser *fb, const char *path) {
+void getPaths(FileBrowser *fb) {
     DIR *dir;
     struct dirent *entry;
     size_t count = 0;
@@ -62,7 +66,7 @@ void getPaths(FileBrowser *fb, const char *path) {
     char full_path[MAX_PATH_LEN];
 
     // Open the directory
-    if (!(dir = opendir(path))) {
+    if (!(dir = opendir(fb->cur_dir))) {
         LOG_ERROR("Couldn't open directory in file browser ", "");
         return;
     }
@@ -83,7 +87,7 @@ void getPaths(FileBrowser *fb, const char *path) {
         }
 
         // Build the full path for stat checking
-        snprintf(full_path, MAX_PATH_LEN, "%s/%s", path, entry->d_name);
+        snprintf(full_path, MAX_PATH_LEN, "%s/%s", fb->cur_dir, entry->d_name);
 
         // Determine if it's a directory
         int is_dir = is_directory(full_path);
@@ -119,6 +123,35 @@ void getPaths(FileBrowser *fb, const char *path) {
     fb->num_paths = count;
 }
 
+void enterDirectory(FileBrowser *fb, const char *dir_name) {
+    // Append name of dir to cur_dir
+    realloc(fb->cur_dir, strlen(fb->cur_dir) + strlen(dir_name) + 2);
+    strcat(fb->cur_dir, "/");
+    strcat(fb->cur_dir, dir_name);
+}
+
+void goUpDirectoryLevel(FileBrowser *fb) {
+    const char *last_slash = strrchr(fb->cur_dir, '/');
+
+    if (last_slash == NULL) {
+        return;
+    }
+    size_t len = last_slash - fb->cur_dir;
+
+    char * new_dir = (char*)malloc((len + 1));
+    strncpy(new_dir, fb->cur_dir, len);
+    new_dir[len] = '\0';
+    free(fb->cur_dir);
+    fb->cur_dir = new_dir;
+}
+
+void changeRootDirectory(FileBrowser *fb, const char *new_root) {
+    if (strlen(new_root) > strlen(fb->cur_dir)) {
+        realloc(fb->cur_dir, strlen(new_root) + 1);
+        strcpy(fb->cur_dir, new_root);
+    } 
+}
+
 void incrementSelection(FileBrowser *fb) {
     fb->selection ++;
     if (fb->selection >= fb->num_paths) {
@@ -134,6 +167,6 @@ void decrementSelection(FileBrowser *fb) {
     fb->anim_time = 0.0f;
 }
 
-const char *getSelection(FileBrowser *fb) {
-    return fb->items[fb->selection].full_path;
+BrowserItem getSelection(FileBrowser *fb) {
+    return fb->items[fb->selection];
 }

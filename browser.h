@@ -17,6 +17,7 @@ typedef struct {
     BrowserItem *items;
     size_t num_paths;
     size_t selection;
+    char* cur_dir;
 
     // Render info
     vec2 sel_screen_pos;
@@ -28,9 +29,21 @@ typedef struct {
     f32 anim_time;
 } FileBrowser;
 
-void fileBrowserInit(FileBrowser *fb, vec2 selection_screen_pos);
+void fileBrowserInit(FileBrowser *fb, vec2 selection_screen_pos, const char * cur_dir);
 void fileBrowserDestroy(FileBrowser *fb);
-void getPaths(FileBrowser *fb, const char *path);
+
+// Retrieve the list of files/folders from the browser's root directory
+void getPaths(FileBrowser *fb);
+
+// Enter a directory
+void enterDirectory(FileBrowser *fb, const char *dir_name);
+
+// Go up directory level
+void goUpDirectoryLevel(FileBrowser *fb);
+
+// Changes the browser's root directory to an arbitrary value
+void changeRootDirectory(FileBrowser *fb, const char *new_root);
+
 void incrementSelection(FileBrowser *fb);
 void decrementSelection(FileBrowser *fb);
-const char *getSelection(FileBrowser *fb);
+BrowserItem getSelection(FileBrowser *fb);

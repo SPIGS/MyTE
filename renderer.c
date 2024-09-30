@@ -371,10 +371,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 
 			if (i == e->cursor.buffer_pos) {
 				
-				//TODO: this code shouldn't be here!
-				// set a new target position
-				e->cursor.target_screen_pos = vec2_init(adj_text_pos.x, adj_text_pos.y);
-				e->cursor.prev_screen_pos = e->cursor.screen_pos;
+				setCursorTargetScreenPos(e, vec2_init(adj_text_pos.x, adj_text_pos.y));
 
 				// increment the animation timer
 				e->cursor.anim_time += (f32)delta_time * e->cursor_speed;
@@ -382,8 +379,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 					e->cursor.anim_time = 1.0f;
 				}
 
-				// lerp the current postion
-				e->cursor.screen_pos =  lerp(e->cursor.prev_screen_pos, e->cursor.target_screen_pos, e->cursor.anim_time);
+				lerpCursorScreenPos(e);
 				
 				rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
 				renderQuad(r, cursor_quad, COLOR_WHITE);
@@ -403,8 +399,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 		if (e->cursor.buffer_pos == e->lexer.token_count) {
 			//TODO: this code shouldn't be here!
 			// set a new target position
-			e->cursor.target_screen_pos = vec2_init(adj_text_pos.x, adj_text_pos.y);
-			e->cursor.prev_screen_pos = e->cursor.screen_pos;
+			setCursorTargetScreenPos(e, vec2_init(adj_text_pos.x, adj_text_pos.y));
 
 			// increment the animation timer
 			e->cursor.anim_time += (f32)delta_time * e->cursor_speed;
@@ -412,35 +407,43 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 				e->cursor.anim_time = 1.0f;
 			}
 
-			// lerp the current postion
-			e->cursor.screen_pos =  lerp(e->cursor.prev_screen_pos, e->cursor.target_screen_pos, e->cursor.anim_time);
+			lerpCursorScreenPos(e);
 			
 			rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
 			renderQuad(r, cursor_quad, COLOR_WHITE);
 		}
 	} else {
-		getPaths(&e->browser, ".");
+		getPaths(&e->browser);
 		vec2 init_pos = vec2_init(((r->glyph_adv * 3) + PADDING), e->text_pos.y - e->line_height);
 		
 		// Render the selection highlight
-		e->browser.sel_target_screen_pos = vec2_init(init_pos.x, e->text_pos.y - (e->line_height * (e->browser.selection + 1)));
-		e->browser.sel_prev_screen_pos = e->browser.sel_screen_pos;
-		e->browser.sel_target_size = vec2_init((strlen(e->browser.items[e->browser.selection].name_ext ) * r->glyph_adv) + 5, e->line_height);
+		setCursorTargetScreenPos(e, vec2_init(init_pos.x, e->text_pos.y - (e->line_height * (e->browser.selection + 1))));
+		f32 target_sel_w = (strlen(e->browser.items[e->browser.selection].name_ext) + (e->browser.items[e->browser.selection].is_dir ? 1 : 0)) * r->glyph_adv;
+
+		e->browser.sel_target_size = vec2_init((target_sel_w) + 5, e->line_height);
 		e->browser.sel_prev_size = e->browser.sel_size;
 
 		e->browser.anim_time += (f32)delta_time * e->cursor_speed;
 		if (e->browser.anim_time >= 1.0f)
 			e->browser.anim_time = 1.0f;
 
-		e->browser.sel_screen_pos = lerp(e->browser.sel_prev_screen_pos, e->browser.sel_target_screen_pos, e->browser.anim_time);
-		e->browser.sel_size = lerp(e->browser.sel_prev_size, e->browser.sel_target_size, e->browser.anim_time);
+		lerpCursorScreenPos(e);
+		e->browser.sel_size = vec2_lerp(e->browser.sel_prev_size, e->browser.sel_target_size, e->browser.anim_time);
 
 		rect selection_higlight = rect_init(e->browser.sel_screen_pos.x, e->browser.sel_screen_pos.y, e->browser.sel_size.x, e->browser.sel_size.y);
 		renderQuad(r, selection_higlight, color_from_hex(theme.highlight_color));
 
 
 		for (size_t i = 0; i < e->browser.num_paths; i++){
-			renderText(r, font_id, e->browser.items[i].name_ext, &init_pos, COLOR_WHITE);
+			if (e->browser.items[i].is_dir) {
+				char *dir_with_slash = (char *)malloc(strlen(e->browser.items[i].name_ext) + 2);
+				strcpy(dir_with_slash, e->browser.items[i].name_ext);
+				strcat(dir_with_slash, "/");
+				renderText(r, font_id, dir_with_slash, &init_pos, COLOR_WHITE);
+				free(dir_with_slash);
+			} else {
+				renderText(r, font_id, e->browser.items[i].name_ext, &init_pos, COLOR_WHITE);
+			}
 			renderText(r, font_id, "\n", &init_pos, COLOR_WHITE);
 			init_pos.x = ((r->glyph_adv * 3) + PADDING);
 		}

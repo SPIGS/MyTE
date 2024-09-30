@@ -38,14 +38,31 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
         if (app->editor.mode != EDITOR_MODE_OPEN) {
             insertCharacter(&app->editor, '\n', true);
         } else {
-            char *file_path = malloc(strlen(getSelection(&app->editor.browser)) + 1);
-            strcpy(file_path, getSelection(&app->editor.browser));
-            editorDestroy(&app->editor);
-            rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
-            editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height);
-            loadFromFile(&app->editor, file_path);
-            editorLoadConfig(&app->editor, &app->config);
-            loadFromFile(&app->editor, file_path);
+            BrowserItem selection = getSelection(&app->editor.browser);
+            BrowserItem sel_copy;
+            sel_copy.full_path = malloc(strlen(selection.full_path) + 1);
+            sel_copy.name_ext = malloc(strlen(selection.name_ext) + 1);
+            sel_copy.is_dir = selection.is_dir;
+            strcpy(sel_copy.full_path, selection.full_path);
+            strcpy(sel_copy.name_ext, selection.name_ext);
+            if (sel_copy.is_dir) {
+                if (strcmp(sel_copy.name_ext, "..") == 0) {
+                    // leave the current directory
+                    goUpDirectoryLevel(&app->editor.browser);
+                } else {
+                    enterDirectory(&app->editor.browser, sel_copy.name_ext);
+                    app->editor.browser.selection = 0;
+                    getPaths(&app->editor.browser);
+                }
+            } else {
+                char *cur_dir = (char *)malloc(strlen(app->editor.browser.cur_dir) + 1);
+                strcpy(cur_dir, app->editor.browser.cur_dir);
+                editorDestroy(&app->editor);
+                rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
+                editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, cur_dir);
+                editorLoadConfig(&app->editor, &app->config);
+                loadFromFile(&app->editor, sel_copy.full_path);
+            }
         }
         
     } else if (key == GLFW_KEY_TAB && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
@@ -150,7 +167,7 @@ void applicationInit(Application *app, int argc, char **argv) {
     rendererInit(&app->renderer, COLOR_BLACK);
     app->font_id = rendererLoadFont(&app->renderer, app->config.font_path, 24);
     rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
-    editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height);
+    editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, ".");
 
     glfwSetWindowUserPointer(app->window, app);
 	glfwSetFramebufferSizeCallback(app->window, resize_window);
@@ -187,16 +204,29 @@ void applicationReload(Application *app) {
     app->config = configInit();
     loadConfigFromFile(&app->config, "./config/config.toml");
     app->font_id = rendererLoadFont(&app->renderer, app->config.font_path, 24);
-    char *file_path = malloc(strlen(app->editor.file_path) + 1);
-    strcpy(file_path, app->editor.file_path);
+    
+    // Save the current directory for the browser
+    char *cur_dir = (char *)malloc(strlen(app->editor.browser.cur_dir) + 1);
+    strcpy(cur_dir, app->editor.browser.cur_dir);
+    
+    // save the path to the current open file for the editor
+    char *cur_file_path = NULL;
+    if (app->editor.file_path) {
+        cur_file_path = (char*)malloc(strlen(app->editor.file_path) + 1);
+        strcpy(cur_file_path, app->editor.file_path);
+    }
+    
     editorDestroy(&app->editor);
     rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
-    editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height);
-    loadFromFile(&app->editor, file_path);
+    editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, cur_dir);
     editorLoadConfig(&app->editor, &app->config);
     app->theme = colorThemeInit();
     if (app->config.theme_path)
         colorThemeLoad(&app->theme, app->config.theme_path);
+
+    if (cur_file_path) {
+        loadFromFile(&app->editor, cur_file_path);
+    }
 }
 
 void applicationUpdate(Application *app, f64 delta_time) {

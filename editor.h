@@ -59,7 +59,7 @@ typedef struct {
     FileBrowser browser;
 } Editor;
 
-void editorInit(Editor *ed, rect frame, f32 line_height);
+void editorInit(Editor *ed, rect frame, f32 line_height, const char *cur_dir);
 void editorDestroy(Editor *ed);
 void editorLoadConfig(Editor *ed, Config *config);
 void editorChangeMode(Editor *ed, EditorMode new_mode);
@@ -74,6 +74,8 @@ void deleteCharacterLeft(Editor *ed);
 void deleteCharacterRight(Editor *ed);
 void setGoalColumn(Editor *ed);
 void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme theme, f64 delta_time);
+void setCursorTargetScreenPos(Editor *ed, vec2 new_target);
+void lerpCursorScreenPos(Editor *ed);
 
 char *getContents(Editor *ed);
 void loadFromFile(Editor *ed, const char *file_path);

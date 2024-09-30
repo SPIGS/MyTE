@@ -14,7 +14,7 @@ Cursor cursorInit(vec2 init_screen_pos) {
     };
 }
 
-void editorInit(Editor *ed, rect frame, f32 line_height) {
+void editorInit(Editor *ed, rect frame, f32 line_height, const char *cur_dir) {
     ed->buf = gapBufferInit(INITIAL_BUFFER_SIZE);
     ed->cursor = cursorInit(vec2_init(frame.x, frame.h));
     ed->goal_column = -1;
@@ -29,7 +29,7 @@ void editorInit(Editor *ed, rect frame, f32 line_height) {
     ed->tab_stop = 4;
     ed->cursor_speed = 3.5;
     ed->mode = EDITOR_MODE_NORMAL;
-    fileBrowserInit(&ed->browser, vec2_init(frame.x, frame.h));
+    fileBrowserInit(&ed->browser, vec2_init(frame.x, frame.h), cur_dir);
 }
 
 void editorDestroy(Editor *ed) {
@@ -45,13 +45,18 @@ void editorLoadConfig(Editor *ed, Config *config) {
 }
 
 void editorChangeMode(Editor *ed, EditorMode new_mode) {
+    ed->cursor.anim_time = 0.0f;
+    ed->browser.anim_time = 0.0f;
     switch (new_mode)
     {
     case EDITOR_MODE_OPEN:
         LOG_INFO("Load paths", "");
+        ed->browser.sel_screen_pos = ed->cursor.screen_pos;
+        ed->browser.sel_size = vec2_init(3, ed->browser.sel_size.y);
         break;
     
     default:
+        ed->cursor.screen_pos = ed->browser.sel_screen_pos;
         break;
     }
     ed->mode = new_mode;
@@ -207,6 +212,18 @@ void deleteCharacterRight(Editor *ed) {
     } else {
         
     }
+}
+
+void setCursorTargetScreenPos(Editor *ed, vec2 new_target) {
+    ed->cursor.target_screen_pos = new_target;
+    ed->cursor.prev_screen_pos = ed->cursor.screen_pos;
+    ed->browser.sel_target_screen_pos = new_target;
+    ed->browser.sel_prev_screen_pos = ed->browser.sel_screen_pos;
+}
+
+void lerpCursorScreenPos(Editor *ed) {
+    ed->cursor.screen_pos = vec2_lerp(ed->cursor.prev_screen_pos, ed->cursor.target_screen_pos, ed->cursor.anim_time);
+    ed->browser.sel_screen_pos = vec2_lerp(ed->browser.sel_prev_screen_pos, ed->browser.sel_target_screen_pos, ed->browser.anim_time);
 }
 
 char *getContents(Editor *ed) {

@@ -10,7 +10,7 @@ vec2 vec2_clamp(vec2 vec, rect quad) {
     };
 }
 
-vec2 lerp(vec2 start, vec2 end, f32 t) {
+vec2 vec2_lerp(vec2 start, vec2 end, f32 t) {
     vec2 result;
     result.x = start.x + t * (end.x - start.x);
     result.y = start.y + t * (end.y - start.y);
@@ -23,6 +23,14 @@ vec3 vec3_mul(vec3 a, mat3 m) {
         .y = (a.x * m.a[mat3_idx(0, 1)] + a.y * m.a[mat3_idx(1, 1)] + a.z * m.a[mat3_idx(2, 1)]),
         .z = (a.x * m.a[mat3_idx(0, 2)] + a.y * m.a[mat3_idx(1, 2)] + a.z * m.a[mat3_idx(2, 2)])
     };
+}
+
+vec3 vec3_lerp(vec3 start, vec3 end, f32 t) {
+    vec3 result;
+    result.x = start.x + t * (end.x - start.x);
+    result.y = start.y + t * (end.y - start.y);
+    result.z = start.z + t * (end.z - start.z);
+    return result;
 }
 
 vec4 vec4_mul(vec4 a, mat4 m) {
