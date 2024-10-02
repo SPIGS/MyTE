@@ -1,5 +1,7 @@
 # MyTE - My Text Editor
 
+![Preview of Myte](/../screenshots/screenshots/preview.png?raw=true "Preview of Myte")
+
 MyTE (rhymes with byte) is **My** **T**ext **E**ditor. It is a small graphical text editor written in C. It was originally created as a learning exercise and as a reference for others who wish to build their own text editor. It was inspired by [ded](https://github.com/tsoding/ded).
 
 ## Features
