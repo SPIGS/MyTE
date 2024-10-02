@@ -149,7 +149,8 @@ typedef enum {
     FILE_TYPE_UNKNOWN
 } FileType;
 
-bool isFile (const char *path);
+// Returns 0 if the path points to a file, 1 if the path points to a directory and -1 if there is an error.
+i32 checkPath (const char *path);
 const char *getFileExtFromPath(const char *path);
 
 /* Be sure to call free()! */

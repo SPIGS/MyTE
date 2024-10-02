@@ -362,16 +362,19 @@ Color color_from_hex(u32 color_hex) {
     return result;
 }
 
-bool isFile (const char *path) {
+// Returns 0 if the path points to a file, 1 if the path points to a directory and -1 if there is an error.
+int checkPath(const char *path) {
     struct stat s;
     if (stat(path, &s) == 0) {
         if (s.st_mode & __S_IFREG) {
-             return true;
+            return 0;  // It's a file
+        } else if (s.st_mode & __S_IFDIR) {
+            return 1;  // It's a directory
         } else {
-            return false;
+            return -1; // Not a regular file or directory
         }
     } else {
-        return false;
+        return -1;  // Error (e.g., file not found)
     }
 }
 

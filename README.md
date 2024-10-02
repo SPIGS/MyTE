@@ -4,7 +4,7 @@ MyTE (rhymes with byte) is **My** **T**ext **E**ditor. It is a small graphical t
 
 ## Features
 
-MyTE is currently a work in progress and missing some crucial features (mouse control, clipboard manipulation, multiple buffers/panes/tabs, _saving_). Despite this, MyTE still has some advanced features that some more basic text editors lack:
+MyTE is currently a work in progress and missing some crucial features (mouse control, clipboard manipulation, multiple buffers/panes/tabs, text selection). Despite this, MyTE still has some advanced features that some more basic text editors lack:
 
 - Syntax highlighting support for various languages (and a straight-forward means of adding more)
 - Rudimentary user theming/color schemes (also pretty straight-forward to create)
@@ -20,12 +20,13 @@ MyTE currently has two modes - an editor mode and a file browsing mode. The edit
     - arrow keys move the cursor around the buffer
     - `CTRL + left/right` move the cursor back/forward one whole word.
     - `CTRL+O` opens file browsing mode
+    - `CTRL+S` saves the current file to disk (doesn't work for new unnamed files)
 - **File Browsing Mode**
     - `up/down` moves the selection up and down the directory listing.
     - `ENTER` opens the selected directory/file
     - `ESCAPE` closes the file browser and goes back to editor mode.
  - **Special global shortcuts (temporary)**
-    - `F1` writes the content of the editor to the currently open file path (doesn't work for unnamed/new files)
+    - `F1` writes the content of the editor to the currently open file path (this is used for debugging)
     - `F3` pretty prints contents of the editor to console
     - `F5` completely hot reloads the application (user configs, themes, and the current file)
     - `F12` clears the editor

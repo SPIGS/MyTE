@@ -311,8 +311,10 @@ void loadFromFile(Editor *ed, const char *file_path) {
 }
 
 void writeToFile(Editor *ed) {
-    if (!ed->file_path)
+    if (!ed->file_path) {
         LOG_ERROR("Writing a blank file to disk is not supported!", "");
+        return;
+    }
 
     FILE *f = fopen(ed->file_path, "w");
     if (f == NULL) {

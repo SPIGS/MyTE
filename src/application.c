@@ -38,6 +38,8 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
         if (app->editor.mode != EDITOR_MODE_OPEN) {
             insertCharacter(&app->editor, '\n', true);
         } else {
+
+            // TODO: This is garbage fix it
             BrowserItem selection = getSelection(&app->editor.browser);
             BrowserItem sel_copy;
             sel_copy.full_path = malloc(strlen(selection.full_path) + 1);
@@ -81,16 +83,15 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
     }  else if (key == GLFW_KEY_F12 && (action == GLFW_PRESS)) {
         LOG_INFO("Clearing Buffer...", "");
         clearBuffer(&app->editor);
-    } else if (key == GLFW_KEY_F1 && (action == GLFW_PRESS)) {
-        writeToFile(&app->editor);
-    } else if (key == GLFW_KEY_ESCAPE && (action == GLFW_PRESS)) {
+    }  else if (key == GLFW_KEY_ESCAPE && (action == GLFW_PRESS)) {
         editorChangeMode(&app->editor, EDITOR_MODE_NORMAL);
     } else if (key == GLFW_KEY_O && (action == GLFW_PRESS)) {
         if (mods == GLFW_MOD_CONTROL)
             editorChangeMode(&app->editor, EDITOR_MODE_OPEN);
     } else if (key == GLFW_KEY_S && (action == GLFW_PRESS)) {
         if (mods == GLFW_MOD_CONTROL)
-            editorChangeMode(&app->editor, EDITOR_MODE_SAVE);
+            writeToFile(&app->editor);
+            //editorChangeMode(&app->editor, EDITOR_MODE_SAVE);
     }
 }
 
@@ -176,10 +177,14 @@ void applicationInit(Application *app, int argc, char **argv) {
 
     if (argc > 1) {
         const char *file_path = argv[1];
-        if (isFile(file_path)) {
+        if (checkPath(file_path) == 0) {
             loadFromFile(&app->editor, file_path);
+        } else if (checkPath(file_path) == 1) {
+            editorDestroy(&app->editor);
+            editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, file_path);
+            editorChangeMode(&app->editor, EDITOR_MODE_OPEN);
         } else {
-            LOG_WARN("Error evaluating path. The file might be moved or missing or a directory (not supported)!", "");
+            LOG_ERROR("Error evaluating path. The file might be moved or missing!", "");
         }
     }
 
