@@ -121,7 +121,7 @@ void moveCursorUp(Editor *ed) {
             ed->goal_column = ed->cursor.disp_column;
         } else {
             size_t len_prev_line = getBufLineLength(ed->buf, beg_prev_line);
-            ed->cursor.buffer_pos = beg_prev_line + MIN(ed->goal_column - 1, len_prev_line);
+            ed->cursor.buffer_pos = beg_prev_line + MIN((size_t)ed->goal_column - 1, len_prev_line);
             ed->cursor.disp_row--;
             ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
         }
@@ -147,7 +147,7 @@ void moveCursorDown(Editor *ed) {
             ed->goal_column = ed->cursor.disp_column;
         } else {
             size_t len_next_line = getBufLineLength(ed->buf, beg_next_line);
-            ed->cursor.buffer_pos = beg_next_line + MIN(ed->goal_column - 1, len_next_line);
+            ed->cursor.buffer_pos = beg_next_line + MIN((size_t)ed->goal_column - 1, len_next_line);
             ed->cursor.disp_row++;
             ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
         }

@@ -20,6 +20,8 @@ typedef struct {
     char* cur_dir;
 
     // Render info
+    vec2 scroll_pos;
+
     vec2 sel_screen_pos;
     vec2 sel_prev_screen_pos;
     vec2 sel_target_screen_pos;

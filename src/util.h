@@ -1,6 +1,7 @@
 #pragma once
 #include <stdbool.h>
 #include <math.h>
+#include <stdarg.h>
 #include <sys/stat.h>
 
 // Defines
@@ -159,16 +160,13 @@ char *getFileNameFromPath(const char *path);
 
 FileType getFileType(const char *file_name, const char *file_ext);
 
-// Some logging macros
+// Some logging stuff
 
-#define LOG_ERROR(msg, msg1) \
-    fprintf(stderr, "ERROR: %s%s\n", msg, msg1?msg1:"");
+enum { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR };
 
-#define LOG_WARN(msg, msg1) \
-    fprintf(stderr, "WARN: %s%s\n", msg, msg1?msg1:"");
+#define LOG_ERROR(fmt, ...) log_log(LOG_ERROR, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define LOG_WARN(fmt, ...) log_log(LOG_WARN, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define LOG_INFO(fmt, ...) log_log(LOG_INFO, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
+#define LOG_DEBUG(fmt, ...) log_log(LOG_DEBUG, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
 
-#define LOG_INFO(msg, msg1) \
-    fprintf(stderr, "INFO: %s%s\n", msg, msg1?msg1:"");
-
-#define LOG_DEBUG(msg, msg1) \
-    fprintf(stderr, "DEBUG: %s%s\n", msg, msg1?msg1:"");
+void log_log(i32 level, const char *file, int line, const char *fmt, ...);

@@ -33,6 +33,7 @@ void fileBrowserInit(FileBrowser *fb, vec2 selection_screen_pos, const char *cur
     fb->cur_dir = malloc(strlen(cur_dir) + 1);
     strcpy(fb->cur_dir, cur_dir);
 
+    fb->scroll_pos = vec2_init(0,0);
     fb->sel_screen_pos = selection_screen_pos;
     fb->sel_prev_screen_pos = selection_screen_pos;
     fb->sel_target_screen_pos = selection_screen_pos;
@@ -125,7 +126,7 @@ void getPaths(FileBrowser *fb) {
 
 void enterDirectory(FileBrowser *fb, const char *dir_name) {
     // Append name of dir to cur_dir
-    realloc(fb->cur_dir, strlen(fb->cur_dir) + strlen(dir_name) + 2);
+    fb->cur_dir = realloc(fb->cur_dir, strlen(fb->cur_dir) + strlen(dir_name) + 2);
     strcat(fb->cur_dir, "/");
     strcat(fb->cur_dir, dir_name);
 }
@@ -147,7 +148,7 @@ void goUpDirectoryLevel(FileBrowser *fb) {
 
 void changeRootDirectory(FileBrowser *fb, const char *new_root) {
     if (strlen(new_root) > strlen(fb->cur_dir)) {
-        realloc(fb->cur_dir, strlen(new_root) + 1);
+        fb->cur_dir = realloc(fb->cur_dir, strlen(new_root) + 1);
         strcpy(fb->cur_dir, new_root);
     } 
 }

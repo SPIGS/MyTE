@@ -408,7 +408,7 @@ char *getFileNameFromPath(const char *path) {
     }
 
     const char *last_dot = strrchr(path, '.');
-    size_t name_length = (last_dot) ? (last_dot - path) : strlen(path);
+    size_t name_length = (last_dot) ? (size_t)(last_dot - path) : strlen(path);
 
     char *file_name = malloc(name_length + 1);
     if (!file_name) {
@@ -432,4 +432,18 @@ FileType getFileType(const char *file_name, const char *file_ext) {
     } else {
         return FILE_TYPE_UNKNOWN;
     }
+}
+
+static const char *level_strings[] = {
+  "DEBUG", "INFO", "WARN", "ERROR",
+};
+
+void log_log(i32 level, const char *file, int line, const char *fmt, ...) {
+    va_list args;
+
+    fprintf(stderr, "%s %s:%d: ", level_strings[level], file, line);
+    va_start(args, fmt);
+    vfprintf(stderr, fmt, args);
+    fprintf(stderr, "\n");
+    va_end(args);
 }

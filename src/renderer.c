@@ -6,6 +6,21 @@
 #include "lexer.h"
 #include "browser.h"
 
+#define GL_CALL(x) glClearError();\
+	x;\
+	glLogCall()
+
+static void glClearError() {
+	while(glGetError() != GL_NO_ERROR);
+}
+
+static void glLogCall() {
+	GLenum error = 0;
+	while((error = glGetError())) {
+		LOG_ERROR("OpenGL error %#08x", error);
+	}
+}
+
 void rendererInit(Renderer* r, Color clear_color) {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
@@ -399,6 +414,8 @@ u32 rendererGetWhiteTexture() {
 }
 
 void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorTheme theme) {
+	UNUSED(delta_time);
+
 	f32 PADDING = 30.0f;
 	renderQuad(r, e->frame, color_from_hex(theme.background_color));
 	GlyphAtlas atlas = r->font_atlases[font_id];
@@ -450,10 +467,9 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 	// gutter
 	PADDING = 10.0f;
 	vec2 gutter_pos = vec2_init(0, e->frame.y + e->frame.h - e->line_height);
-	gutter_pos = vec2_add(gutter_pos, e->scroll_pos);
 	renderQuad(r, rect_init((r->glyph_adv * 3) + PADDING, 0, 1, r->screen_height), COLOR_GRAY);
-
 	if (e->mode != EDITOR_MODE_OPEN) {
+		gutter_pos = vec2_add(gutter_pos, e->scroll_pos);
 		for (i32 i = 1; i <= (i32)e->line_count; ++i) {
 			char num[11];
 			sprintf(num, "%3d", i);
@@ -462,6 +478,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 			gutter_pos.y -= e->line_height;
 		}
 	} else {
+		gutter_pos = vec2_add(gutter_pos, e->browser.scroll_pos);
 		for (size_t i = 0; i <= e->browser.num_paths; i++) {
 			char num[4];
 			sprintf(num, "%3s", "~");
