@@ -15,6 +15,7 @@ typedef struct {
 
 GapBuffer *gapBufferInit(size_t inital_size);
 void gapBufferDestroy(GapBuffer *buf);
+size_t getBufLength(GapBuffer *buf);
 char getBufChar(GapBuffer *buf, size_t cursor);
 void shiftGap (GapBuffer *buf, size_t cursor);
 void resizeGap(GapBuffer *buf, size_t required_space);

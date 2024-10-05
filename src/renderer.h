@@ -7,8 +7,9 @@
 #define INITIAL_SCREEN_HEIGHT 720
 
 
-#define MAX_TRIANGLES 2048
-#define MAX_VERTICES MAX_TRIANGLES * 3
+#define MAX_QUADS 1024
+#define MAX_VERTICES MAX_QUADS * 4
+#define MAX_INDICES MAX_VERTICES * 6
 
 typedef struct {
 	vec2 pos;
@@ -21,13 +22,15 @@ typedef struct {
 	// The required OpenGL objects
 	u32 vao;
 	u32 vbo;
+	u32 ibo;
 	u32 shader;
 	
 	mat4 projection;
 	
 	// Tightly packed triangle data. This is a cpu side mirror of the buffer
-	Render_Vertex triangle_data[MAX_VERTICES];
-	u32 triangle_count;
+	Render_Vertex vertices[MAX_VERTICES];
+	u32 vert_count;
+	u32 indices_count;
 	
 	// Texture stuff
 	u32 textures[8];
@@ -41,6 +44,7 @@ typedef struct {
 	GlyphAtlas font_atlases[8];
 	u32 font_atlas_count;
 	f32 glyph_adv;
+	f32 descender;
 
 	// Screen size info
 	f32 screen_width;

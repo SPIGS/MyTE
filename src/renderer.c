@@ -10,6 +10,7 @@ void rendererInit(Renderer* r, Color clear_color) {
 	glEnable(GL_BLEND);
 	glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
+	/* Vertex Buffer Stuff */
 	glGenVertexArrays(1, &r->vao);
 	glBindVertexArray(r->vao);
 	
@@ -26,8 +27,26 @@ void rendererInit(Renderer* r, Color clear_color) {
 	glEnableVertexAttribArray(2);
 	glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Render_Vertex), (void*) offsetof(Render_Vertex, tex_index));
 	glEnableVertexAttribArray(3);
+
+	/* Index Buffer stuff */
+	u32 indices[MAX_INDICES];
+	u32 offset = 0;
+	for (size_t i = 0; i < MAX_INDICES; i += 6) {
+		indices[i + 0] = 0 + offset;
+		indices[i + 1] = 1 + offset;
+		indices[i + 2] = 2 + offset;
+
+		indices[i + 3] = 2 + offset;
+		indices[i + 4] = 3 + offset;
+		indices[i + 5] = 0 + offset;
+
+		offset += 4;
+	}
+
+	glGenBuffers(1, &r->ibo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, r->ibo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
 	
-	// @hardcoded @resize
 	r->projection = mat4_ortho(0, INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, 0, -0.01, 1.0);
 	r->screen_width = INITIAL_SCREEN_WIDTH;
 	r->screen_height = INITIAL_SCREEN_HEIGHT;
@@ -157,8 +176,9 @@ void rendererDestroy(Renderer* r) {
 
 void rendererBegin(Renderer* r) {
 	glClear(GL_COLOR_BUFFER_BIT);
-	r->triangle_count = 0;
+	r->vert_count = 0;
 	r->texture_count = 0;
+	r->indices_count = 0;
 }
 
 void rendererEnd(Renderer* r) {
@@ -171,9 +191,8 @@ void rendererEnd(Renderer* r) {
 	glUseProgram(r->shader);
 	glBindVertexArray(r->vao);
 	glBindBuffer(GL_ARRAY_BUFFER, r->vbo);
-	glBufferSubData(GL_ARRAY_BUFFER, 0, r->triangle_count * 3 * sizeof(Render_Vertex), r->triangle_data);
-	
-	glDrawArrays(GL_TRIANGLES, 0, r->triangle_count * 3);
+	glBufferSubData(GL_ARRAY_BUFFER, 0, r->vert_count * sizeof(Render_Vertex), r->vertices);
+	glDrawElements(GL_TRIANGLES, r->indices_count, GL_UNSIGNED_INT, NULL);
 }
 
 void rendererResizeWindow (Renderer* r, i32 width, i32 height) {
@@ -190,12 +209,18 @@ void rendererResizeWindow (Renderer* r, i32 width, i32 height) {
     glUniformMatrix4fv(proj_loc, 1, GL_FALSE, r->projection.a);
 }
 
-void renderTriangle(Renderer* r,
-						  vec2 a, vec2 b, vec2 c,
-						  Color a_color, Color b_color, Color c_color,
-						  vec2 a_uv, vec2 b_uv, vec2 c_uv,
-						  u32 texture) {
+static void pushQuad (Renderer* r, vec2 a, vec2 b, vec2 c, vec2 d,
+					Color a_color, Color b_color, Color c_color, Color d_color,
+					vec2 a_uv, vec2 b_uv, vec2 c_uv, vec2 d_uv,
+					u32 texture) {
 	
+	/* 	CULLING
+		for some reason adding this comparison ((c.y) < 0 ) causes some characters
+		to glitch out. Not sure whats up with that. */
+	if (((b.x) < 0 || a.x > r->screen_width || a.y > r->screen_height)){
+		return;	
+	}
+
 	// 1248 is just an invalid value since this is an unsigned number, -1 doesnt work
 	u32 tex_index = 1248;
 	for (u32 i = 0; i < r->texture_count; i++) {
@@ -204,7 +229,7 @@ void renderTriangle(Renderer* r,
 			break;
 		}
 	}
-	
+
 	// r->texture_count < 8 confirms we don't write more than the available
 	// texture slots
 	if (tex_index == 1248 && r->texture_count < 8) {
@@ -212,84 +237,80 @@ void renderTriangle(Renderer* r,
 		tex_index = r->texture_count;
 		r->texture_count += 1;
 	}
-	
-	
+
 	// Flush the batch if it is full. We don't like segfaults on this channel.
-	if (r->triangle_count == MAX_TRIANGLES || tex_index == 1248) {
+	if (r->vert_count == MAX_VERTICES || tex_index == 1248) {
 		rendererEnd(r);
-		r->triangle_count = 0;
+		r->vert_count = 0;
+		r->indices_count = 0;
 		r->texture_count = 0;
 	}
-	
-	r->triangle_data[r->triangle_count * 3 + 0].pos = a;
-	r->triangle_data[r->triangle_count * 3 + 0].color = a_color;
-	r->triangle_data[r->triangle_count * 3 + 1].pos = b;
-	r->triangle_data[r->triangle_count * 3 + 1].color = b_color;
-	r->triangle_data[r->triangle_count * 3 + 2].pos = c;
-	r->triangle_data[r->triangle_count * 3 + 2].color = c_color;
-	
-	r->triangle_data[r->triangle_count * 3 + 0].uv = a_uv;
-	r->triangle_data[r->triangle_count * 3 + 0].tex_index = tex_index;
-	r->triangle_data[r->triangle_count * 3 + 1].uv = b_uv;
-	r->triangle_data[r->triangle_count * 3 + 1].tex_index = tex_index;
-	r->triangle_data[r->triangle_count * 3 + 2].uv = c_uv;
-	r->triangle_data[r->triangle_count * 3 + 2].tex_index = tex_index;
-	
-	r->triangle_count++;
-}
 
-//~ Helper stuff
-u32 _cached_white = 4096;
+	// Insert info for each vertex and increment the count
+	r->vertices[r->vert_count].pos = a;
+	r->vertices[r->vert_count].color = a_color;
+	r->vertices[r->vert_count].uv = a_uv;
+	r->vertices[r->vert_count].tex_index = tex_index;
+	r->vert_count++;
 
-u32 rendererGetWhiteTexture() {
-	if (_cached_white == 4096) {
-		u32 tex;
-		u8 image[4] = { 255, 255, 255, 255 };
-		glGenTextures(1, &tex);
-		glBindTexture(GL_TEXTURE_2D, tex);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		_cached_white = tex;
-	}
-	return _cached_white;
+	r->vertices[r->vert_count].pos = b;
+	r->vertices[r->vert_count].color = b_color;
+	r->vertices[r->vert_count].uv = b_uv;
+	r->vertices[r->vert_count].tex_index = tex_index;
+	r->vert_count++;
+
+	r->vertices[r->vert_count].pos = c;
+	r->vertices[r->vert_count].color = c_color;
+	r->vertices[r->vert_count].uv = c_uv;
+	r->vertices[r->vert_count].tex_index = tex_index;
+	r->vert_count++;
+
+	r->vertices[r->vert_count].pos = d;
+	r->vertices[r->vert_count].color = d_color;
+	r->vertices[r->vert_count].uv = d_uv;
+	r->vertices[r->vert_count].tex_index = tex_index;
+	r->vert_count++;
+
+	r->indices_count += 6;
 }
 
 void renderQuad(Renderer* r, rect quad, Color color) {
 	u32 texture = rendererGetWhiteTexture();
-	renderTriangle(r,
-					vec2_init(quad.x, quad.y),
-					vec2_init(quad.x + quad.w, quad.y),
-					vec2_init(quad.x + quad.w, quad.y + quad.h),
-					color, color, color,
-					vec2_init(0, 0), vec2_init(1, 0), vec2_init(1, 1), texture);
-	renderTriangle(r,
-					vec2_init(quad.x, quad.y),
-					vec2_init(quad.x + quad.w, quad.y + quad.h),
-					vec2_init(quad.x, quad.y + quad.h),
-					color, color, color,
-					vec2_init(0, 0), vec2_init(1, 0), vec2_init(1, 1), texture);
+	vec2 uv_min = vec2_init(0, 1);  // Bottom-left
+    vec2 uv_max = vec2_init(1, 0);  // Top-right
+
+	pushQuad (
+		r,
+		vec2_init(quad.x, quad.y), 
+		vec2_init(quad.x + quad.w, quad.y), 
+		vec2_init(quad.x + quad.w, quad.y + quad.h), 
+		vec2_init(quad.x, quad.y + quad.h),
+		color, color, color, color,
+		uv_min, 
+		vec2_init(uv_max.x, uv_min.y), 
+		uv_max, 
+		vec2_init(uv_min.x, uv_max.y),
+		texture
+	);
 }
 
 void renderTexturedQuad(Renderer* r, rect quad, Color tint, u32 texture) {
-    // Skip rect_uv_cull and directly use full texture coordinates
     vec2 uv_min = vec2_init(0, 1);  // Bottom-left
     vec2 uv_max = vec2_init(1, 0);  // Top-right
 
-    renderTriangle(r,
-					vec2_init(quad.x, quad.y), 
-					vec2_init(quad.x + quad.w, quad.y),
-					vec2_init(quad.x + quad.w, quad.y + quad.h),
-					tint, tint, tint,
-					uv_min, vec2_init(uv_max.x, uv_min.y), uv_max, texture);
-    renderTriangle(r,
-					vec2_init(quad.x, quad.y), 
-					vec2_init(quad.x + quad.w, quad.y + quad.h), 
-					vec2_init(quad.x, quad.y + quad.h),
-					tint, tint, tint,
-					uv_min, uv_max, vec2_init(uv_min.x, uv_max.y), texture);
+	pushQuad (
+		r,
+		vec2_init(quad.x, quad.y), 
+		vec2_init(quad.x + quad.w, quad.y), 
+		vec2_init(quad.x + quad.w, quad.y + quad.h), 
+		vec2_init(quad.x, quad.y + quad.h),
+		tint, tint, tint, tint,
+		uv_min, 
+		vec2_init(uv_max.x, uv_min.y), 
+		uv_max, 
+		vec2_init(uv_min.x, uv_max.y),
+		texture
+	);
 }
 
 void renderChar(Renderer* r, u32 font_id, char character, vec2 *pos, Color tint) {
@@ -323,20 +344,20 @@ void renderChar(Renderer* r, u32 font_id, char character, vec2 *pos, Color tint)
 	pos->x += metric.ax;
 
 	// cull
-	if (!((x2 + w) < 0 || (y2 + h) < 0 || x2 > r->screen_width || y2 > r->screen_height)) {
-		renderTriangle(r,
-					vec2_init(x2, y2),
-					vec2_init(x2 + w, y2),
-					vec2_init(x2 + w, y2 + h),
-					tint, tint, tint,
-					uv_min, vec2_init(uv_max.x, uv_min.y), uv_max, atlas.glyphs_texture);
-		renderTriangle(r,
-					vec2_init(x2, y2),
-					vec2_init(x2 + w, y2 + h),
-					vec2_init(x2, y2 + h),
-					tint, tint, tint,
-					uv_min, uv_max, vec2_init(uv_min.x, uv_max.y), atlas.glyphs_texture);
-	}
+	pushQuad (
+		r,
+		vec2_init(x2, y2), 
+		vec2_init(x2 + w, y2), 
+		vec2_init(x2 + w, y2 + h), 
+		vec2_init(x2, y2 + h),
+		tint, tint, tint, tint,
+		uv_min, 
+		vec2_init(uv_max.x, uv_min.y), 
+		uv_max, 
+		vec2_init(uv_min.x, uv_max.y),
+		atlas.glyphs_texture
+	);
+	
 }
 
 void renderText(Renderer* r, u32 font_id, char *data, vec2 *pos, Color tint) {
@@ -358,6 +379,25 @@ void renderText(Renderer* r, u32 font_id, char *data, vec2 *pos, Color tint) {
 	}
 }
 
+//~ Helper stuff
+u32 _cached_white = 4096;
+
+u32 rendererGetWhiteTexture() {
+	if (_cached_white == 4096) {
+		u32 tex;
+		u8 image[4] = { 255, 255, 255, 255 };
+		glGenTextures(1, &tex);
+		glBindTexture(GL_TEXTURE_2D, tex);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		_cached_white = tex;
+	}
+	return _cached_white;
+}
+
 void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorTheme theme) {
 	f32 PADDING = 30.0f;
 	renderQuad(r, e->frame, color_from_hex(theme.background_color));
@@ -369,22 +409,6 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 
 		for (size_t i = 0; i < e->lexer.token_count; i++) {
 
-			if (i == e->cursor.buffer_pos) {
-				
-				setCursorTargetScreenPos(e, vec2_init(adj_text_pos.x, adj_text_pos.y));
-
-				// increment the animation timer
-				e->cursor.anim_time += (f32)delta_time * e->cursor_speed;
-				if (e->cursor.anim_time >= 1.0f) {
-					e->cursor.anim_time = 1.0f;
-				}
-
-				lerpCursorScreenPos(e);
-				
-				rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
-				renderQuad(r, cursor_quad, COLOR_WHITE);
-			}
-
 			// If the character is a newline, move down and back over to the left.
 			if (e->lexer.tokens[i].character == '\n') {
 				adj_text_pos.x = init_pos.x;
@@ -395,44 +419,17 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 			// Render the character
 			renderChar(r, font_id, e->lexer.tokens[i].character, &adj_text_pos, color_from_hex(e->lexer.tokens[i].color));
 		}
-
-		if (e->cursor.buffer_pos == e->lexer.token_count) {
-			//TODO: this code shouldn't be here!
-			// set a new target position
-			setCursorTargetScreenPos(e, vec2_init(adj_text_pos.x, adj_text_pos.y));
-
-			// increment the animation timer
-			e->cursor.anim_time += (f32)delta_time * e->cursor_speed;
-			if (e->cursor.anim_time >= 1.0f) {
-				e->cursor.anim_time = 1.0f;
-			}
-
-			lerpCursorScreenPos(e);
-			
-			rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
-			renderQuad(r, cursor_quad, COLOR_WHITE);
-		}
+		
+		// Render cursor
+		rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
+		renderQuad(r, cursor_quad, COLOR_WHITE);
 	} else {
 		getPaths(&e->browser);
 		vec2 init_pos = vec2_init(((r->glyph_adv * 3) + PADDING), e->text_pos.y - e->line_height);
-		
-		// Render the selection highlight
-		setCursorTargetScreenPos(e, vec2_init(init_pos.x, e->text_pos.y - (e->line_height * (e->browser.selection + 1))));
-		f32 target_sel_w = (strlen(e->browser.items[e->browser.selection].name_ext) + (e->browser.items[e->browser.selection].is_dir ? 1 : 0)) * r->glyph_adv;
 
-		e->browser.sel_target_size = vec2_init((target_sel_w) + 5, e->line_height);
-		e->browser.sel_prev_size = e->browser.sel_size;
-
-		e->browser.anim_time += (f32)delta_time * e->cursor_speed;
-		if (e->browser.anim_time >= 1.0f)
-			e->browser.anim_time = 1.0f;
-
-		lerpCursorScreenPos(e);
-		e->browser.sel_size = vec2_lerp(e->browser.sel_prev_size, e->browser.sel_target_size, e->browser.anim_time);
-
-		rect selection_higlight = rect_init(e->browser.sel_screen_pos.x, e->browser.sel_screen_pos.y, e->browser.sel_size.x, e->browser.sel_size.y);
-		renderQuad(r, selection_higlight, color_from_hex(theme.highlight_color));
-
+		// Render selection highlight
+		rect selection_highlight = rect_init(e->browser.sel_screen_pos.x, e->browser.sel_screen_pos.y, e->browser.sel_size.x, e->browser.sel_size.y);
+		renderQuad(r, selection_highlight, color_from_hex(theme.highlight_color));
 
 		for (size_t i = 0; i < e->browser.num_paths; i++){
 			if (e->browser.items[i].is_dir) {
@@ -526,7 +523,7 @@ u32 rendererLoadFont(Renderer *r, const char *path, u32 size_px) {
 
 	//Make the atlas
 	GlyphAtlas atlas;
-	glyphAtlasInit(&atlas, face, &r->glyph_adv);
+	glyphAtlasInit(&atlas, face, &r->glyph_adv, &r->descender);
 
 	//Store atlas
 	u32 font_id = r->font_atlas_count;

@@ -53,6 +53,7 @@ static inline vec2 vec2_neg(vec2 v) { return (vec2) { .x = -v.x, .y = -v.y }; }
 static inline f32  vec2_dot(vec2 a, vec2 b) { return a.x * b.x + a.y * b.y; }
 vec2 vec2_clamp(vec2 vec, rect quad);
 vec2 vec2_lerp (vec2 start, vec2 end, f32 t);
+vec2 vec2_ease_out(vec2 start, vec2 end, f32 t);
 
 // Vec3
 typedef struct { f32 x; f32 y; f32 z; } vec3;

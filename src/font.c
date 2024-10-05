@@ -1,11 +1,12 @@
 #include "util.h"
 #include "font.h"
 
-void glyphAtlasInit(GlyphAtlas *atlas, FT_Face face, f32 *glyph_adv) {
+void glyphAtlasInit(GlyphAtlas *atlas, FT_Face face, f32 *glyph_adv, f32 *descender) {
     	//Creating a texture atlas
 	FT_GlyphSlot g = face->glyph;
 	u32 w = 0;
 	u32 h = 0;
+	f32 top = 0;
 
 	for (u32 i = 32; i < 128; i++) {
 		if (FT_Load_Char(face, i, FT_LOAD_RENDER)) {
@@ -15,12 +16,13 @@ void glyphAtlasInit(GlyphAtlas *atlas, FT_Face face, f32 *glyph_adv) {
 
 		w += g->bitmap.width;
 		*glyph_adv = MAX(*glyph_adv, g->bitmap.width);
+		top = MAX(top, g->bitmap_top);
 		h = MAX(h, g->bitmap.rows);
 	}
 
     atlas->atlas_width = w;
     atlas->atlas_height = h;
-
+	*descender = atlas->atlas_height - top;
 	// for zero initializing the buffer
 	char* blank_buffer = (char*)malloc(sizeof(char) * (size_t)w * (size_t)h);
 

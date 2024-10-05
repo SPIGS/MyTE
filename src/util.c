@@ -17,6 +17,17 @@ vec2 vec2_lerp(vec2 start, vec2 end, f32 t) {
     return result;
 }
 
+vec2 vec2_ease_out(vec2 start, vec2 end, f32 t) {
+    // Cubic ease-out equation
+    t = t - 1.0f;  // Adjust t for cubic easing
+    f32 eased_t = t * t * t + 1.0f;  // Apply cubic ease-out
+
+    vec2 result;
+    result.x = start.x + eased_t * (end.x - start.x);
+    result.y = start.y + eased_t * (end.y - start.y);
+    return result;
+}
+
 vec3 vec3_mul(vec3 a, mat3 m) {
     return (vec3) {
         .x = (a.x * m.a[mat3_idx(0, 0)] + a.y * m.a[mat3_idx(1, 0)] + a.z * m.a[mat3_idx(2, 0)]),

@@ -38,11 +38,14 @@ typedef struct {
     rect frame;
     vec2 text_pos;
     vec2 scroll_pos;
+    vec2 target_scroll_pos;
 
     // Stats to keep track of
     size_t line_count;
     f32 line_height;
     const char *file_path;
+    f32 glyph_adv;
+    f32 descender;
 
     // Lexing stuff
     Lexer lexer;
@@ -59,7 +62,7 @@ typedef struct {
     FileBrowser browser;
 } Editor;
 
-void editorInit(Editor *ed, rect frame, f32 line_height, const char *cur_dir);
+void editorInit(Editor *ed, rect frame, f32 line_height, f32 glyph_adv, f32 descender, const char *cur_dir);
 void editorDestroy(Editor *ed);
 void editorLoadConfig(Editor *ed, Config *config);
 void editorChangeMode(Editor *ed, EditorMode new_mode);
@@ -72,7 +75,6 @@ void moveCursorDown(Editor *ed);
 void insertCharacter(Editor *ed, char character, bool move_cursor_forward);
 void deleteCharacterLeft(Editor *ed);
 void deleteCharacterRight(Editor *ed);
-void setGoalColumn(Editor *ed);
 void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme theme, f64 delta_time);
 void setCursorTargetScreenPos(Editor *ed, vec2 new_target);
 void lerpCursorScreenPos(Editor *ed);

@@ -61,7 +61,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
                 strcpy(cur_dir, app->editor.browser.cur_dir);
                 editorDestroy(&app->editor);
                 rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
-                editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, cur_dir);
+                editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, cur_dir);
                 editorLoadConfig(&app->editor, &app->config);
                 loadFromFile(&app->editor, sel_copy.full_path);
             }
@@ -168,7 +168,7 @@ void applicationInit(Application *app, int argc, char **argv) {
     rendererInit(&app->renderer, COLOR_BLACK);
     app->font_id = rendererLoadFont(&app->renderer, app->config.font_path, 24);
     rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
-    editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, ".");
+    editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, ".");
 
     glfwSetWindowUserPointer(app->window, app);
 	glfwSetFramebufferSizeCallback(app->window, resize_window);
@@ -181,7 +181,7 @@ void applicationInit(Application *app, int argc, char **argv) {
             loadFromFile(&app->editor, file_path);
         } else if (checkPath(file_path) == 1) {
             editorDestroy(&app->editor);
-            editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, file_path);
+            editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, file_path);
             editorChangeMode(&app->editor, EDITOR_MODE_OPEN);
         } else {
             LOG_ERROR("Error evaluating path. The file might be moved or missing!", "");
@@ -223,7 +223,7 @@ void applicationReload(Application *app) {
     
     editorDestroy(&app->editor);
     rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
-    editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, cur_dir);
+    editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, cur_dir);
     editorLoadConfig(&app->editor, &app->config);
     app->theme = colorThemeInit();
     if (app->config.theme_path)
@@ -244,7 +244,7 @@ void applicationRender(Application *app, f64 delta_time) {
         
     // Render stuff goes here
     renderEditor(&app->renderer, app->font_id, &app->editor, delta_time, app->theme);
-    
+
     // Draw FPS counter
     f64 fps = 1.0f / delta_time;
     char fps_str[200];

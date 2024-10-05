@@ -16,7 +16,7 @@ static size_t getBufGapSize(GapBuffer *buf) {
     return buf->gap_end - buf->gap_start;
 }
 
-static size_t getBufLength(GapBuffer *buf) {
+size_t getBufLength(GapBuffer *buf) {
     return buf->end - getBufGapSize(buf);
 }
 
@@ -138,17 +138,17 @@ size_t getPrevCharCursor(GapBuffer *buf, size_t cursor) {
 }
 
 size_t getBeginningOfLineCursor(GapBuffer *buf, size_t cursor) {
-    cursor = getPrevCharCursor(buf, cursor);
     while (cursor > 0) {
-        char character = getBufChar(buf, cursor);
+        char character = getBufChar(buf, getPrevCharCursor(buf, cursor));
         if (character == '\n') {
-            return getNextCharCursor(buf, cursor);
+            return cursor;
         }
         cursor = getPrevCharCursor(buf, cursor);
     }
     return 0;
 }
 
+// This excludes the new line character at the end of a line.
 size_t getEndOfLineCursor(GapBuffer *buf, size_t cursor) {
     while (cursor < getBufLength(buf)) {
         char character = getBufChar(buf, cursor);

@@ -14,15 +14,18 @@ Cursor cursorInit(vec2 init_screen_pos) {
     };
 }
 
-void editorInit(Editor *ed, rect frame, f32 line_height, const char *cur_dir) {
+void editorInit(Editor *ed, rect frame, f32 line_height, f32 glyph_adv, f32 descender, const char *cur_dir) {
     ed->buf = gapBufferInit(INITIAL_BUFFER_SIZE);
     ed->cursor = cursorInit(vec2_init(frame.x, frame.h));
     ed->goal_column = -1;
     ed->frame = rect_init(frame.x, frame.y, frame.w, frame.h);
     ed->text_pos = vec2_init(frame.x, frame.y + frame.h);
     ed->scroll_pos = vec2_init(0,0);
+    ed->target_scroll_pos = vec2_init(0,0);
     ed->line_count = 1;
     ed->line_height = line_height;
+    ed->glyph_adv = glyph_adv;
+    ed->descender = descender;
     ed->file_path = NULL;
     lexerInit(&ed->lexer);
     ed->dirty = true;
@@ -62,76 +65,67 @@ void editorChangeMode(Editor *ed, EditorMode new_mode) {
     ed->mode = new_mode;
 }
 
-// Cursor Movements
 void moveCursorLeft(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        if (ed->cursor.buffer_pos == 0) {
+            return;
+        }
+
         ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
         ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
-        ed->cursor.anim_time = 0.0f;
-        setGoalColumn(ed);
 
-        if (getBufChar(ed->buf, ed->cursor.buffer_pos) == '\n' && ed->cursor.disp_row > 1) {
-            ed->cursor.disp_row--;
+        // If we moved to the prev line
+        if (getBufChar(ed->buf, ed->cursor.buffer_pos) == '\n') {
+           ed->cursor.disp_row--;  
         }
-    } else {
 
-    }  
+        ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
+        ed->cursor.anim_time = 0.0f;
+        ed->goal_column = ed->cursor.disp_column;
+    } 
 }
 
 void moveCursorRight(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        if (ed->cursor.buffer_pos == getBufLength(ed->buf)) {
+            return;
+        }
+
         ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
         ed->cursor.buffer_pos = getNextCharCursor(ed->buf, ed->cursor.buffer_pos);
-        ed->cursor.anim_time = 0.0f;
-        setGoalColumn(ed);
 
-        if (getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos)) == '\n' && ed->cursor.buffer_pos != ed->cursor.prev_buffer_pos) {
+        // If we moved to the next line
+        if (ed->cursor.buffer_pos == getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_pos)) {
             ed->cursor.disp_row++;
         }
-    } else {
 
+        ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
+        ed->cursor.anim_time = 0.0f;
+        ed->goal_column = ed->cursor.disp_column;
     }
 }
 
 void moveCursorUp(Editor *ed) {
-
     if (ed->mode != EDITOR_MODE_OPEN) {
-        // Set the goal column if we haven't already
         if (ed->goal_column == -1) {
-            setGoalColumn(ed);
+            ed->goal_column = ed->cursor.disp_column;
         }
-
-        // Find the beginning of the prev line and the lenght of the prev line
+        
+        size_t beg_prev_line = getBeginningOfPrevLineCursor(ed->buf, ed->cursor.buffer_pos);
+        size_t beg_line = getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_pos);
         ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-        size_t beginning_of_prev_line = getBeginningOfPrevLineCursor(ed->buf, ed->cursor.buffer_pos);
-        size_t prev_line_length = getBufLineLength(ed->buf, beginning_of_prev_line);
 
-        // if the position of the beginning of current line is 0, that means we are on the first line
-        // we should act as if the length of the previous line is 0.
-        if (getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_pos) == 0) {
-            prev_line_length = 0;
-        }
-
-        // If the length of the prev line is 0, we should just move to the end of the previous line
-        if (prev_line_length == 0) {
-            ed->cursor.buffer_pos = getEndOfPrevLineCursor(ed->buf, ed->cursor.buffer_pos);
-            ed->cursor.disp_column = MIN(prev_line_length, (size_t)ed->goal_column);
+        if (beg_line == 0) {
+            ed->cursor.buffer_pos = beg_line;
+            ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
+            ed->goal_column = ed->cursor.disp_column;
         } else {
-            ed->cursor.buffer_pos = beginning_of_prev_line + MIN(prev_line_length, (size_t)ed->goal_column);
-            ed->cursor.disp_column = MIN(prev_line_length, (size_t)ed->goal_column);
-        }
-
-        if (ed->cursor.disp_column < 1) {
-            ed->cursor.disp_column = 1;
-        }
-
-        ed->cursor.anim_time = 0.0f;
-
-        if (ed->cursor.disp_row > 1) {
+            size_t len_prev_line = getBufLineLength(ed->buf, beg_prev_line);
+            ed->cursor.buffer_pos = beg_prev_line + MIN(ed->goal_column - 1, len_prev_line);
             ed->cursor.disp_row--;
-        } else if (ed->cursor.disp_row == 1) {
-            setGoalColumn(ed);
+            ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
         }
+        ed->cursor.anim_time = 0.0f;
     } else {
         decrementSelection(&ed->browser);
     }
@@ -140,23 +134,24 @@ void moveCursorUp(Editor *ed) {
 void moveCursorDown(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
         if (ed->goal_column == -1) {
-            setGoalColumn(ed);
+            ed->goal_column = ed->cursor.disp_column;
         }
+
+        size_t beg_next_line = getBeginningOfNextLineCursor(ed->buf, ed->cursor.buffer_pos);
+        size_t end_line = getEndOfLineCursor(ed->buf, ed->cursor.buffer_pos);
         ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-        size_t beginning_of_next_line = getBeginningOfNextLineCursor(ed->buf, ed->cursor.buffer_pos);
-        size_t next_line_length = getEndOfLineCursor(ed->buf, beginning_of_next_line) - beginning_of_next_line;
-        ed->cursor.buffer_pos = beginning_of_next_line + MIN(next_line_length, (size_t)ed->goal_column);
-        ed->cursor.disp_column = MIN(next_line_length, (size_t)ed->goal_column);
-        if (ed->cursor.disp_column < 1) {
-            ed->cursor.disp_column = 1;
+
+        if (end_line == getBufLength(ed->buf)) {
+            ed->cursor.buffer_pos = beg_next_line;
+            ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
+            ed->goal_column = ed->cursor.disp_column;
+        } else {
+            size_t len_next_line = getBufLineLength(ed->buf, beg_next_line);
+            ed->cursor.buffer_pos = beg_next_line + MIN(ed->goal_column - 1, len_next_line);
+            ed->cursor.disp_row++;
+            ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
         }
         ed->cursor.anim_time = 0.0f;
-
-        if (ed->cursor.disp_row < ed->line_count) {
-            ed->cursor.disp_row++;
-        } else if (ed->cursor.disp_row == ed->line_count) {
-            setGoalColumn(ed);
-        }
     } else {
         incrementSelection(&ed->browser);
     }
@@ -164,53 +159,49 @@ void moveCursorDown(Editor *ed) {
 
 void insertCharacter(Editor *ed, char character, bool move_cursor_forward) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        insertCharIntoBuf(ed->buf, ed->cursor.buffer_pos, character);
         if (character == '\n') {
             ed->line_count ++;
-            ed->cursor.disp_row++;
         }
-
-        insertCharIntoBuf(ed->buf, ed->cursor.buffer_pos, character);
+        
         if (move_cursor_forward) {
-            ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-            ed->cursor.buffer_pos = getNextCharCursor(ed->buf, ed->cursor.buffer_pos);
-            setGoalColumn(ed);
-            ed->cursor.anim_time = 0.0f;
+            moveCursorRight(ed);
         }
         ed->dirty = true;
-    } else {
-        
     }
 }
 
 void deleteCharacterLeft(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
-        if (getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos)) == '\n' && ed->line_count > 1) {
-            ed->line_count--;
-            ed->cursor.disp_row--;
-        }
+        if (ed->cursor.buffer_pos != 0) {
+            removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
+            ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;\
 
-        removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
-        ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-        ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
-        setGoalColumn(ed);
-        ed->cursor.anim_time = 0.0f;
-        ed->dirty = true;
-    } else {
-        
+            if (getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos)) != '\n') {
+                ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
+                ed->cursor.disp_column--;
+                ed->goal_column = ed->cursor.disp_column;
+                ed->cursor.anim_time = 0.0f;
+                ed->dirty = true;
+            } else {
+                ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
+                ed->cursor.disp_column = getBufColumn(ed->buf, getEndOfPrevLineCursor(ed->buf, ed->cursor.buffer_pos)) + 1;
+                ed->goal_column = ed->cursor.disp_column;
+                ed->cursor.disp_row--;
+                ed->line_count--;
+                ed->cursor.anim_time = 0.0f;
+                ed->dirty = true;
+            }
+        }
     }
 }
 
-// TODO handle deletion of lines more elloquently
-// currently tracking the line count of the document is all over the place
-// maybe create a function to keep track?
 void deleteCharacterRight(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
         if (removeCharAfterGap (ed->buf, ed->cursor.buffer_pos) == '\n') {
             ed->line_count = (ed->line_count - 1 < 1) ? 1 : ed->line_count - 1;
         }
         ed->dirty = true;
-    } else {
-        
     }
 }
 
@@ -222,35 +213,72 @@ void setCursorTargetScreenPos(Editor *ed, vec2 new_target) {
 }
 
 void lerpCursorScreenPos(Editor *ed) {
-    ed->cursor.screen_pos = vec2_lerp(ed->cursor.prev_screen_pos, ed->cursor.target_screen_pos, ed->cursor.anim_time);
-    ed->browser.sel_screen_pos = vec2_lerp(ed->browser.sel_prev_screen_pos, ed->browser.sel_target_screen_pos, ed->browser.anim_time);
+    ed->cursor.screen_pos = vec2_ease_out(ed->cursor.prev_screen_pos, ed->cursor.target_screen_pos, ed->cursor.anim_time);
+    ed->browser.sel_screen_pos = vec2_ease_out(ed->browser.sel_prev_screen_pos, ed->browser.sel_target_screen_pos, ed->browser.anim_time);
 }
 
 char *getContents(Editor *ed) {
     return getBufString(ed->buf);
 }
 
-void setGoalColumn(Editor *ed) {
-    ed->goal_column = getBufColumn(ed->buf, ed->cursor.buffer_pos);
-    ed->cursor.disp_column = ed->goal_column+1;
-}
-
 void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme theme, f64 delta_time) {
-    UNUSED(delta_time);
 
-    // Update scroll
+    //Update cursor position
+    //Initial cursor position
+    f32 PADDING = 30.0f;
+    vec2 adj_cursor_pos = vec2_init(((ed->glyph_adv * 3) + PADDING), ed->text_pos.y - ed->line_height - ed->descender);
+
+    if (ed->mode == EDITOR_MODE_NORMAL) {
+        // Vertical/horizontal adjustment from column/row offset
+        adj_cursor_pos.x += ed->glyph_adv * (ed->cursor.disp_column - 1);
+        adj_cursor_pos.y -= ed->line_height * (ed->cursor.disp_row - 1);
+
+        // offet from scroll position
+        adj_cursor_pos = vec2_add(adj_cursor_pos, ed->scroll_pos);
+        setCursorTargetScreenPos(ed, vec2_init(adj_cursor_pos.x, adj_cursor_pos.y));
+
+        // increment the animation timer
+        //ed->cursor.anim_time += (f32)delta_time * ed->cursor_speed;
+        ed->cursor.anim_time += (f32)delta_time;
+        if (ed->cursor.anim_time >= 1.0f) {
+            ed->cursor.anim_time = 1.0f;
+        }
+
+        lerpCursorScreenPos(ed);
+    } else if (ed->mode == EDITOR_MODE_OPEN) {
+        // Render the selection highlight
+        getPaths(&ed->browser);
+		setCursorTargetScreenPos(ed, vec2_init(adj_cursor_pos.x, adj_cursor_pos.y - (ed->line_height * (ed->browser.selection))));
+		f32 target_sel_w = (strlen(ed->browser.items[ed->browser.selection].name_ext) + (ed->browser.items[ed->browser.selection].is_dir ? 1 : 0)) * ed->glyph_adv;
+        ed->browser.sel_target_size = vec2_init((target_sel_w) + 5, ed->line_height);
+
+        ed->browser.sel_prev_size = ed->browser.sel_size;
+
+        //ed->browser.anim_time += (f32)delta_time * ed->cursor_speed;
+        ed->browser.anim_time += (f32)delta_time;
+		if (ed->browser.anim_time >= 1.0f)
+			ed->browser.anim_time = 1.0f;
+
+		lerpCursorScreenPos(ed);
+		ed->browser.sel_size = vec2_ease_out(ed->browser.sel_prev_size, ed->browser.sel_target_size, ed->browser.anim_time);
+    }
+
+    ed->target_scroll_pos = vec2_init(ed->scroll_pos.x, ed->scroll_pos.y);
+    
     f32 SCROLL_UP_LINE_FACTOR = 6;
     f32 SCROLL_DOWN_LINE_FACTOR = 2;
+
     // If  the cursor is moving down
     if (ed->cursor.target_screen_pos.y <= (ed->frame.y + (SCROLL_DOWN_LINE_FACTOR * ed->line_height)) && ed->scroll_pos.y < (ed->line_height * ed->line_count)) {
-        ed->cursor.target_screen_pos.y = ed->frame.y;
-        ed->scroll_pos.y += ed->line_height;
-
+        //ed->cursor.target_screen_pos.y = ed->frame.y;
+        ed->target_scroll_pos.y += ed->line_height;
     // If the cursor is moving up
     } else if (ed->cursor.target_screen_pos.y >= (ed->frame.y + ed->frame.h - (SCROLL_UP_LINE_FACTOR * ed->line_height)) && ed->scroll_pos.y > 0.0) {
-        ed->cursor.target_screen_pos.y = (ed->frame.y + ed->frame.h) - ed->line_height;
-        ed->scroll_pos.y -= ed->line_height;
+        //ed->cursor.target_screen_pos.y = (ed->frame.y + ed->frame.h) - ed->line_height;
+        ed->target_scroll_pos.y -= ed->line_height;
     }
+
+    ed->scroll_pos = vec2_lerp(ed->scroll_pos, ed->target_scroll_pos, (f32)delta_time  * 35.0f);
 
     // Update frame
     f32 STATUS_LINE_HEIGHT = ed->line_height;
