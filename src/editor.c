@@ -56,6 +56,7 @@ void editorChangeMode(Editor *ed, EditorMode new_mode) {
         LOG_INFO("Load paths", "");
         ed->browser.sel_screen_pos = ed->cursor.screen_pos;
         ed->browser.sel_size = vec2_init(3, ed->browser.sel_size.y);
+        getPaths(&ed->browser);
         break;
     
     default:
@@ -174,18 +175,20 @@ void insertCharacter(Editor *ed, char character, bool move_cursor_forward) {
 void deleteCharacterLeft(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
         if (ed->cursor.buffer_pos != 0) {
-            removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
-            ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;\
-
             if (getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos)) != '\n') {
+                removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
+                ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
                 ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
-                ed->cursor.disp_column--;
+                ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
                 ed->goal_column = ed->cursor.disp_column;
                 ed->cursor.anim_time = 0.0f;
                 ed->dirty = true;
             } else {
+                LOG_DEBUG("Deleted new line");
+                removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
+                ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
                 ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
-                ed->cursor.disp_column = getBufColumn(ed->buf, getEndOfPrevLineCursor(ed->buf, ed->cursor.buffer_pos)) + 1;
+                ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
                 ed->goal_column = ed->cursor.disp_column;
                 ed->cursor.disp_row--;
                 ed->line_count--;
@@ -221,7 +224,7 @@ char *getContents(Editor *ed) {
     return getBufString(ed->buf);
 }
 
-void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme theme, f64 delta_time) {
+void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, f64 delta_time) {
 
     //Update cursor position
     //Initial cursor position
@@ -247,7 +250,6 @@ void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme th
         lerpCursorScreenPos(ed);
     } else if (ed->mode == EDITOR_MODE_OPEN) {
         // Render the selection highlight
-        getPaths(&ed->browser);
 		setCursorTargetScreenPos(ed, vec2_init(adj_cursor_pos.x, adj_cursor_pos.y - (ed->line_height * (ed->browser.selection))));
 		f32 target_sel_w = (strlen(ed->browser.items[ed->browser.selection].name_ext) + (ed->browser.items[ed->browser.selection].is_dir ? 1 : 0)) * ed->glyph_adv;
         ed->browser.sel_target_size = vec2_init((target_sel_w) + 5, ed->line_height);
@@ -270,11 +272,9 @@ void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme th
 
     // If  the cursor is moving down
     if (ed->cursor.target_screen_pos.y <= (ed->frame.y + (SCROLL_DOWN_LINE_FACTOR * ed->line_height)) && ed->scroll_pos.y < (ed->line_height * ed->line_count)) {
-        //ed->cursor.target_screen_pos.y = ed->frame.y;
         ed->target_scroll_pos.y += ed->line_height;
     // If the cursor is moving up
     } else if (ed->cursor.target_screen_pos.y >= (ed->frame.y + ed->frame.h - (SCROLL_UP_LINE_FACTOR * ed->line_height)) && ed->scroll_pos.y > 0.0) {
-        //ed->cursor.target_screen_pos.y = (ed->frame.y + ed->frame.h) - ed->line_height;
         ed->target_scroll_pos.y -= ed->line_height;
     }
 
@@ -288,8 +288,8 @@ void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme th
     // Update the lexer
     if (ed->dirty) {
         char *data = getBufString(ed->buf);
-        free(ed->lexer.tokens);
-        lex(&ed->lexer, data, theme);
+        lex(&ed->lexer, data);
+        free(data);
         ed->dirty = false;
     }
 }
@@ -357,7 +357,7 @@ void writeToFile(Editor *ed) {
     }
     fclose(f);
 
-    LOG_INFO("Wrote to disk: ", ed->file_path);
+    LOG_INFO("Wrote to disk: %s", ed->file_path);
 }
 
 void clearBuffer(Editor *ed) {
@@ -396,11 +396,7 @@ void moveCursorWordForward(Editor *ed) {
             new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
             moveCursorRight(ed);
         }
-    } else {
-        
     }
-
-    
 }
 
 void moveCursorWordBackward(Editor *ed) {
@@ -428,9 +424,5 @@ void moveCursorWordBackward(Editor *ed) {
             new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
             moveCursorLeft(ed);
         }
-    } else {
-        
     }
-
-    
 }

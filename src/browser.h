@@ -13,9 +13,13 @@ typedef struct {
     bool is_dir;
 } BrowserItem;
 
+void browserItemInit(BrowserItem *item);
+void browserItemDestroy(BrowserItem *item);
+
 typedef struct {
     BrowserItem *items;
     size_t num_paths;
+    size_t paths_capacity;
     size_t selection;
     char* cur_dir;
 

@@ -7,6 +7,7 @@
 #include "browser.h"
 
 #define CURSOR_SPEED 3.5
+#define INIT_EDITOR_FRAME rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200)
 
 typedef enum {
     EDITOR_MODE_NORMAL,
@@ -75,7 +76,7 @@ void moveCursorDown(Editor *ed);
 void insertCharacter(Editor *ed, char character, bool move_cursor_forward);
 void deleteCharacterLeft(Editor *ed);
 void deleteCharacterRight(Editor *ed);
-void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, ColorTheme theme, f64 delta_time);
+void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, f64 delta_time);
 void setCursorTargetScreenPos(Editor *ed, vec2 new_target);
 void lerpCursorScreenPos(Editor *ed);
 

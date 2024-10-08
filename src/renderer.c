@@ -424,24 +424,77 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 		vec2 init_pos = vec2_init(((r->glyph_adv * 3) + PADDING), e->text_pos.y - e->line_height);
 		vec2 adj_text_pos = vec2_add(init_pos, e->scroll_pos);
 
+		// Render the tokens
 		for (size_t i = 0; i < e->lexer.token_count; i++) {
+			Token curToken = e->lexer.tokens[i];
+			switch(curToken.type) {
+				case TOKEN_COMMENT_SINGLE:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.comment_single_color));
+				break;
 
-			// If the character is a newline, move down and back over to the left.
-			if (e->lexer.tokens[i].character == '\n') {
-				adj_text_pos.x = init_pos.x;
-				adj_text_pos.y -= atlas.atlas_height;
-				continue;
+				case TOKEN_COMMENT_MULTI:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.comment_multi_color));
+				break;
+
+				case TOKEN_STRING_LITERAL_DOUBLE:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.string_literal_double_color));
+				break;
+
+				case TOKEN_STRING_LITERAL_SINGLE:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.string_literal_single_color));
+				break;
+
+				case TOKEN_ESCAPE_SEQUENCE:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.number_color));
+				break;
+
+				case TOKEN_NUMBER:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.number_color));
+				break;
+
+				case TOKEN_SYMBOL:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.symbol_color));
+				break;
+
+				case TOKEN_NEW_LINE:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.foreground_color));
+					adj_text_pos.x = init_pos.x;
+				break;
+
+				case TOKEN_PREPROCESSOR_DIRECTIVE:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.keyword_color));
+				break;
+
+				case TOKEN_KEYWORD:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.keyword_color));
+				break;
+
+				case TOKEN_SECONDARY_KEYWORD:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.secondary_keyword_color));
+				break;
+
+				case TOKEN_BUILT_IN_TYPE:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.built_in_type_color));
+				break;
+
+				case TOKEN_FUNCTION_NAME:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.function_name_color));
+				break;
+
+				case TOKEN_TYPE_NAME:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.type_color));
+				break;
+				
+				default:
+					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.foreground_color));
+				break;
 			}
-
-			// Render the character
-			renderChar(r, font_id, e->lexer.tokens[i].character, &adj_text_pos, color_from_hex(e->lexer.tokens[i].color));
 		}
 		
 		// Render cursor
 		rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
 		renderQuad(r, cursor_quad, COLOR_WHITE);
 	} else {
-		getPaths(&e->browser);
 		vec2 init_pos = vec2_init(((r->glyph_adv * 3) + PADDING), e->text_pos.y - e->line_height);
 
 		// Render selection highlight

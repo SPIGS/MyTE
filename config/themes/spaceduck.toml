@@ -1,5 +1,6 @@
 [colors]
     keyword_color = 0x7A5CCCFF
+    secondary_keyword_color = 0xB3A1E6FF
     symbol_color = 0xCE6F8FFF
     string_literal_double_color = 0x00A3CCFF
     string_literal_single_color = 0xF2CE00FF

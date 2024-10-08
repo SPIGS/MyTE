@@ -23,7 +23,7 @@ void insertCharIntoBuf (GapBuffer *buf, size_t cursor, char c);
 void removeCharBeforeGap (GapBuffer *buf, size_t cursor);
 char removeCharAfterGap (GapBuffer *buf, size_t cursor);
 char *getBufString (GapBuffer *buf);
-void outputBufString (GapBuffer *buf, size_t);
+void outputBufferString (GapBuffer *buf, size_t cursor);
 
 size_t getNextCharCursor(GapBuffer *buf, size_t cursor);
 size_t getPrevCharCursor(GapBuffer *buf, size_t cursor);

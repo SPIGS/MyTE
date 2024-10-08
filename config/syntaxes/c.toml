@@ -1,8 +1,10 @@
 [highlighting]
-    keywords = [ "return", "if", "else", "auto","break", "const","case", "for", "do", "typedef", "struct", "sizeof", "goto", "switch", "do", "while", "true", "false", "NULL" ]
-    symbols = [ "(", ")", "{", "}", "*", "=", "|", "&", "!", "%", "-", "+", "/", "?", "<", ">" ]
+    keywords = [ "return", "if", "else", "auto","break", "case", "for", "do", "typedef", "struct", "sizeof", "goto", "switch", "do", "while", "true", "false", "NULL" ]
+    secondary_keywords = [ "const", "static", "inline", "volatile", "extern"]
+    symbols = [ "(", ")", "{", "}", "*", "=", "|", "&", "!", "%", "-", "+", "/", "?", "<", ">", ":", "[", "]" ]
     built_in_types = [ "int","char", "float", "double", "long", "size_t", "bool", "short", "signed", "void" ]
+    preprocessor_directives = [ "#define", "#undef", "#include", "#ifdef", "#ifndef", "#if", "#else", "#elif", "#endif", "#pragma" ]
     comment_single_prefix = "//"
     comment_multi_begin = "/*"
     comment_multi_end = "*/"
-    additional_colors = true
+    enable_identifier_heuristics = true

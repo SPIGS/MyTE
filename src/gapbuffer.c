@@ -114,8 +114,8 @@ char *getBufString (GapBuffer *buf) {
 
 void outputBufferString (GapBuffer *buf, size_t cursor) {
     char *temp = getBufString(buf);
-    printf("%lu, %lu\n", cursor, getCursorIdx(buf, cursor));
-    printf("%s\n", temp);
+    LOG_DEBUG("%lu, %lu", cursor, getCursorIdx(buf, cursor));
+    LOG_DEBUG("%s", temp);
     free(temp);
 }
 

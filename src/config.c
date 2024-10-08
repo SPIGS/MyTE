@@ -49,6 +49,7 @@ void colorThemeLoad(ColorTheme *theme, const char *path) {
     LOAD_TOML_INT(color_table, "string_literal_single_color", string_literal_single_color);
     LOAD_TOML_INT(color_table, "number_color", number_color);
     LOAD_TOML_INT(color_table, "built_in_type_color", built_in_type_color);
+    LOAD_TOML_INT(color_table, "secondary_keyword_color", secondary_keyword_color);
     LOAD_TOML_INT(color_table, "type_color", type_color);
     LOAD_TOML_INT(color_table, "function_name_color", function_name_color);
     LOAD_TOML_INT(color_table, "foreground_color", foreground_color);
@@ -70,6 +71,7 @@ void colorThemeLoad(ColorTheme *theme, const char *path) {
     theme-> comment_single_color = comment_single_color.u.i;
     theme-> comment_multi_color = comment_multi_color.u.i;
     theme-> highlight_color = highlight_color.u.i;
+    theme-> secondary_keyword_color = secondary_keyword_color.u.i;
 
     toml_free(color_conf);    
 }

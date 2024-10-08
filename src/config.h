@@ -5,48 +5,45 @@
 #define LOAD_TOML_INT(table, key, var) \
     toml_datum_t var = toml_int_in(table, key); \
     if (!var.ok) { \
-        LOG_ERROR("cannot read ", key); \
-        return; \
+        LOG_WARN("cannot read TOML int \'%s\'", key); \
     }
 
 #define LOAD_TOML_STR(table, key, var) \
     toml_datum_t var = toml_string_in(table, key); \
     if (!var.ok) { \
-        LOG_ERROR("cannot read ", key); \
-        return; \
+        LOG_WARN("cannot read TOML string \'%s\'", key); \
     }
 
 #define LOAD_TOML_BOOL(table, key, var) \
     toml_datum_t var = toml_bool_in(table, key); \
     if (!var.ok) { \
-        LOG_ERROR("cannot read ", key); \
-        return; \
+        LOG_WARN("cannot read TOML bool \'%s\'", key); \
     }
 
 #define LOAD_TOML_STR_ARRAY(table, key, array, array_count, var, count) \
     toml_array_t *array = toml_array_in(table, key); \
-    if (!array) { \
-        LOG_ERROR("cannot read ", key); \
-        return; \
-    } \
-    size_t array_count = toml_array_nelem(array); \
-    char **var = malloc(array_count * sizeof(char *)); \
     size_t count = 0; \
-    for (size_t i = 0; i < array_count; i++) { \
-        char *str = toml_string_at(array, i).u.s; \
-        var[count] = malloc(strlen(str) + 1); \
-        strcpy(var[count], str); \
-        free(str); \
-        count++; \
+    char **var = NULL; \
+    if (!array) { \
+        LOG_WARN("cannot read TOML string array \'%s\'", key); \
+    } else { \
+        size_t array_count = toml_array_nelem(array); \
+        var = malloc(array_count * sizeof(char *)); \
+        count = 0; \
+        for (size_t i = 0; i < array_count; i++) { \
+            char *str = toml_string_at(array, i).u.s; \
+            var[count] = malloc(strlen(str) + 1); \
+            strcpy(var[count], str); \
+            free(str); \
+            count++; \
+        } \
     }
-
+    
 #define LOAD_TOML_DOUBLE(table, key, var) \
     toml_datum_t var = toml_double_in(table, key); \
     if (!var.ok) { \
-        LOG_ERROR("cannot read ", key); \
-        return; \
+        LOG_WARN("cannot read TOML double \'%s\'", key); \
     }
-
 
 typedef struct {
     i32 keyword_color;
@@ -62,6 +59,7 @@ typedef struct {
     i32 comment_single_color;
     i32 comment_multi_color;
     i32 highlight_color;
+    i32 secondary_keyword_color;
 } ColorTheme;
 
 ColorTheme colorThemeInit();

@@ -38,32 +38,28 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
         if (app->editor.mode != EDITOR_MODE_OPEN) {
             insertCharacter(&app->editor, '\n', true);
         } else {
-
-            // TODO: This is garbage fix it
             BrowserItem selection = getSelection(&app->editor.browser);
-            BrowserItem sel_copy;
-            sel_copy.full_path = malloc(strlen(selection.full_path) + 1);
-            sel_copy.name_ext = malloc(strlen(selection.name_ext) + 1);
-            sel_copy.is_dir = selection.is_dir;
-            strcpy(sel_copy.full_path, selection.full_path);
-            strcpy(sel_copy.name_ext, selection.name_ext);
-            if (sel_copy.is_dir) {
-                if (strcmp(sel_copy.name_ext, "..") == 0) {
-                    // leave the current directory
+            if (selection.is_dir) {
+                if (strcmp(selection.name_ext, "..") == 0) {
                     goUpDirectoryLevel(&app->editor.browser);
+                    app->editor.browser.selection = 0;
+                    getPaths(&app->editor.browser);
                 } else {
-                    enterDirectory(&app->editor.browser, sel_copy.name_ext);
+                    enterDirectory(&app->editor.browser, selection.name_ext);
                     app->editor.browser.selection = 0;
                     getPaths(&app->editor.browser);
                 }
             } else {
-                char *cur_dir = (char *)malloc(strlen(app->editor.browser.cur_dir) + 1);
+                char *cur_dir = (char *)malloc(sizeof(char) * strlen(app->editor.browser.cur_dir) + 1);
                 strcpy(cur_dir, app->editor.browser.cur_dir);
+
+                char *full_path = (char *)malloc(sizeof(char) * strlen(selection.full_path) + 1);
+                strcpy(full_path, selection.full_path);
                 editorDestroy(&app->editor);
-                rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
-                editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, cur_dir);
+                editorInit(&app->editor, INIT_EDITOR_FRAME, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, cur_dir);
                 editorLoadConfig(&app->editor, &app->config);
-                loadFromFile(&app->editor, sel_copy.full_path);
+                loadFromFile(&app->editor, full_path);
+                free(cur_dir);
             }
         }
         
@@ -73,7 +69,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
         }
     } else if (key == GLFW_KEY_F3 && (action == GLFW_PRESS)) {
         char *content = getContents(&app->editor);
-        LOG_DEBUG("---------------------------\n", content);
+        LOG_DEBUG("---------------------------\n%s", content);
         LOG_DEBUG("---------------------------", "");
         free(content);
     } else if (key == GLFW_KEY_F5 && (action == GLFW_PRESS)) {
@@ -91,7 +87,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
     } else if (key == GLFW_KEY_S && (action == GLFW_PRESS)) {
         if (mods == GLFW_MOD_CONTROL)
             writeToFile(&app->editor);
-            //editorChangeMode(&app->editor, EDITOR_MODE_SAVE);
     }
 }
 
@@ -236,7 +231,7 @@ void applicationReload(Application *app) {
 
 void applicationUpdate(Application *app, f64 delta_time) {
     glfwPollEvents();
-    editorUpdate(&app->editor, app->renderer.screen_width, app->renderer.screen_height, app->theme, delta_time);
+    editorUpdate(&app->editor, app->renderer.screen_width, app->renderer.screen_height, delta_time);
 }
 
 void applicationRender(Application *app, f64 delta_time) {

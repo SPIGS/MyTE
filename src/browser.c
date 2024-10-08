@@ -29,6 +29,7 @@ static char *allocate_and_copy(const char *src, int is_dir) {
 void fileBrowserInit(FileBrowser *fb, vec2 selection_screen_pos, const char *cur_dir) {
     fb->items = NULL;
     fb->num_paths = 0;
+    fb->paths_capacity = 10;
     fb->selection = 0;
     fb->cur_dir = malloc(strlen(cur_dir) + 1);
     strcpy(fb->cur_dir, cur_dir);
@@ -43,12 +44,30 @@ void fileBrowserInit(FileBrowser *fb, vec2 selection_screen_pos, const char *cur
     fb->anim_time = 0.0;
 }
 
+void browserItemInit(BrowserItem *item) {
+    item->full_path = NULL;
+    item->is_dir = false;
+    item->name_ext = NULL;
+}
+
+void browserItemDestroy (BrowserItem *item) {
+    if (item->full_path) {
+        free(item->full_path);
+        item->full_path = NULL;
+    }
+    
+    if (item->name_ext) {
+        free(item->name_ext);
+        item->name_ext = NULL;
+    }
+}
+
 void fileBrowserDestroy(FileBrowser *fb) {
     if (fb->items) {
         for (size_t i = 0; i < fb->num_paths; i++) {
-            free(fb->items[i].full_path);
-            free(fb->items[i].name_ext);
+            browserItemDestroy(&fb->items[i]);
         }
+        free(fb->items);
     }
 
     if (fb->cur_dir) {
@@ -61,10 +80,18 @@ void fileBrowserDestroy(FileBrowser *fb) {
 void getPaths(FileBrowser *fb) {
     DIR *dir;
     struct dirent *entry;
-    size_t count = 0;
-    size_t allocated_size = 10;
-    BrowserItem* items = NULL;
+    size_t inital_capacity = 10;
     char full_path[MAX_PATH_LEN];
+
+    // Clear paths list
+    if (fb->items) {
+        for (size_t i = 0; i < fb->num_paths; i++) {
+            browserItemDestroy(&fb->items[i]);
+        }
+        free(fb->items);
+        fb->num_paths = 0;
+        fb->paths_capacity = inital_capacity;
+    }
 
     // Open the directory
     if (!(dir = opendir(fb->cur_dir))) {
@@ -73,8 +100,8 @@ void getPaths(FileBrowser *fb) {
     }
 
     // Allocate memory for the path list
-    items = malloc(sizeof(BrowserItem) * allocated_size); // Initial size for paths
-    if (!items) {
+    fb->items = malloc(inital_capacity * sizeof(BrowserItem)); // Initial size for paths
+    if (!fb->items) {
         LOG_ERROR("Couldn't allocate memory for browser's file path list.", "");
         closedir(dir);
         return;
@@ -97,31 +124,36 @@ void getPaths(FileBrowser *fb) {
         // Brwoser ITem
 
         // Allocate and store the Item
-        items[count].full_path = allocate_and_copy(full_path, is_dir);  // Store the full path
-        items[count].name_ext = allocate_and_copy(entry->d_name, is_dir);  // Store the name and extension
-        items[count].is_dir = is_dir;  // Store if it's a directory
-        count++;
+        BrowserItem item;
+        browserItemInit(&item);
+        item.full_path = allocate_and_copy(full_path, is_dir); // Store the full path
+        item.name_ext = allocate_and_copy(entry->d_name, is_dir); // Store the name and extension
+        item.is_dir = is_dir; // Store if it's a directory
+        // items[count].full_path = allocate_and_copy(full_path, is_dir);  
+        // items[count].name_ext = allocate_and_copy(entry->d_name, is_dir);  
+        // items[count].is_dir = is_dir;  
 
         // Reallocate memory if needed
-        if (count >= allocated_size) {
-            allocated_size += 10;
-            items = realloc(items, sizeof(*items) * allocated_size);
-            if (!items) {
+        if (fb->num_paths >= fb->paths_capacity) {
+            fb->paths_capacity *= 2;
+            BrowserItem *new_items = realloc(fb->items, fb->paths_capacity * sizeof(BrowserItem));
+            if (!new_items) {
                 LOG_ERROR("Couldn't reallocate memory for browser's path list.", "");
                 closedir(dir);
                 return;
             }
+            fb->items = new_items;
         }
+
+        fb->items[fb->num_paths] = item;
+        fb->num_paths++;
     }
 
     // Close the directory
     closedir(dir);
 
     // sort the paths
-    qsort(items, count, sizeof(items[0]), compareItems);
-
-    fb->items = items;
-    fb->num_paths = count;
+    qsort(fb->items, fb->num_paths, sizeof(BrowserItem), compareItems);
 }
 
 void enterDirectory(FileBrowser *fb, const char *dir_name) {
