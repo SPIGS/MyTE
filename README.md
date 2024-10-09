@@ -21,6 +21,7 @@ MyTE currently has two modes - an editor mode and a file browsing mode. The edit
     - typing inserts characters into the buffer
     - arrow keys move the cursor around the buffer
     - `CTRL + left/right` move the cursor back/forward one whole word.
+    - `CTRL + BACKSPACE/DELETE` backspaces/deletes a whole word.
     - `CTRL+O` opens file browsing mode
     - `CTRL+S` saves the current file to disk (doesn't work for new unnamed files)
 - **File Browsing Mode**
