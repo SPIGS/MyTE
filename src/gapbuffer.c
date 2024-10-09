@@ -1,6 +1,7 @@
 #include "gapbuffer.h"
-#include<stdio.h>
+#include <stdio.h>
 #include <assert.h>
+#include <ctype.h>
 
 
 GapBuffer *gapBufferInit(size_t inital_size) {

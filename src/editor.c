@@ -184,7 +184,6 @@ void deleteCharacterLeft(Editor *ed) {
                 ed->cursor.anim_time = 0.0f;
                 ed->dirty = true;
             } else {
-                LOG_DEBUG("Deleted new line");
                 removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
                 ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
                 ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
@@ -370,59 +369,108 @@ void clearBuffer(Editor *ed) {
     ed->dirty = true;
 }
 
-// TODO: These arent perfect but they are ok for now
-void moveCursorWordForward(Editor *ed) {
+void moveEndOfNextWord(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
-        if (ed->cursor.buffer_pos >= ed->buf->end)
-            return;
-
-        size_t new_cursor_pos = ed->cursor.buffer_pos;
-        char cur_char = getBufChar(ed->buf, new_cursor_pos);
-        if (isspace(cur_char)) {
-            while (!isalnum(cur_char) && cur_char != '\0') {
-                new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
-                moveCursorRight(ed);
-                cur_char = getBufChar(ed->buf, new_cursor_pos);
-            }
-        } else {
-            while (!isalnum(cur_char) && !isspace(cur_char) && cur_char != '\0') {
-                new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
-                moveCursorRight(ed);
-                cur_char = getBufChar(ed->buf, new_cursor_pos);
-            }
-        }
+        moveCursorRight(ed);
+        char c = getBufChar(ed->buf, ed->cursor.buffer_pos);
         
-        while (isalnum(getBufChar(ed->buf, new_cursor_pos))) {    
-            new_cursor_pos = getNextCharCursor(ed->buf, new_cursor_pos);
-            moveCursorRight(ed);
+        // skip spaces
+        if (isspace(c)) {
+           while (isspace(c) && c != '\n') {
+                moveCursorRight(ed);
+                c = getBufChar(ed->buf, ed->cursor.buffer_pos);
+            } 
+        }
+
+        if (ispunct(c) && c != '_') {
+            while (ispunct(c) && c != '_') {
+                moveCursorRight(ed);
+                c = getBufChar(ed->buf, ed->cursor.buffer_pos);
+            }
+        } else if (isalnum(c) || c == '_'){
+            while (isalnum(c) || c == '_') {
+                moveCursorRight(ed);
+                c = getBufChar(ed->buf, ed->cursor.buffer_pos);
+            }
         }
     }
 }
 
-void moveCursorWordBackward(Editor *ed) {
+void moveBegOfPrevWord(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
-        if (ed->cursor.buffer_pos <= 0)
-            return;
+        moveCursorLeft(ed);
+        char c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
+        
+        // skip spaces
+        if (isspace(c)) {
+           while (isspace(c) && c != '\n' && ed->cursor.buffer_pos != 0) {
+                moveCursorLeft(ed);
+                c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
+            } 
+        }
 
-        size_t new_cursor_pos = ed->cursor.buffer_pos;
-        char prev_char = getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos));
-        if (isspace(prev_char)) {
-            while (!isalnum(prev_char) && new_cursor_pos != 0) {
-                new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
+        if (ispunct(c) && c != '_') {
+            while (ispunct(c) && c != '_' && ed->cursor.buffer_pos != 0) {
                 moveCursorLeft(ed);
-                prev_char = getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos));
+                c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
             }
-        } else {
-            while (!isalnum(prev_char) && !isspace(prev_char) && new_cursor_pos != 0) {
-                new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
+        } else if (isalnum(c) || c == '_'){
+            while ((isalnum(c) || c == '_') && ed->cursor.buffer_pos != 0) {
                 moveCursorLeft(ed);
-                prev_char = getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos));
+                c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
             }
         }
+    }
+}
+
+void deleteWordLeft(Editor *ed) {
+    deleteCharacterLeft(ed);
+    char c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
+    
+    // skip spaces
+    if (isspace(c)) {
+        while (isspace(c) && c != '\n' && ed->cursor.buffer_pos != 0) {
+            deleteCharacterLeft(ed);
+            c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
+        } 
+    }
+
+    if (ispunct(c) && c != '_') {
+        while (ispunct(c) && c != '_' && ed->cursor.buffer_pos != 0) {
+            deleteCharacterLeft(ed);
+            c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
+        }
+    } else if (isalnum(c) || c == '_'){
+        while ((isalnum(c) || c == '_') && ed->cursor.buffer_pos != 0) {
+            deleteCharacterLeft(ed);
+            c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
+        }
+    }
+}
+
+void deleteWordRight(Editor *ed) {
+    if (ed->mode != EDITOR_MODE_OPEN) {
+        char c = getBufChar(ed->buf, ed->cursor.buffer_pos);
         
-        while (isalnum(getBufChar(ed->buf, getPrevCharCursor(ed->buf, new_cursor_pos)))) {    
-            new_cursor_pos = getPrevCharCursor(ed->buf, new_cursor_pos);
-            moveCursorLeft(ed);
+        // We don't want to skip here - if there are spaces we want to delete those
+        // and let the user choose to delete more.
+        if (c == '\n') {
+            deleteCharacterRight(ed);
+        } else if (isspace(c) && c != '\n') {
+           while (isspace(c) && c != '\n') {
+                deleteCharacterRight(ed);
+                c = getBufChar(ed->buf, ed->cursor.buffer_pos);
+            } 
+        } else if (ispunct(c) && c != '_') {
+            while (ispunct(c) && c != '_') {
+                deleteCharacterRight(ed);
+                c = getBufChar(ed->buf, ed->cursor.buffer_pos);
+            }
+        } else if (isalnum(c) || c == '_'){
+            while (isalnum(c) || c == '_') {
+                deleteCharacterRight(ed);
+                c = getBufChar(ed->buf, ed->cursor.buffer_pos);
+            }
         }
     }
 }

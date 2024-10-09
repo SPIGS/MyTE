@@ -16,7 +16,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
 
     if (key == GLFW_KEY_LEFT && (action == GLFW_REPEAT || action == GLFW_PRESS)){
         if (mods == GLFW_MOD_CONTROL) {
-            moveCursorWordBackward(&app->editor);
+            moveBegOfPrevWord(&app->editor);
         } else {
             moveCursorLeft(&app->editor);
         }
@@ -26,14 +26,23 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
        moveCursorDown(&app->editor);
     } else if (key == GLFW_KEY_RIGHT && (action == GLFW_REPEAT || action == GLFW_PRESS)){
         if (mods == GLFW_MOD_CONTROL) {
-            moveCursorWordForward(&app->editor);
+            moveEndOfNextWord(&app->editor);
         } else {
             moveCursorRight(&app->editor);
         }
     } else if (key == GLFW_KEY_BACKSPACE && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        deleteCharacterLeft(&app->editor);
+        if (mods == GLFW_MOD_CONTROL) {
+            deleteWordLeft(&app->editor);
+        } else {
+            deleteCharacterLeft(&app->editor);
+        }
     } else if (key == GLFW_KEY_DELETE && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        deleteCharacterRight(&app->editor);
+        if (mods == GLFW_MOD_CONTROL) {
+            deleteWordRight(&app->editor);
+        } else {
+            deleteCharacterRight(&app->editor);
+        }
+        
     } else if (key == GLFW_KEY_ENTER && (action == GLFW_REPEAT || action == GLFW_PRESS)){
         if (app->editor.mode != EDITOR_MODE_OPEN) {
             insertCharacter(&app->editor, '\n', true);
