@@ -15,6 +15,11 @@ typedef enum {
     EDITOR_MODE_SAVE
 } EditorMode;
 
+typedef enum {
+    SCROLL_MODE_CURSOR,
+    SCROLL_MODE_MOUSE
+} ScrollMode;
+
 typedef struct {
     size_t buffer_pos;
     size_t prev_buffer_pos;
@@ -40,6 +45,7 @@ typedef struct {
     vec2 text_pos;
     vec2 scroll_pos;
     vec2 target_scroll_pos;
+    ScrollMode scroll_mode;
 
     // Stats to keep track of
     size_t line_count;
@@ -55,6 +61,9 @@ typedef struct {
     // Configuration stuff
     i32 tab_stop;
     f64 cursor_speed;
+    i32 scroll_speed;
+    i32 scroll_stop_top;
+    i32 scroll_stop_bottom;
 
     // Editor modes
     EditorMode mode;
@@ -88,3 +97,6 @@ void moveEndOfNextWord(Editor *ed);
 void moveBegOfPrevWord(Editor *ed);
 void deleteWordLeft(Editor *ed);
 void deleteWordRight(Editor *ed);
+
+void moveCursorToMousePos(Editor *ed, vec2 mouse_pos);
+void scrollWithMouseWheel(Editor *ed, f32 yoffset);

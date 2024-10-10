@@ -131,40 +131,66 @@ void character_callback(GLFWwindow* window, unsigned int codepoint) {
     }
 }
 
+void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
+    UNUSED(mods);
+    Application *app = glfwGetWindowUserPointer(window);
+
+    if (button == GLFW_MOUSE_BUTTON_LEFT && (action == GLFW_PRESS)) {
+        f64 mouse_x = 0.0;
+        f64 mouse_y = 0.0;
+        glfwGetCursorPos(app->window, &mouse_x, &mouse_y);
+        moveCursorToMousePos(&app->editor, vec2_init(mouse_x, mouse_y));
+    }
+}
+
+void scrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
+    UNUSED(xoffset);
+    Application *app = glfwGetWindowUserPointer(window);
+    scrollWithMouseWheel(&app->editor, yoffset);
+}
+
+void cursorEnterCallback(GLFWwindow *window, int entered) {
+    Application *app = glfwGetWindowUserPointer(window);
+    if (entered) {
+        glfwSetCursor(app->window, glfwCreateStandardCursor(GLFW_IBEAM_CURSOR));
+    } else {
+        glfwSetCursor(app->window, NULL);
+    }
+}
+
 void resize_window(GLFWwindow *window, int width, int height) {
-	Application *app = glfwGetWindowUserPointer(window);
-	rendererResizeWindow(&app->renderer, width, height);
+   Application *app = glfwGetWindowUserPointer(window);
+   rendererResizeWindow(&app->renderer, width, height);
 }
 
 /* END GLFW CALLBACKS */
 
 void applicationInit(Application *app, int argc, char **argv) {
     // Initialize glfw
-	if (!glfwInit()) {
+   if (!glfwInit()) {
         LOG_ERROR("Failed to initialize GLFW", "");
-		exit(1);
-	}
+        exit(1);
+    }
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-	glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-	glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    app->window = glfwCreateWindow(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, "Hello World", NULL, NULL);
+    app->window = glfwCreateWindow(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, "MyTE", NULL, NULL);
     if (!app->window) {
-		glfwTerminate();
+        glfwTerminate();
         LOG_ERROR("Failed to initialize GLFW window.", "");
-		exit(1);
-	}
+        exit(1);
+    }
 
     glfwMakeContextCurrent(app->window);
 
     if (glewInit() != GLEW_OK) {
         glfwTerminate();
-		LOG_ERROR("Failed to initialize GLEW.", "");
-		exit(1);
-	}
-    
-    printf("OpenGL ver. %s\n", glGetString(GL_VERSION));
+        LOG_ERROR("Failed to initialize GLEW.", "");
+        exit(1);
+    }
+    LOG_INFO("OpenGL ver. %s", glGetString(GL_VERSION));
 
     app->config = configInit();
     loadConfigFromFile(&app->config, "./config/config.toml");
@@ -175,10 +201,13 @@ void applicationInit(Application *app, int argc, char **argv) {
     editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, ".");
 
     glfwSetWindowUserPointer(app->window, app);
-	glfwSetFramebufferSizeCallback(app->window, resize_window);
-	glfwSetKeyCallback(app->window, key_callback);
+    glfwSetFramebufferSizeCallback(app->window, resize_window);
+    glfwSetKeyCallback(app->window, key_callback);
     glfwSetCharCallback(app->window, character_callback);
-
+    glfwSetMouseButtonCallback(app->window, mouseButtonCallback);
+    glfwSetScrollCallback(app->window, scrollCallback);
+    glfwSetCursorEnterCallback(app->window, cursorEnterCallback);
+    
     if (argc > 1) {
         const char *file_path = argv[1];
         if (checkPath(file_path) == 0) {
@@ -205,14 +234,14 @@ void applicationDestroy(Application *app) {
     configDestroy(&app->config);
 
     glfwDestroyWindow(app->window);
-	glfwTerminate();
+    glfwTerminate();
 }
 
 void applicationReload(Application *app) {
     configDestroy(&app->config);
     app->config = configInit();
     loadConfigFromFile(&app->config, "./config/config.toml");
-    app->font_id = rendererLoadFont(&app->renderer, app->config.font_path, 24);
+    app->font_id = rendererLoadFont(&app->renderer, app->config.font_path, app->config.font_size);
     
     // Save the current directory for the browser
     char *cur_dir = (char *)malloc(strlen(app->editor.browser.cur_dir) + 1);
@@ -250,11 +279,14 @@ void applicationRender(Application *app, f64 delta_time) {
     renderEditor(&app->renderer, app->font_id, &app->editor, delta_time, app->theme);
 
     // Draw FPS counter
-    f64 fps = 1.0f / delta_time;
-    char fps_str[200];
-    sprintf(fps_str, "FPS: %f", fps);
-    vec2 fps_pos = vec2_init(app->renderer.screen_width - 200, 30);
-    renderText(&app->renderer, app->font_id, fps_str, &fps_pos, COLOR_RED);
+    if (app->config.show_fps) {
+        f64 fps = 1.0f / delta_time;
+        char fps_str[200];
+        sprintf(fps_str, "FPS: %f", fps);
+        vec2 fps_pos = vec2_init(app->renderer.screen_width - 200, 30);
+        GlyphAtlas atlas = app->renderer.font_atlases[app->font_id];
+        renderText(&app->renderer, fps_str, &fps_pos, &atlas, COLOR_RED);
+    }
 
     rendererEnd(&app->renderer);
     glfwSwapBuffers(app->window);

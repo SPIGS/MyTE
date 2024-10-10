@@ -328,9 +328,7 @@ void renderTexturedQuad(Renderer* r, rect quad, Color tint, u32 texture) {
 	);
 }
 
-void renderChar(Renderer* r, u32 font_id, char character, vec2 *pos, Color tint) {
-	GlyphAtlas atlas = r->font_atlases[font_id];
-		
+void renderChar(Renderer* r, char character, vec2 *pos, GlyphAtlas *atlas, Color tint) {
 	// If the character is a newline, don't do anything.
 	if (character == '\n') {
 		return;
@@ -341,7 +339,7 @@ void renderChar(Renderer* r, u32 font_id, char character, vec2 *pos, Color tint)
 		glyph_index = '?';
 	}
 
-	GlyphMetric metric = atlas.metrics[glyph_index];
+	GlyphMetric metric = atlas->metrics[glyph_index];
 	f32 x2 = pos->x + metric.bl;
 	f32 y2 = pos->y - (metric.bh - metric.bt);
 	f32 w  = metric.bw;
@@ -349,8 +347,8 @@ void renderChar(Renderer* r, u32 font_id, char character, vec2 *pos, Color tint)
 
 	f32 u0 = metric.tx;
 	f32 v0 = 0.0f;
-	f32 u1 = (metric.tx) + (w / (f32)atlas.atlas_width);
-	f32 v1 = h / (f32)atlas.atlas_height;
+	f32 u1 = (metric.tx) + (w / (f32)atlas->atlas_width);
+	f32 v1 = h / (f32)atlas->atlas_height;
 
 	vec2 uv_min = vec2_init(u0, v1);
 	vec2 uv_max = vec2_init(u1, v0);
@@ -370,13 +368,12 @@ void renderChar(Renderer* r, u32 font_id, char character, vec2 *pos, Color tint)
 		vec2_init(uv_max.x, uv_min.y), 
 		uv_max, 
 		vec2_init(uv_min.x, uv_max.y),
-		atlas.glyphs_texture
+		atlas->glyphs_texture
 	);
 	
 }
 
-void renderText(Renderer* r, u32 font_id, char *data, vec2 *pos, Color tint) {
-	GlyphAtlas atlas = r->font_atlases[font_id];
+void renderText(Renderer* r, char *data, vec2 *pos, GlyphAtlas *atlas, Color tint) {
 	vec2 init_pos = vec2_init(pos->x, pos->y);
 
 	
@@ -385,12 +382,12 @@ void renderText(Renderer* r, u32 font_id, char *data, vec2 *pos, Color tint) {
 		// If the character is a newline, move down and back over to the left.
 		if (data[i] == '\n') {
 			pos->x = init_pos.x;
-			pos->y -= atlas.atlas_height;
+			pos->y -= atlas->atlas_height;
 			continue;
 		}
 
 		// Render the character
-		renderChar(r, font_id, data[i], pos, tint);
+		renderChar(r, data[i], pos, atlas, tint);
 	}
 }
 
@@ -417,101 +414,105 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 	UNUSED(delta_time);
 
 	f32 PADDING = 30.0f;
-	renderQuad(r, e->frame, color_from_hex(theme.background_color));
+	renderQuad(r, e->frame, theme.background);
 	GlyphAtlas atlas = r->font_atlases[font_id];
+
 	
 	if (e->mode != EDITOR_MODE_OPEN) {
 		vec2 init_pos = vec2_init(((r->glyph_adv * 3) + PADDING), e->text_pos.y - e->line_height);
 		vec2 adj_text_pos = vec2_add(init_pos, e->scroll_pos);
+		
+		// Render line highlight
+		renderQuad(r, rect_init(e->frame.x, e->cursor.screen_pos.y, e->frame.w, atlas.atlas_height), theme.current_line);
 
 		// Render the tokens
 		for (size_t i = 0; i < e->lexer.token_count; i++) {
 			Token curToken = e->lexer.tokens[i];
 			switch(curToken.type) {
 				case TOKEN_COMMENT_SINGLE:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.comment_single_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.single_line_comment);
 				break;
 
 				case TOKEN_COMMENT_MULTI:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.comment_multi_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.multiline_comment);
 				break;
 
 				case TOKEN_STRING_LITERAL_DOUBLE:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.string_literal_double_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.double_quote_string);
 				break;
 
 				case TOKEN_STRING_LITERAL_SINGLE:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.string_literal_single_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.single_quote_string);
 				break;
 
 				case TOKEN_ESCAPE_SEQUENCE:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.number_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.number);
 				break;
 
 				case TOKEN_NUMBER:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.number_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.number);
 				break;
 
 				case TOKEN_SYMBOL:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.symbol_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.symbol);
 				break;
 
 				case TOKEN_NEW_LINE:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.foreground_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.foreground);
 					adj_text_pos.x = init_pos.x;
 				break;
 
 				case TOKEN_PREPROCESSOR_DIRECTIVE:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.keyword_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.keyword);
 				break;
 
 				case TOKEN_KEYWORD:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.keyword_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.keyword);
 				break;
 
 				case TOKEN_SECONDARY_KEYWORD:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.secondary_keyword_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.secondary_keyword);
 				break;
 
 				case TOKEN_BUILT_IN_TYPE:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.built_in_type_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.built_in_type);
 				break;
 
 				case TOKEN_FUNCTION_NAME:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.function_name_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.function_name);
 				break;
 
 				case TOKEN_TYPE_NAME:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.type_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.type);
 				break;
 				
 				default:
-					renderText(r, font_id, e->lexer.tokens[i].text, &adj_text_pos, color_from_hex(theme.foreground_color));
+					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.foreground);
 				break;
 			}
 		}
 		
 		// Render cursor
 		rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
-		renderQuad(r, cursor_quad, COLOR_WHITE);
+		renderQuad(r, cursor_quad, theme.foreground);
 	} else {
 		vec2 init_pos = vec2_init(((r->glyph_adv * 3) + PADDING), e->text_pos.y - e->line_height);
 
 		// Render selection highlight
 		rect selection_highlight = rect_init(e->browser.sel_screen_pos.x, e->browser.sel_screen_pos.y, e->browser.sel_size.x, e->browser.sel_size.y);
-		renderQuad(r, selection_highlight, color_from_hex(theme.highlight_color));
+		renderQuad(r, selection_highlight, theme.user_selection);
 
 		for (size_t i = 0; i < e->browser.num_paths; i++){
 			if (e->browser.items[i].is_dir) {
 				char *dir_with_slash = (char *)malloc(strlen(e->browser.items[i].name_ext) + 2);
 				strcpy(dir_with_slash, e->browser.items[i].name_ext);
 				strcat(dir_with_slash, "/");
-				renderText(r, font_id, dir_with_slash, &init_pos, COLOR_WHITE);
+				renderText(r, dir_with_slash, &init_pos, &atlas, theme.foreground);
 				free(dir_with_slash);
 			} else {
-				renderText(r, font_id, e->browser.items[i].name_ext, &init_pos, COLOR_WHITE);
+				renderText(r, e->browser.items[i].name_ext, &init_pos, &atlas, theme.foreground);
 			}
-			renderText(r, font_id, "\n", &init_pos, COLOR_WHITE);
+			renderText(r, "\n", &init_pos, &atlas, theme.foreground);
 			init_pos.x = ((r->glyph_adv * 3) + PADDING);
 		}
 	}
@@ -520,13 +521,14 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 	// gutter
 	PADDING = 10.0f;
 	vec2 gutter_pos = vec2_init(0, e->frame.y + e->frame.h - e->line_height);
-	renderQuad(r, rect_init((r->glyph_adv * 3) + PADDING, 0, 1, r->screen_height), COLOR_GRAY);
+	renderQuad(r, rect_init((r->glyph_adv * 3) + PADDING, 0, 1, r->screen_height), theme.gutter_foreground);
 	if (e->mode != EDITOR_MODE_OPEN) {
 		gutter_pos = vec2_add(gutter_pos, e->scroll_pos);
+		i32 cur_line = e->cursor.disp_row;
 		for (i32 i = 1; i <= (i32)e->line_count; ++i) {
 			char num[11];
 			sprintf(num, "%3d", i);
-			renderText(r, font_id, num, &gutter_pos, COLOR_SILVER);
+			renderText(r, num, &gutter_pos, &atlas, cur_line == i ? theme.user_selection : theme.gutter_foreground);
 			gutter_pos.x = 0;
 			gutter_pos.y -= e->line_height;
 		}
@@ -535,14 +537,14 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 		for (size_t i = 0; i <= e->browser.num_paths; i++) {
 			char num[4];
 			sprintf(num, "%3s", "~");
-			renderText(r, font_id, num, &gutter_pos, COLOR_SILVER);
+			renderText(r, num, &gutter_pos, &atlas, theme.gutter_foreground);
 			gutter_pos.x = 0;
 			gutter_pos.y -= e->line_height;
 		}
 	}
 
 	// Status line
-	renderQuad(r, rect_init(0, 0, r->screen_width, e->line_height), COLOR_GRAY);
+	renderQuad(r, rect_init(0, 0, r->screen_width, e->line_height), theme.gutter_foreground);
 	
 	char mode_text[7];
 	Color mode_color;
@@ -571,12 +573,12 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 
 	renderQuad(r, rect_init((r->glyph_adv * 3) + PADDING, 0, (strlen(mode_text) * r->glyph_adv) + PADDING, e->line_height), mode_color);
 	vec2 mode_text_pos = vec2_init((r->glyph_adv * 3) + (PADDING * 1.5), (PADDING / 2));
-	renderText(r, font_id, mode_text, &mode_text_pos, COLOR_WHITE);
+	renderText(r, mode_text, &mode_text_pos, &atlas, COLOR_WHITE);
 	
 	char col_row_disp[24];
 	sprintf(col_row_disp, "%lu,%lu", e->cursor.disp_row, e->cursor.disp_column);
 	vec2 col_row_disp_pos = vec2_init(r->screen_width - (strlen(col_row_disp) * r->glyph_adv) - PADDING, 5);
-	renderText(r, font_id, col_row_disp, &col_row_disp_pos,COLOR_WHITE);
+	renderText(r, col_row_disp, &col_row_disp_pos, &atlas, COLOR_WHITE);
 
 }
 

@@ -1,5 +1,6 @@
 [highlighting]
-    symbols = [ "(", ")", "{", "}", "*", "=", "|", "&", "!", "%", "-", "+", "/", "?", "<", ">", "$", "@" ]
+    keywords = [":", "$"]
+    symbols = [ "(", ")", "{", "}", "*", "=", "|", "&", "!", "%", "-", "+", "/", "?", "<", ">", "@" ]
     comment_single_prefix = "#"
     comment_multi_begin = "/*"
     comment_multi_end = "*/"

@@ -1,15 +1,18 @@
-[colors]
-    keyword_color = 0x7A5CCCFF
-    secondary_keyword_color = 0xB3A1E6FF
-    symbol_color = 0xCE6F8FFF
-    string_literal_double_color = 0x00A3CCFF
-    string_literal_single_color = 0xF2CE00FF
-    number_color = 0xF2CE00FF
-    built_in_type_color = 0x5CCC96FF
-    type_color = 0xF2CE00FF
-    function_name_color = 0x5CCC96FF
-    comment_single_color = 0x686f9aFF
-    comment_multi_color = 0x686f9aFF
-    foreground_color = 0xFFFFFFFF
-    background_color = 0x0F111BFF
-    highlight_color = 0x30365FFF
+[general]
+    foreground = 0xECf0C1FF
+    background = 0x0F111BFF
+    current_line = 0x16172DFF
+    user_selection = 0x30365FFF
+    gutter_foreground = 0x30365FFF
+[syntax]
+    keyword = 0x7A5CCCFF
+    secondary_keyword = 0xB3A1E6FF
+    built_in_type = 0x5CCC96FF
+    type = 0xF2CE00FF
+    function_name= 0x5CCC96FF
+    symbol = 0xCE6F8FFF
+    double_quote_string = 0x00A3CCFF
+    single_quote_string = 0xF2CE00FF
+    number = 0xF2CE00FF
+    single_line_comment = 0x686f9aFF
+    multiline_comment = 0x686f9aFF

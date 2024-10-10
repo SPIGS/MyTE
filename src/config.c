@@ -4,22 +4,61 @@
 #include <string.h>
 #include "config.h"
 
+/* DEFAULT GENREAL SETTINGS */
+#define DEFAULT_FONT_PATH "./fonts/iosevka-firamono.ttf"
+#define DEFAULT_THEME_PATH "./config/themes/spaceduck.toml"
+#define DEFAULT_FONT_SIZE 24
+#define DEFAULT_SHOW_FPS false 
+
+/* DEFAULT EDITOR SETTINGS */
+#define DEFAULT_TAB_STOP 3
+#define DEFAULT_CURSOR_SPEED 6.5
+#define DEFAULT_SCROLL_SPEED 1
+#define DEFAULT_SCROLL_STOP_TOP 6
+#define DEFAULT_SCROLL_STOP_BOTTOM 2
+
+/* DEFAULT GENREAL COLORS */
+#define DEFAULT_FOREGROUND_COLOR color_from_hex(0xECf0C1FF)
+#define DEFAULT_BACKGROUND_COLOR color_from_hex(0x0F111BFF)
+#define DEFAULT_CURRENT_LINE_COLOR color_from_hex(0x16172DFF)
+#define DEFAULT_HIGHLIGHT_COLOR color_from_hex(0x30365FFF)
+#define DEFAULT_GUTTER_FOREGROUND_COLOR color_from_hex(0x30365FFF)
+
+/* DEFAULT SYNTAX COLORS*/
+#define DEFAULT_KEYWORD_COLOR color_from_hex(0x7A5CCCFF)
+#define DEFAULT_SECONDARY_KEYWORD_COLOR color_from_hex(0xB3A1E6FF)
+#define DEFAULT_BUILT_IN_TYPE_COLOR color_from_hex(0x5CCC96FF)
+#define DEFAULT_TYPE_COLOR color_from_hex(0xF2CE00FF) 
+#define DEFAULT_FUNCTION_NAME_COLOR color_from_hex(0x5CCC96FF)
+#define DEFAULT_SYMBOL_COLOR color_from_hex(0xCE6F8FFF)
+#define DEFAULT_STRING_LITERAL_DOUBLE_COLOR color_from_hex(0x00A3CCFF)
+#define DEFAULT_STRING_LITERAL_SINGLE_COLOR color_from_hex(0xF2CE00FF)
+#define DEFAULT_NUMBER_COLOR color_from_hex(0xF2CE00FF)
+#define DEFAULT_COMMENT_SINGLE_COLOR color_from_hex(0x686f9aFF)
+#define DEFAULT_COMMENT_MULTI_COLOR color_from_hex(0x686f9aFF)
+
 ColorTheme colorThemeInit() {
-    // Colors - the default theme is Space Duck (https://github.com/pineapplegiant/spaceduck)
     ColorTheme theme;
-    theme.keyword_color = 0x7A5CCCFF;          
-    theme.symbol_color =  0xCE6F8FFF;
-    theme.string_literal_double_color = 0x00A3CCFF;
-    theme.string_literal_single_color = 0xF2CE00FF;
-    theme.number_color = 0xF2CE00FF;           
-    theme.built_in_type_color = 0x5CCC96FF;
-    theme.type_color = 0xF2CE00FF;          
-    theme.function_name_color = 0x5CCC96FF;  
-    theme.foreground_color = 0xFFFFFFFF;
-    theme.background_color = 0x0F111BFF;      
-    theme.comment_single_color = 0x686f9aFF;    
-    theme.comment_multi_color = 0x686f9aFF;
-    theme.highlight_color = 0x30365FFF;
+    
+    // General
+    theme.foreground = DEFAULT_FOREGROUND_COLOR;
+    theme.background = DEFAULT_BACKGROUND_COLOR;
+    theme.current_line = DEFAULT_CURRENT_LINE_COLOR;
+    theme.user_selection = DEFAULT_HIGHLIGHT_COLOR;
+    theme.gutter_foreground = DEFAULT_GUTTER_FOREGROUND_COLOR;
+
+    // Syntax
+    theme.keyword = DEFAULT_KEYWORD_COLOR;
+    theme.secondary_keyword = DEFAULT_SECONDARY_KEYWORD_COLOR;
+    theme.built_in_type = DEFAULT_BUILT_IN_TYPE_COLOR;
+    theme.type = DEFAULT_TYPE_COLOR;
+    theme.function_name = DEFAULT_FUNCTION_NAME_COLOR;
+    theme.symbol = DEFAULT_SYMBOL_COLOR;
+    theme.double_quote_string = DEFAULT_STRING_LITERAL_DOUBLE_COLOR;
+    theme.single_quote_string = DEFAULT_STRING_LITERAL_SINGLE_COLOR;
+    theme.number = DEFAULT_NUMBER_COLOR;
+    theme.single_line_comment = DEFAULT_COMMENT_SINGLE_COLOR;
+    theme.multiline_comment = DEFAULT_COMMENT_MULTI_COLOR;
     return theme;
 }
 
@@ -29,51 +68,63 @@ void colorThemeLoad(ColorTheme *theme, const char *path) {
 
     fp = fopen(path, "r");
     
-    toml_table_t *color_conf = toml_parse_file(fp, errbuf, sizeof(errbuf));
+    toml_table_t *theme_file = toml_parse_file(fp, errbuf, sizeof(errbuf));
     fclose(fp);
 
-    if (!color_conf) {
-        LOG_ERROR("cannot open color theme file - ", strerror(errno));
+    if (!theme_file) {
+        LOG_ERROR("Cannot open theme file \'%s\'", path);
         return;
     }
 
-    toml_table_t *color_table = toml_table_in(color_conf, "colors");
-    if (!color_conf) {
-        LOG_ERROR("Color Theme file missing [colors]", "");
+    toml_table_t *general_table = toml_table_in(theme_file, "general");
+    if (!general_table) {
+        LOG_ERROR("Theme file \'%s\' missing [general].", path);
         return;
     }
 
-    LOAD_TOML_INT(color_table, "keyword_color", keyword_color);
-    LOAD_TOML_INT(color_table, "symbol_color", symbol_color);
-    LOAD_TOML_INT(color_table, "string_literal_double_color", string_literal_double_color);
-    LOAD_TOML_INT(color_table, "string_literal_single_color", string_literal_single_color);
-    LOAD_TOML_INT(color_table, "number_color", number_color);
-    LOAD_TOML_INT(color_table, "built_in_type_color", built_in_type_color);
-    LOAD_TOML_INT(color_table, "secondary_keyword_color", secondary_keyword_color);
-    LOAD_TOML_INT(color_table, "type_color", type_color);
-    LOAD_TOML_INT(color_table, "function_name_color", function_name_color);
-    LOAD_TOML_INT(color_table, "foreground_color", foreground_color);
-    LOAD_TOML_INT(color_table, "background_color", background_color);
-    LOAD_TOML_INT(color_table, "comment_single_color", comment_single_color);
-    LOAD_TOML_INT(color_table, "comment_multi_color", comment_multi_color);
-    LOAD_TOML_INT(color_table, "highlight_color", highlight_color);
+    toml_table_t *syntax_table = toml_table_in(theme_file, "syntax");
+    if (!syntax_table) {
+        LOG_ERROR("Theme file \'%s\' missing [syntax].", path);
+        return;
+    }
 
-    theme-> keyword_color = keyword_color.u.i;
-    theme-> symbol_color = symbol_color.u.i;
-    theme-> string_literal_double_color = string_literal_double_color.u.i;
-    theme-> string_literal_single_color = string_literal_single_color.u.i;
-    theme-> number_color = number_color.u.i;
-    theme-> built_in_type_color = built_in_type_color.u.i;     
-    theme-> type_color = type_color.u.i;
-    theme-> function_name_color = function_name_color.u.i;
-    theme-> foreground_color = foreground_color.u.i;
-    theme-> background_color = background_color.u.i;
-    theme-> comment_single_color = comment_single_color.u.i;
-    theme-> comment_multi_color = comment_multi_color.u.i;
-    theme-> highlight_color = highlight_color.u.i;
-    theme-> secondary_keyword_color = secondary_keyword_color.u.i;
+    LOAD_TOML_INT(general_table, foreground);
+    LOAD_TOML_INT(general_table, background);
+    LOAD_TOML_INT(general_table, current_line);
+    LOAD_TOML_INT(general_table, user_selection);
+    LOAD_TOML_INT(general_table, gutter_foreground);
 
-    toml_free(color_conf);    
+    LOAD_TOML_INT(syntax_table, keyword);
+    LOAD_TOML_INT(syntax_table, secondary_keyword);
+    LOAD_TOML_INT(syntax_table, built_in_type);
+    LOAD_TOML_INT(syntax_table, type);
+    LOAD_TOML_INT(syntax_table, function_name);
+    LOAD_TOML_INT(syntax_table, symbol);
+    LOAD_TOML_INT(syntax_table, double_quote_string);
+    LOAD_TOML_INT(syntax_table, single_quote_string);
+    LOAD_TOML_INT(syntax_table, number);
+    LOAD_TOML_INT(syntax_table, single_line_comment);
+    LOAD_TOML_INT(syntax_table, multiline_comment);
+
+    theme->foreground = foreground.ok ? color_from_hex(foreground.u.i) : DEFAULT_FOREGROUND_COLOR;
+    theme->background = background.ok ? color_from_hex(background.u.i) : DEFAULT_BACKGROUND_COLOR;
+    theme->current_line = current_line.ok ? color_from_hex(current_line.u.i) : DEFAULT_CURRENT_LINE_COLOR;
+    theme->user_selection = user_selection.ok ? color_from_hex(user_selection.u.i) : DEFAULT_HIGHLIGHT_COLOR;
+    theme->gutter_foreground = gutter_foreground.ok ? color_from_hex(gutter_foreground.u.i) : DEFAULT_GUTTER_FOREGROUND_COLOR;
+
+    theme->keyword = keyword.ok ? color_from_hex(keyword.u.i) : DEFAULT_KEYWORD_COLOR;
+    theme->secondary_keyword = secondary_keyword.ok ? color_from_hex(secondary_keyword.u.i) : DEFAULT_SECONDARY_KEYWORD_COLOR;
+    theme->built_in_type = built_in_type.ok ? color_from_hex(built_in_type.u.i) : DEFAULT_BUILT_IN_TYPE_COLOR;
+    theme->type = type.ok ? color_from_hex(type.u.i) : DEFAULT_TYPE_COLOR;
+    theme->function_name = function_name.ok ? color_from_hex(function_name.u.i) : DEFAULT_FUNCTION_NAME_COLOR;
+    theme->symbol = symbol.ok ? color_from_hex(symbol.u.i) : DEFAULT_SYMBOL_COLOR;
+    theme->double_quote_string = double_quote_string.ok ? color_from_hex(double_quote_string.u.i) : DEFAULT_STRING_LITERAL_DOUBLE_COLOR;
+    theme->single_quote_string = single_quote_string.ok ? color_from_hex(single_quote_string.u.i) : DEFAULT_STRING_LITERAL_SINGLE_COLOR;
+    theme->number = number.ok ? color_from_hex(number.u.i) : DEFAULT_NUMBER_COLOR;
+    theme->single_line_comment = single_line_comment.ok ? color_from_hex(single_line_comment.u.i) : DEFAULT_COMMENT_SINGLE_COLOR;
+    theme->multiline_comment = multiline_comment.ok ? color_from_hex(multiline_comment.u.i) : DEFAULT_COMMENT_MULTI_COLOR;
+
+    toml_free(theme_file);    
 }
 
 Config configInit() {
@@ -98,29 +149,48 @@ void loadConfigFromFile(Config *config, const char* path) {
 
     fp = fopen(path, "r");
     
-    toml_table_t *config_conf = toml_parse_file(fp, errbuf, sizeof(errbuf));
+    toml_table_t *config_file = toml_parse_file(fp, errbuf, sizeof(errbuf));
     fclose(fp);
 
-    if (!config_conf) {
-        LOG_ERROR("cannot open editor config file - ", strerror(errno));
+    if (!config_file) {
+        LOG_ERROR("cannot open editor config file - %c", strerror(errno));
         return;
     }
 
-    toml_table_t* editor_table = toml_table_in(config_conf, "editor");
+    toml_table_t* general_table = toml_table_in(config_file, "general");
+    if (!general_table) {
+        LOG_ERROR("Config file missing [general]", "");
+        return;
+    }
+
+    toml_table_t* editor_table = toml_table_in(config_file, "editor");
     if (!editor_table) {
         LOG_ERROR("Config file missing [editor]", "");
         return;
     }
 
     // Get data
-    LOAD_TOML_STR(editor_table, "font", font_path);
-    LOAD_TOML_STR(editor_table, "color_theme", color_theme);
-    LOAD_TOML_INT(editor_table, "tab_stop", tab_stop);
-    LOAD_TOML_DOUBLE(editor_table, "cursor_speed", cursor_speed);
-    config->font_path = font_path.u.s;
-    config->theme_path = color_theme.u.s;
-    config->tab_stop = tab_stop.u.i;
-    config->cursor_speed= cursor_speed.u.d;
+    LOAD_TOML_STR(general_table, font);
+    LOAD_TOML_STR(general_table, theme);
+    LOAD_TOML_INT(general_table, font_size);
+    LOAD_TOML_BOOL(general_table, show_fps);
 
-    toml_free(config_conf);
+    LOAD_TOML_INT(editor_table, tab_stop);
+    LOAD_TOML_DOUBLE(editor_table, cursor_speed);
+    LOAD_TOML_INT(editor_table, scroll_speed);
+    LOAD_TOML_INT(editor_table, scroll_stop_top);
+    LOAD_TOML_INT(editor_table, scroll_stop_bottom);
+
+    config->font_path = font.ok ? font.u.s : DEFAULT_FONT_PATH;
+    config->theme_path = theme.ok ? theme.u.s : DEFAULT_THEME_PATH;
+    config->font_size = font_size.ok ? font_size.u.i : DEFAULT_FONT_SIZE;
+    config->show_fps = show_fps.ok ? show_fps.u.b : DEFAULT_SHOW_FPS;
+
+    config->tab_stop = tab_stop.ok ? tab_stop.u.i : DEFAULT_TAB_STOP;
+    config->cursor_speed = cursor_speed.ok ? cursor_speed.u.d : DEFAULT_CURSOR_SPEED;
+    config->scroll_speed = scroll_speed.ok ? scroll_speed.u.i : DEFAULT_SCROLL_SPEED;
+    config->scroll_speed = scroll_speed.ok ? scroll_speed.u.i : DEFAULT_SCROLL_STOP_TOP;
+    config->scroll_stop_bottom = scroll_stop_bottom.ok ? scroll_stop_bottom.u.i : DEFAULT_SCROLL_STOP_BOTTOM;
+
+    toml_free(config_file);
 }

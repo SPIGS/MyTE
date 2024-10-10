@@ -262,15 +262,15 @@ static void loadHighlightingInfo (Lexer *lexer, FileType file_type) {
     }
 
     // Get data
-    LOAD_TOML_STR(hl_table, "comment_single_prefix", comment_single_prefix);
-    LOAD_TOML_STR(hl_table, "comment_multi_begin", comment_multi_begin);
-    LOAD_TOML_STR(hl_table, "comment_multi_end", comment_multi_end);
+    LOAD_TOML_STR(hl_table, comment_single_prefix);
+    LOAD_TOML_STR(hl_table, comment_multi_begin);
+    LOAD_TOML_STR(hl_table, comment_multi_end);
     LOAD_TOML_STR_ARRAY(hl_table, "keywords", keywords_array, keywords_array_len, keywords, keywords_count);
     LOAD_TOML_STR_ARRAY(hl_table, "symbols", symbols_array, symbols_array_len, symbols, symbols_count);
     LOAD_TOML_STR_ARRAY(hl_table, "built_in_types", built_in_types_array, built_in_types_array_len, built_in_types, built_in_types_count);
     LOAD_TOML_STR_ARRAY(hl_table, "preprocessor_directives", preproc_directives_array, preproc_directives_array_len, preproc_directives, preproc_directives_count);
     LOAD_TOML_STR_ARRAY(hl_table, "secondary_keywords", secondary_keywords_array, secondary_keywords_array_len, secondary_keywords, secondary_keywords_count);
-    LOAD_TOML_BOOL(hl_table, "enable_identifier_heuristics", id_heuristics);
+    LOAD_TOML_BOOL(hl_table, identifier_heuristics);
 
     lexer->comment_single_prefix = comment_single_prefix;  
     lexer->comment_multi_begin = comment_multi_begin;   
@@ -285,7 +285,7 @@ static void loadHighlightingInfo (Lexer *lexer, FileType file_type) {
     lexer->preproc_directives = preproc_directives;
     lexer->secondary_keywords_count = secondary_keywords_count;
     lexer->secondary_keywords = secondary_keywords;
-    lexer->id_heuristics = id_heuristics.u.b;
+    lexer->id_heuristics = identifier_heuristics.u.b;
 
     lexer->file_type = file_type;
 
@@ -615,11 +615,15 @@ void lex (Lexer *lexer, const char *source) {
                     curToken.type = TOKEN_WHITESPACE;
                     pushToken(lexer, curToken);
                     curToken = createToken();
-                } else if (!is_symbol(lexer, source[i]) && !isspace(source[i]) && isalnum(source[i])){
+                } else if (!is_symbol(lexer, source[i]) && !isspace(source[i]) && source[i] != ',' && source[i] != '.' && source[i] != ';'){
                     refreshToken(lexer, &curToken, TOKEN_IDENTIFER);
                     size_t start = i;
                     while (i < length && !is_symbol(lexer, source[i]) && !isspace(source[i]) && source[i] != ',' && source[i] != '.' && source[i] != ';') {
                         tokenPushChar(&curToken, source[i]);
+                        if (ispunct(source[i]) && source[i] != '_') {
+                            i++;
+                            break;   
+                        }
                         i++;
                     }
 
@@ -644,7 +648,7 @@ void lex (Lexer *lexer, const char *source) {
                         pushToken(lexer, curToken);
                         curToken = createToken();
                     } else {
-                        curToken.type = TOKEN_IDENTIFER;
+                        curToken.type = TOKEN_UNKNOWN;
                         pushToken(lexer, curToken);
                         curToken = createToken();
                     }
@@ -661,6 +665,6 @@ void lex (Lexer *lexer, const char *source) {
         if (strlen(curToken.text) != 0) {
             pushToken(lexer, curToken);
         }
-        LOG_DEBUG("Lexing done");
+        LOG_DEBUG("Lexing done", "");
     }
 }

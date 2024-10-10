@@ -22,6 +22,7 @@ void editorInit(Editor *ed, rect frame, f32 line_height, f32 glyph_adv, f32 desc
     ed->text_pos = vec2_init(frame.x, frame.y + frame.h);
     ed->scroll_pos = vec2_init(0,0);
     ed->target_scroll_pos = vec2_init(0,0);
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     ed->line_count = 1;
     ed->line_height = line_height;
     ed->glyph_adv = glyph_adv;
@@ -29,8 +30,13 @@ void editorInit(Editor *ed, rect frame, f32 line_height, f32 glyph_adv, f32 desc
     ed->file_path = NULL;
     lexerInit(&ed->lexer);
     ed->dirty = true;
+    
     ed->tab_stop = 4;
     ed->cursor_speed = 3.5;
+    ed->scroll_speed = 1;
+    ed->scroll_stop_top = 6;
+    ed->scroll_stop_bottom = 2;
+
     ed->mode = EDITOR_MODE_NORMAL;
     fileBrowserInit(&ed->browser, vec2_init(frame.x, frame.h), cur_dir);
 }
@@ -68,6 +74,7 @@ void editorChangeMode(Editor *ed, EditorMode new_mode) {
 
 void moveCursorLeft(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (ed->cursor.buffer_pos == 0) {
             return;
         }
@@ -88,6 +95,7 @@ void moveCursorLeft(Editor *ed) {
 
 void moveCursorRight(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (ed->cursor.buffer_pos == getBufLength(ed->buf)) {
             return;
         }
@@ -108,6 +116,7 @@ void moveCursorRight(Editor *ed) {
 
 void moveCursorUp(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (ed->goal_column == -1) {
             ed->goal_column = ed->cursor.disp_column;
         }
@@ -134,6 +143,7 @@ void moveCursorUp(Editor *ed) {
 
 void moveCursorDown(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (ed->goal_column == -1) {
             ed->goal_column = ed->cursor.disp_column;
         }
@@ -160,6 +170,7 @@ void moveCursorDown(Editor *ed) {
 
 void insertCharacter(Editor *ed, char character, bool move_cursor_forward) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->scroll_mode = SCROLL_MODE_CURSOR;
         insertCharIntoBuf(ed->buf, ed->cursor.buffer_pos, character);
         if (character == '\n') {
             ed->line_count ++;
@@ -174,6 +185,7 @@ void insertCharacter(Editor *ed, char character, bool move_cursor_forward) {
 
 void deleteCharacterLeft(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (ed->cursor.buffer_pos != 0) {
             if (getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos)) != '\n') {
                 removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
@@ -200,6 +212,7 @@ void deleteCharacterLeft(Editor *ed) {
 
 void deleteCharacterRight(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (removeCharAfterGap (ed->buf, ed->cursor.buffer_pos) == '\n') {
             ed->line_count = (ed->line_count - 1 < 1) ? 1 : ed->line_count - 1;
         }
@@ -224,7 +237,6 @@ char *getContents(Editor *ed) {
 }
 
 void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, f64 delta_time) {
-
     //Update cursor position
     //Initial cursor position
     f32 PADDING = 30.0f;
@@ -264,20 +276,21 @@ void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, f64 delta_tim
 		ed->browser.sel_size = vec2_ease_out(ed->browser.sel_prev_size, ed->browser.sel_target_size, ed->browser.anim_time);
     }
 
-    ed->target_scroll_pos = vec2_init(ed->scroll_pos.x, ed->scroll_pos.y);
-    
-    f32 SCROLL_UP_LINE_FACTOR = 6;
-    f32 SCROLL_DOWN_LINE_FACTOR = 2;
+    if (ed->scroll_mode != SCROLL_MODE_MOUSE) {
 
-    // If  the cursor is moving down
-    if (ed->cursor.target_screen_pos.y <= (ed->frame.y + (SCROLL_DOWN_LINE_FACTOR * ed->line_height)) && ed->scroll_pos.y < (ed->line_height * ed->line_count)) {
-        ed->target_scroll_pos.y += ed->line_height;
-    // If the cursor is moving up
-    } else if (ed->cursor.target_screen_pos.y >= (ed->frame.y + ed->frame.h - (SCROLL_UP_LINE_FACTOR * ed->line_height)) && ed->scroll_pos.y > 0.0) {
-        ed->target_scroll_pos.y -= ed->line_height;
+        ed->target_scroll_pos = vec2_init(ed->scroll_pos.x, ed->scroll_pos.y);
+
+        // If  the cursor is moving down
+        if (ed->cursor.target_screen_pos.y <= (ed->frame.y + (ed->scroll_stop_bottom * ed->line_height)) && ed->scroll_pos.y < (ed->line_height * ed->line_count)) {
+            ed->target_scroll_pos.y += ed->line_height;
+        // If the cursor is moving up
+        } else if (ed->cursor.target_screen_pos.y >= (ed->frame.y + ed->frame.h - (ed->scroll_stop_top* ed->line_height)) && ed->scroll_pos.y > 0.0) {
+            ed->target_scroll_pos.y -= ed->line_height;
+        }
+        ed->scroll_pos = vec2_lerp(ed->scroll_pos, ed->target_scroll_pos, (f32)delta_time  * 35.0f);
+    } else {
+        ed->scroll_pos = vec2_lerp(ed->scroll_pos, ed->target_scroll_pos, (f32)delta_time  * 35.0f);
     }
-
-    ed->scroll_pos = vec2_lerp(ed->scroll_pos, ed->target_scroll_pos, (f32)delta_time  * 35.0f);
 
     // Update frame
     f32 STATUS_LINE_HEIGHT = ed->line_height;
@@ -371,6 +384,7 @@ void clearBuffer(Editor *ed) {
 
 void moveEndOfNextWord(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->scroll_mode = SCROLL_MODE_CURSOR;
         moveCursorRight(ed);
         char c = getBufChar(ed->buf, ed->cursor.buffer_pos);
         
@@ -398,6 +412,7 @@ void moveEndOfNextWord(Editor *ed) {
 
 void moveBegOfPrevWord(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->scroll_mode = SCROLL_MODE_CURSOR;
         moveCursorLeft(ed);
         char c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
         
@@ -424,6 +439,7 @@ void moveBegOfPrevWord(Editor *ed) {
 }
 
 void deleteWordLeft(Editor *ed) {
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     deleteCharacterLeft(ed);
     char c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
     
@@ -450,6 +466,7 @@ void deleteWordLeft(Editor *ed) {
 
 void deleteWordRight(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->scroll_mode = SCROLL_MODE_CURSOR;
         char c = getBufChar(ed->buf, ed->cursor.buffer_pos);
         
         // We don't want to skip here - if there are spaces we want to delete those
@@ -472,5 +489,60 @@ void deleteWordRight(Editor *ed) {
                 c = getBufChar(ed->buf, ed->cursor.buffer_pos);
             }
         }
+    }
+}
+
+void moveCursorToMousePos(Editor *ed, vec2 screen_pos) {
+    f32 gutter_size = (ed->glyph_adv * 4.0) + 10.0f;
+    i32 row = MAX((i32)((ed->scroll_pos.y + screen_pos.y) / ed->line_height), 0);
+    i32 col = MAX((i32)((ed->frame.x + screen_pos.x - gutter_size) / ed->glyph_adv), 0);
+
+    // clamp to maximum line
+    i32 max_row = MIN((i32)((ed->scroll_pos.y + ed->frame.h) / ed->line_height), (i32)ed->line_count - 1);
+    row = MIN(max_row, row);
+
+    // move the cursor to the correct line
+    size_t cur_row = 0;
+    size_t i = 0;
+    while ((i32)cur_row != row) {
+        char c = getBufChar(ed->buf, i);
+        if (c == '\n') {
+            cur_row++;
+        }
+        i = getNextCharCursor(ed->buf, i);
+    }
+
+    // clamp to line length
+    i32 max_col = getBufLineLength(ed->buf, i);
+    col = MIN(max_col, col);
+
+    //move the cursor to the correct column
+    while (col > 0) {
+        i = getNextCharCursor(ed->buf, i);
+        col--;
+    }
+
+    // if we moved past the end of the buffer, set it equal to the end of the buffer
+    if (i >= getBufLength(ed->buf)) {
+        i = getBufLength(ed->buf);
+    }
+
+    ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
+    ed->cursor.buffer_pos = i;
+    ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
+    ed->cursor.disp_row = row + 1;
+    ed->cursor.anim_time = 0.0f;
+    ed->goal_column = ed->cursor.disp_column;
+}
+
+void scrollWithMouseWheel(Editor *ed, f32 yoffset) {
+    ed->scroll_mode = SCROLL_MODE_MOUSE;
+    ed->target_scroll_pos.y += (-1.0 * yoffset) * (ed->line_height * ed->scroll_speed);
+
+    // clamp the max scroll
+    if (ed->target_scroll_pos.y > (ed->line_height * (ed->line_count - 1.0))) {
+        ed->target_scroll_pos.y = (ed->line_height * (ed->line_count - 1.0));
+    } else if (ed->target_scroll_pos.y < 0) {
+        ed->target_scroll_pos.y = 0;
     }
 }
