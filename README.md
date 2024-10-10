@@ -6,7 +6,7 @@ MyTE (rhymes with byte) is **My** **T**ext **E**ditor. It is a small graphical t
 
 ## Features
 
-MyTE is currently a work in progress and missing some crucial features (mouse control, clipboard manipulation, multiple buffers/panes/tabs, text selection). Despite this, MyTE still has some advanced features that some more basic text editors lack:
+MyTE is currently a work in progress and missing some crucial features (clipboard manipulation, multiple buffers/panes/tabs, text selection). Despite this, MyTE still has some advanced features that some more basic text editors lack:
 
 - Syntax highlighting support for various languages (and a straight-forward means of adding more)
 - Rudimentary user theming/color schemes (also pretty straight-forward to create)
@@ -24,6 +24,8 @@ MyTE currently has two modes - an editor mode and a file browsing mode. The edit
     - `CTRL + BACKSPACE/DELETE` backspaces/deletes a whole word.
     - `CTRL+O` opens file browsing mode
     - `CTRL+S` saves the current file to disk (doesn't work for new unnamed files)
+    - `MOUSE LEFT` moves to the cursor to the position you clicked in the buffer
+    - `MOUSE SCROLL` scrolls the buffer
 - **File Browsing Mode**
     - `up/down` moves the selection up and down the directory listing.
     - `ENTER` opens the selected directory/file
