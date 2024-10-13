@@ -75,7 +75,6 @@ void fileBrowserDestroy(FileBrowser *fb) {
     }
 }
 
-
 // Function to list paths (../ first) and store in path_list, appending "/" to directories
 void getPaths(FileBrowser *fb) {
     DIR *dir;
@@ -120,18 +119,12 @@ void getPaths(FileBrowser *fb) {
         // Determine if it's a directory
         int is_dir = is_directory(full_path);
 
-        // Add to the list, appending "/" if it's a directory
-        // Brwoser ITem
-
         // Allocate and store the Item
         BrowserItem item;
         browserItemInit(&item);
         item.full_path = allocate_and_copy(full_path, is_dir); // Store the full path
         item.name_ext = allocate_and_copy(entry->d_name, is_dir); // Store the name and extension
         item.is_dir = is_dir; // Store if it's a directory
-        // items[count].full_path = allocate_and_copy(full_path, is_dir);  
-        // items[count].name_ext = allocate_and_copy(entry->d_name, is_dir);  
-        // items[count].is_dir = is_dir;  
 
         // Reallocate memory if needed
         if (fb->num_paths >= fb->paths_capacity) {

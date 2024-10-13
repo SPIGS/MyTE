@@ -85,17 +85,22 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
         LOG_INFO("Reloading Config...", "");
         applicationReload(app);
         LOG_INFO("Config reloaded.", "");
+        applicationSetStatusMessage(app, "Reloaded config.", 2.0f);
     }  else if (key == GLFW_KEY_F12 && (action == GLFW_PRESS)) {
         LOG_INFO("Clearing Buffer...", "");
         clearBuffer(&app->editor);
+        applicationSetStatusMessage(app, "Cleared buffer.", 2.0f);
     }  else if (key == GLFW_KEY_ESCAPE && (action == GLFW_PRESS)) {
         editorChangeMode(&app->editor, EDITOR_MODE_NORMAL);
     } else if (key == GLFW_KEY_O && (action == GLFW_PRESS)) {
         if (mods == GLFW_MOD_CONTROL)
             editorChangeMode(&app->editor, EDITOR_MODE_OPEN);
     } else if (key == GLFW_KEY_S && (action == GLFW_PRESS)) {
-        if (mods == GLFW_MOD_CONTROL)
+        if (mods == GLFW_MOD_CONTROL) {
             writeToFile(&app->editor);
+            applicationSetStatusMessage(app, "Saved to disk.", 2.0f);
+        }
+            
     }
 }
 
@@ -166,6 +171,9 @@ void resize_window(GLFWwindow *window, int width, int height) {
 /* END GLFW CALLBACKS */
 
 void applicationInit(Application *app, int argc, char **argv) {
+    app->status_message = NULL;
+    app->status_disp_time = 0.0f;
+
     // Initialize glfw
    if (!glfwInit()) {
         LOG_ERROR("Failed to initialize GLFW", "");
@@ -218,6 +226,7 @@ void applicationInit(Application *app, int argc, char **argv) {
             editorChangeMode(&app->editor, EDITOR_MODE_OPEN);
         } else {
             LOG_ERROR("Error evaluating path. The file might be moved or missing!", "");
+            applicationSetStatusMessage(app, "Error evaluating path. The file might be moved or missing!", 2.0f);
         }
     }
 
@@ -232,6 +241,10 @@ void applicationDestroy(Application *app) {
     rendererDestroy(&app->renderer);
     editorDestroy(&app->editor);
     configDestroy(&app->config);
+
+    if (app->status_message) {
+        free(app->status_message);
+    }
 
     glfwDestroyWindow(app->window);
     glfwTerminate();
@@ -267,6 +280,16 @@ void applicationReload(Application *app) {
     }
 }
 
+void applicationSetStatusMessage(Application *app, const char *msg, f32 t) {
+    if (app->status_message) {
+        free(app->status_message);
+    }
+
+    app->status_message = (char *)malloc(strlen(msg) * sizeof(char));
+    strcpy(app->status_message, msg);
+    app->status_disp_time = t;
+}
+
 void applicationUpdate(Application *app, f64 delta_time) {
     glfwPollEvents();
     editorUpdate(&app->editor, app->renderer.screen_width, app->renderer.screen_height, delta_time);
@@ -278,12 +301,19 @@ void applicationRender(Application *app, f64 delta_time) {
     // Render stuff goes here
     renderEditor(&app->renderer, app->font_id, &app->editor, delta_time, app->theme);
 
+    // Draw the status message
+    if (app->status_message && app->status_disp_time > 0.0f) {
+        vec2 status_pos = vec2_init(app->editor.glyph_adv, 5.0);
+        renderText(&app->renderer, app->status_message, &status_pos, &app->renderer.font_atlases[app->font_id], app->theme.foreground);
+        app->status_disp_time -= (f32)delta_time;
+    }
+
     // Draw FPS counter
     if (app->config.show_fps) {
         f64 fps = 1.0f / delta_time;
         char fps_str[200];
         sprintf(fps_str, "FPS: %f", fps);
-        vec2 fps_pos = vec2_init(app->renderer.screen_width - 200, 30);
+        vec2 fps_pos = vec2_init(app->renderer.screen_width - 200, app->editor.line_height * 2);
         GlyphAtlas atlas = app->renderer.font_atlases[app->font_id];
         renderText(&app->renderer, fps_str, &fps_pos, &atlas, COLOR_RED);
     }

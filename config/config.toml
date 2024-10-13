@@ -2,13 +2,13 @@
     font = "./fonts/iosevka-firamono.ttf"
     theme = "./config/themes/spaceduck.toml"
     font_size = 24
-    show_fps = false
+    show_fps = true
 [editor]
     tab_stop = 3
     cursor_speed = 6.5
 
     # In lines per scroll unit
-    scroll_speed = 1
+    scroll_speed = 2
     
     # Controls how far from the top/bottom the cursor needs to be
     # before scrolling the buffer

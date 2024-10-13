@@ -420,6 +420,32 @@ char *getFileNameFromPath(const char *path) {
     return file_name;
 }
 
+char* get_filename_from_path(const char* filepath) {
+    if (filepath == NULL || *filepath == '\0') {
+        return NULL;
+    }
+
+    // Find the last occurrence of '/' or '\' to get the file name
+    const char* last_slash = strrchr(filepath, '/');
+    const char* last_backslash = strrchr(filepath, '\\');
+    const char* filename = (last_slash > last_backslash) ? last_slash + 1 : last_backslash + 1;
+
+    // If no slashes are found, the whole path is the file name
+    if (filename == NULL || *filename == '\0') {
+        filename = filepath;
+    }
+
+    // Allocate memory for the result and copy the filename
+    size_t len = strlen(filename);
+    char* result = (char*)malloc(len + 1);  // +1 for the null terminator
+    if (result) {
+        memcpy(result, filename, len);
+        result[len] = '\0';  // Null-terminate the string
+    }
+
+    return result;
+}
+
 FileType getFileType(const char *file_name, const char *file_ext) {
     if (!strcmp(file_name, "Makefile") || !strcmp(file_name, "makefile")) {
         return FILE_TYPE_MAKEFILE;

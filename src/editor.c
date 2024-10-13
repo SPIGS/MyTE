@@ -50,6 +50,7 @@ void editorDestroy(Editor *ed) {
 void editorLoadConfig(Editor *ed, Config *config) {
     ed->tab_stop = config->tab_stop;
     ed->cursor_speed = config->cursor_speed;
+    ed->scroll_speed = config->scroll_speed;
     ed->dirty = true;
 }
 

@@ -157,6 +157,7 @@ const char *getFileExtFromPath(const char *path);
 
 /* Be sure to call free()! */
 char *getFileNameFromPath(const char *path);
+char* get_filename_from_path(const char* filepath);
 
 FileType getFileType(const char *file_name, const char *file_ext);
 

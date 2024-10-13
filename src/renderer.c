@@ -232,9 +232,9 @@ static void pushQuad (Renderer* r, vec2 a, vec2 b, vec2 c, vec2 d,
 	/* 	CULLING
 		for some reason adding this comparison ((c.y) < 0 ) causes some characters
 		to glitch out. Not sure whats up with that. */
-	if (((b.x) < 0 || a.x > r->screen_width || a.y > r->screen_height)){
-		return;	
-	}
+	// if (((b.x) < 0 || a.x > r->screen_width || a.y > r->screen_height)){
+	// 	return;	
+	// }
 
 	// 1248 is just an invalid value since this is an unsigned number, -1 doesnt work
 	u32 tex_index = 1248;
@@ -544,42 +544,46 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 	}
 
 	// Status line
-	renderQuad(r, rect_init(0, 0, r->screen_width, e->line_height), theme.gutter_foreground);
-	
-	char mode_text[7];
-	Color mode_color;
-	switch (e->mode)
-	{
-	case EDITOR_MODE_NORMAL:
-		strcpy(mode_text, "NORMAL");
-		mode_color = color_from_hex(0x2277FFFF);
-		break;
+	renderQuad(r, rect_init(0, e->line_height, r->screen_width, e->line_height), theme.gutter_foreground);
 
-	case EDITOR_MODE_OPEN:
-		strcpy(mode_text, "OPEN");
-		mode_color = color_from_hex(0xFAC748FF);
-		break;
+	renderQuad(r, rect_init(0, 0, r->screen_width, e->line_height), theme.background);
+	vec2 mode_text_pos = vec2_init((PADDING * 1.5), atlas.atlas_height + (PADDING / 2));
+	if (e->mode == EDITOR_MODE_NORMAL) {
+		if (e->file_path) {
+			char *name = get_filename_from_path(e->file_path);
+			if (name) {
+				renderText(r, name, &mode_text_pos, &atlas, theme.foreground);
+				free(name);
+			} else {
+				renderText(r, "(null)", &mode_text_pos, &atlas, theme.foreground);
+			}
+		} else {
+			renderText(r, "(null)", &mode_text_pos, &atlas, theme.foreground);
+		}
 
-	case EDITOR_MODE_SAVE:
-		strcpy(mode_text, "SAVE");
-		mode_color = color_from_hex(0xD30C7BFF);
-		break;
-	
-	default:
-		strcpy(mode_text, "NORMAL");
-		mode_color = color_from_hex(0x2277FFFF);
-		break;
+		f32 per = (e->scroll_pos.y / (((e->line_count + 2) * e->line_height) - r->screen_height)) * 100.0;
+		vec2 doc_perc_pos = vec2_init(r->screen_width - (4 * r->glyph_adv), e->line_height + (PADDING / 2));
+		if ((e->line_count * e->line_height) < r->screen_height) {
+			renderText(r, "All", &doc_perc_pos, &atlas, theme.foreground);
+		} else {
+			if (per < 1.0) {
+				renderText(r, "Top", &doc_perc_pos, &atlas, theme.foreground);
+			} else if (per >= 100.0) {
+				renderText(r, "Bot", &doc_perc_pos, &atlas, theme.foreground);
+			} else {
+				char doc_perc_txt[4];
+				sprintf(doc_perc_txt, "%d%c", (i32)per, '%');
+				renderText(r, doc_perc_txt, &doc_perc_pos, &atlas, theme.foreground);
+			}
+		}
+	} else if (e->mode == EDITOR_MODE_OPEN) {
+		renderText(r, "browser", &mode_text_pos, &atlas, theme.foreground);
 	}
-
-	renderQuad(r, rect_init((r->glyph_adv * 3) + PADDING, 0, (strlen(mode_text) * r->glyph_adv) + PADDING, e->line_height), mode_color);
-	vec2 mode_text_pos = vec2_init((r->glyph_adv * 3) + (PADDING * 1.5), (PADDING / 2));
-	renderText(r, mode_text, &mode_text_pos, &atlas, COLOR_WHITE);
 	
 	char col_row_disp[24];
 	sprintf(col_row_disp, "%lu,%lu", e->cursor.disp_row, e->cursor.disp_column);
-	vec2 col_row_disp_pos = vec2_init(r->screen_width - (strlen(col_row_disp) * r->glyph_adv) - PADDING, 5);
-	renderText(r, col_row_disp, &col_row_disp_pos, &atlas, COLOR_WHITE);
-
+	vec2 col_row_disp_pos = vec2_init(r->screen_width - (strlen(col_row_disp) * r->glyph_adv) - 100, e->line_height + (PADDING / 2));
+	renderText(r, col_row_disp, &col_row_disp_pos, &atlas, theme.foreground);
 }
 
 u32 rendererLoadFont(Renderer *r, const char *path, u32 size_px) {
