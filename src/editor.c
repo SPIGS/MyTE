@@ -1,7 +1,7 @@
 #include "editor.h"
 #include <stdio.h>
 
-Cursor cursorInit(vec2 init_screen_pos) {
+Cursor cursorInit(vec2 init_screen_pos, f32 blink_rate) {
     return (Cursor) { 
         .buffer_pos = 0, 
         .prev_buffer_pos = 0, 
@@ -10,16 +10,44 @@ Cursor cursorInit(vec2 init_screen_pos) {
         .target_screen_pos = init_screen_pos,
         .anim_time = 0.0f,
         .disp_column = 1,
-        .disp_row = 1
+        .disp_row = 1,
+        .blink_time = 0.0,
+        .blink_rate = blink_rate,
+        .alpha = 1.0,
+        .target_alpha = 0.0
     };
 }
 
+Gutter gutterInit(vec2 screen_pos, f32 glyph_adv) {
+    return (Gutter) {
+        .screen_pos = screen_pos,
+        .gutter_width = glyph_adv * 4.0,
+        .digits = 1
+    };
+}
+void calculateGutterWidth(Editor *ed) {
+    // calculate the new gutter width;
+    ed->gutter.digits = 1;
+	i32 num_lines = (i32)ed->line_count;
+	while (num_lines /= 10)
+		ed->gutter.digits++;
+    
+    f32 gutter_padding = MAX(ed->gutter.digits + 2, 4);
+	ed->gutter.gutter_width = ed->glyph_adv * gutter_padding;
+
+    //update positions of everything
+    f32 text_offset_x = ed->gutter.gutter_width + (ed->glyph_adv * 3);
+    ed->text_pos = vec2_init(text_offset_x, ed->frame.y + ed->frame.h);
+}
+
+
 void editorInit(Editor *ed, rect frame, f32 line_height, f32 glyph_adv, f32 descender, const char *cur_dir) {
     ed->buf = gapBufferInit(INITIAL_BUFFER_SIZE);
-    ed->cursor = cursorInit(vec2_init(frame.x, frame.h));
+    ed->gutter = gutterInit(vec2_init(frame.x, frame.y), glyph_adv);
+    ed->cursor = cursorInit(vec2_init(frame.x + ed->gutter.gutter_width + (ed->glyph_adv * 3), frame.h), 0.5);
     ed->goal_column = -1;
     ed->frame = rect_init(frame.x, frame.y, frame.w, frame.h);
-    ed->text_pos = vec2_init(frame.x, frame.y + frame.h);
+    ed->text_pos = vec2_init(frame.x + ed->gutter.gutter_width + (ed->glyph_adv * 3), frame.y + frame.h);
     ed->scroll_pos = vec2_init(0,0);
     ed->target_scroll_pos = vec2_init(0,0);
     ed->scroll_mode = SCROLL_MODE_CURSOR;
@@ -28,6 +56,7 @@ void editorInit(Editor *ed, rect frame, f32 line_height, f32 glyph_adv, f32 desc
     ed->glyph_adv = glyph_adv;
     ed->descender = descender;
     ed->file_path = NULL;
+    ed->cursor_move_last_frame = false;
     lexerInit(&ed->lexer);
     ed->dirty = true;
     
@@ -75,6 +104,7 @@ void editorChangeMode(Editor *ed, EditorMode new_mode) {
 
 void moveCursorLeft(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->cursor_move_last_frame = true;
         ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (ed->cursor.buffer_pos == 0) {
             return;
@@ -96,6 +126,7 @@ void moveCursorLeft(Editor *ed) {
 
 void moveCursorRight(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->cursor_move_last_frame = true;
         ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (ed->cursor.buffer_pos == getBufLength(ed->buf)) {
             return;
@@ -117,6 +148,7 @@ void moveCursorRight(Editor *ed) {
 
 void moveCursorUp(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->cursor_move_last_frame = true;
         ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (ed->goal_column == -1) {
             ed->goal_column = ed->cursor.disp_column;
@@ -144,6 +176,7 @@ void moveCursorUp(Editor *ed) {
 
 void moveCursorDown(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->cursor_move_last_frame = true;
         ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (ed->goal_column == -1) {
             ed->goal_column = ed->cursor.disp_column;
@@ -186,6 +219,7 @@ void insertCharacter(Editor *ed, char character, bool move_cursor_forward) {
 
 void deleteCharacterLeft(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->cursor_move_last_frame = true;
         ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (ed->cursor.buffer_pos != 0) {
             if (getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos)) != '\n') {
@@ -213,6 +247,7 @@ void deleteCharacterLeft(Editor *ed) {
 
 void deleteCharacterRight(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->cursor_move_last_frame = true;
         ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (removeCharAfterGap (ed->buf, ed->cursor.buffer_pos) == '\n') {
             ed->line_count = (ed->line_count - 1 < 1) ? 1 : ed->line_count - 1;
@@ -240,8 +275,7 @@ char *getContents(Editor *ed) {
 void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, f64 delta_time) {
     //Update cursor position
     //Initial cursor position
-    f32 PADDING = 30.0f;
-    vec2 adj_cursor_pos = vec2_init(((ed->glyph_adv * 3) + PADDING), ed->text_pos.y - ed->line_height - ed->descender);
+    vec2 adj_cursor_pos = vec2_init(ed->text_pos.x, ed->text_pos.y - ed->line_height - ed->descender);
 
     if (ed->mode == EDITOR_MODE_NORMAL) {
         // Vertical/horizontal adjustment from column/row offset
@@ -296,7 +330,8 @@ void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, f64 delta_tim
     // Update frame
     f32 STATUS_LINE_HEIGHT = ed->line_height;
     ed->frame = rect_init(0,0 + STATUS_LINE_HEIGHT, screen_width, screen_height - STATUS_LINE_HEIGHT);
-    ed->text_pos = vec2_init(0, 0 + screen_height);
+    ed->text_pos = vec2_init(ed->text_pos.x, 0 + screen_height);
+    calculateGutterWidth(ed);
 
     // Update the lexer
     if (ed->dirty) {
@@ -304,6 +339,21 @@ void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, f64 delta_tim
         lex(&ed->lexer, data);
         free(data);
         ed->dirty = false;
+    }
+
+    // Update the cursor
+    ed->cursor.blink_time += (f32)delta_time;
+    if (ed->cursor.blink_time >= ed->cursor.blink_rate) {
+        ed->cursor.blink_time = 0.0;
+        ed->cursor.target_alpha = ed->cursor.target_alpha == 1.0 ? 0.0 : 1.0;
+    }
+    if (ed->cursor_move_last_frame) {
+        ed->cursor.alpha = 1.0;
+        ed->cursor.target_alpha = 1.0;
+        ed->cursor.blink_time = 0.0;
+        ed->cursor_move_last_frame = false;
+    } else {
+        ed->cursor.alpha = ease_out(ed->cursor.alpha, ed->cursor.target_alpha, ed->cursor.blink_time);
     }
 }
 
@@ -320,7 +370,7 @@ void loadFromFile(Editor *ed, const char *file_path) {
      // If there's stuff in the editor already, we don't care for now just over write it
     FILE *f = fopen(file_path, "r");
     if (f == NULL) {
-        fprintf(stderr, "ERROR: could not open file '%s'\n", file_path);
+        LOG_ERROR("Could not open file \'%s\'", file_path);
         exit(1);
     }
 
@@ -341,7 +391,7 @@ void loadFromFile(Editor *ed, const char *file_path) {
     }
     fclose(f);
 
-    // move the cursor position back to the start of the file
+    // move the cursor position back to the start of the file/ update some parameters
     ed->cursor.buffer_pos = 0;
     ed->cursor.prev_buffer_pos = 0;
     ed->cursor.disp_row = 1;
@@ -349,6 +399,7 @@ void loadFromFile(Editor *ed, const char *file_path) {
     ed->goal_column = -1;
     ed->file_path = file_path;
     ed->dirty = true;
+    calculateGutterWidth(ed);
 }
 
 void writeToFile(Editor *ed) {
@@ -376,7 +427,7 @@ void writeToFile(Editor *ed) {
 void clearBuffer(Editor *ed) {
     gapBufferDestroy(ed->buf);
     ed->buf = gapBufferInit(INITIAL_BUFFER_SIZE);
-    ed->cursor = cursorInit(vec2_init(ed->frame.x, ed->frame.h));
+    ed->cursor = cursorInit(vec2_init(ed->frame.x, ed->frame.h), 1.0);
     ed->goal_column = -1;
     ed->scroll_pos = vec2_init(0,0);
     ed->line_count = 1;
@@ -494,9 +545,9 @@ void deleteWordRight(Editor *ed) {
 }
 
 void moveCursorToMousePos(Editor *ed, vec2 screen_pos) {
-    f32 gutter_size = (ed->glyph_adv * 4.0) + 10.0f;
+    ed->cursor_move_last_frame = true;
     i32 row = MAX((i32)((ed->scroll_pos.y + screen_pos.y) / ed->line_height), 0);
-    i32 col = MAX((i32)((ed->frame.x + screen_pos.x - gutter_size) / ed->glyph_adv), 0);
+    i32 col = MAX((i32)((screen_pos.x - ed->text_pos.x + (ed->glyph_adv * 0.5)) / ed->glyph_adv), 0);
 
     // clamp to maximum line
     i32 max_row = MIN((i32)((ed->scroll_pos.y + ed->frame.h) / ed->line_height), (i32)ed->line_count - 1);

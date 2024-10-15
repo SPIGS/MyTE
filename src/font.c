@@ -10,7 +10,7 @@ void glyphAtlasInit(GlyphAtlas *atlas, FT_Face face, f32 *glyph_adv, f32 *descen
 
 	for (u32 i = 32; i < 128; i++) {
 		if (FT_Load_Char(face, i, FT_LOAD_RENDER)) {
-			fprintf(stderr, "Loading character %c failed!\n", i);
+			LOG_ERROR("Loading character \'%c\' for atlas failed!", i);
     		continue;
 		}
 
@@ -55,7 +55,7 @@ void glyphAtlasInit(GlyphAtlas *atlas, FT_Face face, f32 *glyph_adv, f32 *descen
     int x = 0;
     for (int i = 32; i < 128; ++i) {
         if (FT_Load_Char(face, i, FT_LOAD_RENDER)) {
-            fprintf(stderr, "ERROR: could not load glyph of a character with code %d\n", i);
+			LOG_ERROR("Could not load glyph of a character with code %d", i);
             continue;
         }
 

@@ -460,6 +460,37 @@ FileType getFileType(const char *file_name, const char *file_ext) {
     }
 }
 
+// Read into dynamic buffer - no chunking
+char *readFile(const char *file_path) {
+    FILE *f = fopen(file_path, "r");
+    if (f == NULL) {
+        LOG_ERROR("Could not open file \'%s\'", file_path);
+        exit(1);
+    }
+    size_t capacity = 1024;
+    char *read_buf = malloc(capacity);
+    if (read_buf == NULL) {
+        LOG_ERROR("Could allocate space for buffer to read file.", "");
+        fclose(f);
+        exit(1);
+    }
+    
+    size_t nread;
+    size_t size = 0;
+    char *temp = NULL;
+    while ((nread = fread(read_buf + size, 1, 1024, f)) > 0) {
+        size += nread;
+        if (size > capacity) {
+            capacity *= 2;
+            temp = realloc(read_buf, capacity);
+            read_buf = temp;
+        }
+    }
+    read_buf[size] = '\0';
+    fclose(f);
+    return read_buf;
+}
+
 static const char *level_strings[] = {
   "DEBUG", "INFO", "WARN", "ERROR",
 };
@@ -472,4 +503,16 @@ void log_log(i32 level, const char *file, int line, const char *fmt, ...) {
     vfprintf(stderr, fmt, args);
     fprintf(stderr, "\n");
     va_end(args);
+}
+
+f32 lerp (f32 start, f32 end, f32 t) {
+    f32 result = start + t * (end - start);
+    return result;
+}
+
+f32 ease_out (f32 start, f32 end, f32 t) {
+    // Cubic ease-out equation
+    t = t - 1.0f;  // Adjust t for cubic easing
+    f32 eased_t = t * t * t + 1.0f;  // Apply cubic ease-out
+    return start + eased_t * (end - start);;
 }

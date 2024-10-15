@@ -70,40 +70,13 @@ void rendererInit(Renderer* r, Color clear_color) {
     u32 vert_module = glCreateShader(GL_VERTEX_SHADER);
     u32 frag_module = glCreateShader(GL_FRAGMENT_SHADER);
 	
-
-    // Temperarily inlining shader code until I implement file loading/hot reloading
-	i8 *vert_code =
-        "#version 330 core\n"
-        "layout (location = 0) in vec2  a_pos;"
-        "layout (location = 1) in vec4  a_color;"
-        "layout (location = 2) in vec2  a_uv;"
-        "layout (location = 3) in float a_texindex;"
-        "out vec4  v_color;"
-        "out vec2  v_uv;"
-        "out float v_texindex;"
-        "uniform mat4 u_proj;"
-        "void main() {"
-            "gl_Position = u_proj * vec4(a_pos, 0.0, 1.0);"
-            "v_texindex = a_texindex;"
-            "v_uv = a_uv;"
-            "v_color = a_color;"
-        "}";
-
+    // TODO: hot reload shaders
+	i8 *vert_code = readFile("./shaders/glyph.vert");
     GLint vert_src_length = (GLint)strlen(vert_code);
 	glShaderSource(vert_module, 1, (const GLchar *const *)&vert_code, &vert_src_length);
+	free(vert_code);
 	
-	i8 *frag_code = 
-    "#version 330 core\n"
-    "in vec4  v_color;"
-    "in vec2  v_uv;"
-    "in float v_texindex;"
-    "layout (location=0) out vec4 f_color;"
-    "uniform sampler2D u_tex[8];"
-    "void main() {"
-	"vec4 sampled = texture(u_tex[int(v_texindex)], v_uv);"
-    "f_color = vec4(v_color.rgb, v_color.a * sampled.r);"
-    "}";
-
+	i8 *frag_code = readFile("./shaders/glyph.frag");
     GLint frag_src_length = (GLint)strlen(frag_code);
 	glShaderSource(frag_module, 1, (const GLchar *const *)&frag_code, &frag_src_length);
 	
@@ -230,8 +203,7 @@ static void pushQuad (Renderer* r, vec2 a, vec2 b, vec2 c, vec2 d,
 					u32 texture) {
 	
 	/* 	CULLING
-		for some reason adding this comparison ((c.y) < 0 ) causes some characters
-		to glitch out. Not sure whats up with that. */
+		This if statement causes textures to glitch out */
 	// if (((b.x) < 0 || a.x > r->screen_width || a.y > r->screen_height)){
 	// 	return;	
 	// }
@@ -370,13 +342,11 @@ void renderChar(Renderer* r, char character, vec2 *pos, GlyphAtlas *atlas, Color
 		vec2_init(uv_min.x, uv_max.y),
 		atlas->glyphs_texture
 	);
-	
 }
 
 void renderText(Renderer* r, char *data, vec2 *pos, GlyphAtlas *atlas, Color tint) {
 	vec2 init_pos = vec2_init(pos->x, pos->y);
 
-	
 	size_t len_data = strlen(data);
 	for (size_t i = 0; i < len_data; i++) {
 		// If the character is a newline, move down and back over to the left.
@@ -413,13 +383,11 @@ u32 rendererGetWhiteTexture() {
 void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorTheme theme) {
 	UNUSED(delta_time);
 
-	f32 PADDING = 30.0f;
 	renderQuad(r, e->frame, theme.background);
 	GlyphAtlas atlas = r->font_atlases[font_id];
-
 	
 	if (e->mode != EDITOR_MODE_OPEN) {
-		vec2 init_pos = vec2_init(((r->glyph_adv * 3) + PADDING), e->text_pos.y - e->line_height);
+		vec2 init_pos = vec2_init(e->text_pos.x, e->text_pos.y - e->line_height);
 		vec2 adj_text_pos = vec2_add(init_pos, e->scroll_pos);
 		
 		// Render line highlight
@@ -494,9 +462,12 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 		
 		// Render cursor
 		rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
-		renderQuad(r, cursor_quad, theme.foreground);
+		Color cursor_color = theme.foreground;
+		cursor_color.a = e->cursor.alpha;
+		renderQuad(r, cursor_quad, cursor_color);
 	} else {
-		vec2 init_pos = vec2_init(((r->glyph_adv * 3) + PADDING), e->text_pos.y - e->line_height);
+		vec2 init_text_pos = vec2_init(e->text_pos.x, e->text_pos.y - e->line_height);
+		vec2 adj_text_pos = init_text_pos;
 
 		// Render selection highlight
 		rect selection_highlight = rect_init(e->browser.sel_screen_pos.x, e->browser.sel_screen_pos.y, e->browser.sel_size.x, e->browser.sel_size.y);
@@ -507,39 +478,41 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 				char *dir_with_slash = (char *)malloc(strlen(e->browser.items[i].name_ext) + 2);
 				strcpy(dir_with_slash, e->browser.items[i].name_ext);
 				strcat(dir_with_slash, "/");
-				renderText(r, dir_with_slash, &init_pos, &atlas, theme.foreground);
+				renderText(r, dir_with_slash, &adj_text_pos, &atlas, theme.foreground);
 				free(dir_with_slash);
 			} else {
-				renderText(r, e->browser.items[i].name_ext, &init_pos, &atlas, theme.foreground);
+				renderText(r, e->browser.items[i].name_ext, &adj_text_pos, &atlas, theme.foreground);
 			}
-			renderText(r, "\n", &init_pos, &atlas, theme.foreground);
-			init_pos.x = ((r->glyph_adv * 3) + PADDING);
+			renderText(r, "\n", &adj_text_pos, &atlas, theme.foreground);
+			adj_text_pos.x = init_text_pos.x;
 		}
 	}
-	
 
-	// gutter
-	PADDING = 10.0f;
-	vec2 gutter_pos = vec2_init(0, e->frame.y + e->frame.h - e->line_height);
-	renderQuad(r, rect_init((r->glyph_adv * 3) + PADDING, 0, 1, r->screen_height), theme.gutter_foreground);
+	// gutter	
+	// render divider
+	renderQuad(r, rect_init(e->gutter.gutter_width + r->glyph_adv, 0, 1, r->screen_height), theme.gutter_foreground);
+	
+	vec2 gutter_text_pos = vec2_init(0, e->frame.y + e->frame.h - e->line_height);
+	gutter_text_pos.x = r->glyph_adv;
 	if (e->mode != EDITOR_MODE_OPEN) {
-		gutter_pos = vec2_add(gutter_pos, e->scroll_pos);
+		gutter_text_pos = vec2_add(gutter_text_pos, e->scroll_pos);
 		i32 cur_line = e->cursor.disp_row;
 		for (i32 i = 1; i <= (i32)e->line_count; ++i) {
 			char num[11];
-			sprintf(num, "%3d", i);
-			renderText(r, num, &gutter_pos, &atlas, cur_line == i ? theme.user_selection : theme.gutter_foreground);
-			gutter_pos.x = 0;
-			gutter_pos.y -= e->line_height;
+			i32 gutter_digit_padding = MAX(e->gutter.digits, 2);
+			sprintf(num, "%*d", gutter_digit_padding, i);
+			renderText(r, num, &gutter_text_pos, &atlas, cur_line == i ? theme.user_selection : theme.gutter_foreground);
+			gutter_text_pos.x = r->glyph_adv;
+			gutter_text_pos.y -= e->line_height;
 		}
 	} else {
-		gutter_pos = vec2_add(gutter_pos, e->browser.scroll_pos);
-		for (size_t i = 0; i <= e->browser.num_paths; i++) {
+		gutter_text_pos = vec2_add(gutter_text_pos, e->browser.scroll_pos);
+		for (size_t i = 0; i < e->browser.num_paths; i++) {
 			char num[4];
 			sprintf(num, "%3s", "~");
-			renderText(r, num, &gutter_pos, &atlas, theme.gutter_foreground);
-			gutter_pos.x = 0;
-			gutter_pos.y -= e->line_height;
+			renderText(r, num, &gutter_text_pos, &atlas, theme.gutter_foreground);
+			gutter_text_pos.x = r->glyph_adv;
+			gutter_text_pos.y -= e->line_height;
 		}
 	}
 
@@ -547,7 +520,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 	renderQuad(r, rect_init(0, e->line_height, r->screen_width, e->line_height), theme.gutter_foreground);
 
 	renderQuad(r, rect_init(0, 0, r->screen_width, e->line_height), theme.background);
-	vec2 mode_text_pos = vec2_init((PADDING * 1.5), atlas.atlas_height + (PADDING / 2));
+	vec2 mode_text_pos = vec2_init(r->glyph_adv * 2.0, e->line_height + r->descender);
 	if (e->mode == EDITOR_MODE_NORMAL) {
 		if (e->file_path) {
 			char *name = get_filename_from_path(e->file_path);
@@ -562,7 +535,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 		}
 
 		f32 per = (e->scroll_pos.y / (((e->line_count + 2) * e->line_height) - r->screen_height)) * 100.0;
-		vec2 doc_perc_pos = vec2_init(r->screen_width - (4 * r->glyph_adv), e->line_height + (PADDING / 2));
+		vec2 doc_perc_pos = vec2_init(r->screen_width - (4 * r->glyph_adv), e->line_height + r->descender);
 		if ((e->line_count * e->line_height) < r->screen_height) {
 			renderText(r, "All", &doc_perc_pos, &atlas, theme.foreground);
 		} else {
@@ -582,7 +555,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 	
 	char col_row_disp[24];
 	sprintf(col_row_disp, "%lu,%lu", e->cursor.disp_row, e->cursor.disp_column);
-	vec2 col_row_disp_pos = vec2_init(r->screen_width - (strlen(col_row_disp) * r->glyph_adv) - 100, e->line_height + (PADDING / 2));
+	vec2 col_row_disp_pos = vec2_init(r->screen_width - (strlen(col_row_disp) * r->glyph_adv) - (r->glyph_adv * 6), e->line_height + r->descender);
 	renderText(r, col_row_disp, &col_row_disp_pos, &atlas, theme.foreground);
 }
 
@@ -590,7 +563,7 @@ u32 rendererLoadFont(Renderer *r, const char *path, u32 size_px) {
 	// Load a face
 	FT_Face face;
 	if(FT_New_Face(r->ft, path, 0, &face)) {
-		fprintf(stderr, "Could not open font\n");
+		LOG_ERROR("Could not open font: %s", path);
 		exit(1);
 	}
 

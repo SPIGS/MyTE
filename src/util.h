@@ -161,6 +161,8 @@ char* get_filename_from_path(const char* filepath);
 
 FileType getFileType(const char *file_name, const char *file_ext);
 
+char *readFile(const char *file_name);
+
 // Some logging stuff
 
 enum { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR };
@@ -171,3 +173,6 @@ enum { LOG_DEBUG, LOG_INFO, LOG_WARN, LOG_ERROR };
 #define LOG_DEBUG(fmt, ...) log_log(LOG_DEBUG, __FILE__, __LINE__, fmt, ##__VA_ARGS__)
 
 void log_log(i32 level, const char *file, int line, const char *fmt, ...);
+
+f32 lerp (f32 start, f32 end, f32 t);
+f32 ease_out (f32 start, f32 end, f32 t);

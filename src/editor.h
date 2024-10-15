@@ -30,15 +30,30 @@ typedef struct {
 
     size_t disp_column;
     size_t disp_row;
+
+    // Blinking
+    f32 blink_time;
+    f32 blink_rate;
+    f32 alpha;
+    f32 target_alpha;
 } Cursor;
 
-Cursor cursorInit();
+Cursor cursorInit(vec2 init_screen_pos, f32 blink_rate);
+
+typedef struct {
+    vec2 screen_pos;
+    f32 gutter_width;
+    i32 digits;
+} Gutter;
+
+Gutter gutterInit(vec2 screen_pos, f32 glyph_adv);
 
 typedef struct {
     // Buffer / cursor movement
     GapBuffer *buf;
     Cursor cursor;
     i32 goal_column;
+    Gutter gutter;
 
     // Used to draw the editor
     rect frame;
@@ -53,6 +68,7 @@ typedef struct {
     const char *file_path;
     f32 glyph_adv;
     f32 descender;
+    bool cursor_move_last_frame;
 
     // Lexing stuff
     Lexer lexer;
@@ -70,6 +86,7 @@ typedef struct {
 
     // File Browser stuff
     FileBrowser browser;
+
 } Editor;
 
 void editorInit(Editor *ed, rect frame, f32 line_height, f32 glyph_adv, f32 descender, const char *cur_dir);
@@ -100,3 +117,4 @@ void deleteWordRight(Editor *ed);
 
 void moveCursorToMousePos(Editor *ed, vec2 mouse_pos);
 void scrollWithMouseWheel(Editor *ed, f32 yoffset);
+void calculateGutterWidth(Editor *ed);

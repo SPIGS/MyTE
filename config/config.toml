@@ -1,16 +1,24 @@
 [general]
     font = "./fonts/iosevka-firamono.ttf"
     theme = "./config/themes/spaceduck.toml"
-    font_size = 24
+
+    # font size in pixels
+    font_size = 22
+
+    # displays an fps counter in the bottom right corner (debug)
     show_fps = true
+
 [editor]
+    # how many characters a tab is worth
     tab_stop = 3
+
+    # visual animation speed for cursor
     cursor_speed = 6.5
 
     # In lines per scroll unit
     scroll_speed = 2
     
     # Controls how far from the top/bottom the cursor needs to be
-    # before scrolling the buffer
+    # before scrolling the buffer (arrow keys)
     scroll_stop_top = 6
     scroll_stop_bottom = 2  

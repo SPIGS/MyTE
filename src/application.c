@@ -204,7 +204,7 @@ void applicationInit(Application *app, int argc, char **argv) {
     loadConfigFromFile(&app->config, "./config/config.toml");
 
     rendererInit(&app->renderer, COLOR_BLACK);
-    app->font_id = rendererLoadFont(&app->renderer, app->config.font_path, 24);
+    app->font_id = rendererLoadFont(&app->renderer, app->config.font_path, app->config.font_size);
     rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
     editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, ".");
 
@@ -313,7 +313,7 @@ void applicationRender(Application *app, f64 delta_time) {
         f64 fps = 1.0f / delta_time;
         char fps_str[200];
         sprintf(fps_str, "FPS: %f", fps);
-        vec2 fps_pos = vec2_init(app->renderer.screen_width - 200, app->editor.line_height * 2);
+        vec2 fps_pos = vec2_init(app->renderer.screen_width - (app->renderer.glyph_adv * 10.0), app->editor.line_height * 2);
         GlyphAtlas atlas = app->renderer.font_atlases[app->font_id];
         renderText(&app->renderer, fps_str, &fps_pos, &atlas, COLOR_RED);
     }

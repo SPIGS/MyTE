@@ -102,7 +102,7 @@ char *getBufString (GapBuffer *buf) {
     size_t length = getBufLength(buf);
     char *temp = (char *)malloc((length + 1) * sizeof(char)); // +1 for null-terminator
     if (temp == NULL) {
-        fprintf(stderr, "Memory allocation failed.\n");
+        LOG_ERROR("Memory allocation for buffer failed.", "");
         exit(EXIT_FAILURE);
     }
 
