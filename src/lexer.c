@@ -363,7 +363,6 @@ void lex (Lexer *lexer, const char *source) {
         if (strlen(curToken.text) != 0) {
             pushToken(lexer, curToken);
         }
-        LOG_DEBUG("Lexing done", "");
     } else {
         size_t i = 0;
         Token curToken = createToken();
@@ -691,6 +690,5 @@ void lex (Lexer *lexer, const char *source) {
         if (strlen(curToken.text) != 0) {
             pushToken(lexer, curToken);
         }
-        LOG_DEBUG("Lexing done", "");
     }
 }
