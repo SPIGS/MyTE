@@ -30,3 +30,6 @@ void applicationSetStatusMessage(Application *app, const char *msg, f32 t);
 
 void applicationUpdate(Application *app, f64 delta_time);
 void applicationRender(Application *app, f64 delta_time);
+
+void applicationProcessEditorInput (Application *app, int key, int scancode, int action , int mods);
+void applicationProcessBrowserInput (Application *app, int key, int scancode, int action , int mods);

@@ -345,11 +345,25 @@ void lex (Lexer *lexer, const char *source) {
     
     if (lexer->file_type == FILE_TYPE_UNKNOWN) {
         // If we don't know what file type it is, don't do anything.
-        Token newToken = createToken();
+        Token curToken = createToken();
         for (size_t i = 0; i < length; i++) {
-            tokenPushChar(&newToken, source[i]);
+            tokenPushChar(&curToken, source[i]);
+
+            // If we encounter a newline, start a new token.
+            // this doesn't change highlighting, it helps with
+            // visualizing the user selection (we don't have to worry about multi-
+            // line tokens). 
+            if (source[i] == '\n') {
+                curToken.type = TOKEN_UNKNOWN;
+                pushToken(lexer, curToken);
+                curToken = createToken();
+                refreshToken(lexer, &curToken, TOKEN_UNKNOWN);
+            }
         }
-        pushToken(lexer, newToken);
+        if (strlen(curToken.text) != 0) {
+            pushToken(lexer, curToken);
+        }
+        LOG_DEBUG("Lexing done", "");
     } else {
         size_t i = 0;
         Token curToken = createToken();
@@ -370,8 +384,20 @@ void lex (Lexer *lexer, const char *source) {
             else if (lexer->comment_multi_begin.ok && strncmp(&source[i], lexer->comment_multi_begin.u.s, strlen(lexer->comment_multi_begin.u.s)) == 0) {
                 refreshToken(lexer, &curToken, TOKEN_COMMENT_MULTI);
 
+                // Add the characters in the multiline comment.
                 while (i < length && strncmp(&source[i], lexer->comment_multi_end.u.s, strlen(lexer->comment_multi_end.u.s)) != 0) {
                     tokenPushChar(&curToken, source[i]);
+
+                    // If we encounter a newline, start a new token.
+                    // this doesn't change highlighting, it helps with
+                    // visualizing the user selection (we don't have to worry about multi-
+                    // line tokens). 
+                    if (source[i] == '\n') {
+                        curToken.type = TOKEN_COMMENT_MULTI;
+                        pushToken(lexer, curToken);
+                        curToken = createToken();
+                        refreshToken(lexer, &curToken, TOKEN_COMMENT_MULTI);
+                    }
                     i++;
                 }
                 

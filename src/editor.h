@@ -28,6 +28,7 @@ typedef struct {
     vec2 target_screen_pos;
     f32 anim_time;
 
+    // display coordinates
     size_t disp_column;
     size_t disp_row;
 
@@ -36,6 +37,10 @@ typedef struct {
     f32 blink_rate;
     f32 alpha;
     f32 target_alpha;
+
+    // Selection
+    i32 selection_size;
+    vec2 screen_pos_beg_selection;
 } Cursor;
 
 Cursor cursorInit(vec2 init_screen_pos, f32 blink_rate);
@@ -93,28 +98,35 @@ void editorInit(Editor *ed, rect frame, f32 line_height, f32 glyph_adv, f32 desc
 void editorDestroy(Editor *ed);
 void editorLoadConfig(Editor *ed, Config *config);
 void editorChangeMode(Editor *ed, EditorMode new_mode);
+void calculateGutterWidth(Editor *ed);
+char *getContents(Editor *ed);
+void loadFromFile(Editor *ed, const char *file_path);
+void writeToFile(Editor *ed);
+void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, f64 delta_time);
+void setCursorTargetScreenPos(Editor *ed, vec2 new_target);
+void lerpCursorScreenPos(Editor *ed);
 
 // Cursor Movements
 void moveCursorLeft(Editor *ed);
 void moveCursorRight(Editor *ed);
 void moveCursorUp(Editor *ed);
 void moveCursorDown(Editor *ed);
+void moveEndOfNextWord(Editor *ed);
+void moveBegOfPrevWord(Editor *ed);
+
+// Buffer manipulation
+void clearBuffer(Editor *ed);
 void insertCharacter(Editor *ed, char character, bool move_cursor_forward);
 void deleteCharacterLeft(Editor *ed);
 void deleteCharacterRight(Editor *ed);
-void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, f64 delta_time);
-void setCursorTargetScreenPos(Editor *ed, vec2 new_target);
-void lerpCursorScreenPos(Editor *ed);
-
-char *getContents(Editor *ed);
-void loadFromFile(Editor *ed, const char *file_path);
-void writeToFile(Editor *ed);
-void clearBuffer(Editor *ed);
-void moveEndOfNextWord(Editor *ed);
-void moveBegOfPrevWord(Editor *ed);
 void deleteWordLeft(Editor *ed);
 void deleteWordRight(Editor *ed);
 
+// Mouse controls
 void moveCursorToMousePos(Editor *ed, vec2 mouse_pos);
 void scrollWithMouseWheel(Editor *ed, f32 yoffset);
-void calculateGutterWidth(Editor *ed);
+
+// Selection manipulation
+void makeSelection(Editor *ed);
+void unselectSelection(Editor *ed);
+void deleteSelection(Editor *ed);

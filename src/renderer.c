@@ -328,7 +328,6 @@ void renderChar(Renderer* r, char character, vec2 *pos, GlyphAtlas *atlas, Color
 	// advance the position by the width of the character
 	pos->x += metric.ax;
 
-	// cull
 	pushQuad (
 		r,
 		vec2_init(x2, y2), 
@@ -380,6 +379,64 @@ u32 rendererGetWhiteTexture() {
 	return _cached_white;
 }
 
+static void renderSelectionOnToken (Renderer* r, Editor *e, vec2 adj_text_pos, size_t buffer_pos, size_t token_len, Color selection_color) {
+	i32 selection_size = e->cursor.selection_size;
+	size_t selection_beg = e->cursor.buffer_pos - selection_size;
+	size_t selection_end = e->cursor.buffer_pos;
+	i32 selection_offset_x = 0;
+	i32 selection_offset_w = 0;
+	f32 selection_x = adj_text_pos.x;
+	f32 selection_w = 0.0;
+	size_t token_end = buffer_pos + token_len;
+
+	/*
+	the selection starts before the token and extends through it - color whole token
+	the selection starts after the token and extends behind it - color whole token
+	*/
+	if (selection_size != 0) {
+		if ((selection_beg <= buffer_pos && selection_end >= token_end) ||
+			(selection_beg >= token_end && selection_end <= buffer_pos)) {
+				selection_x = adj_text_pos.x;
+				selection_w = r->glyph_adv * token_len;
+		}
+		/* the selection starts on the token and extends through it to the right - color part of token */	
+		else if (selection_beg > buffer_pos && selection_beg < token_end && selection_end >= buffer_pos + token_len) {
+			selection_offset_x = selection_beg - buffer_pos;
+			selection_offset_w = token_len - selection_offset_x;
+			selection_x = adj_text_pos.x + r->glyph_adv * selection_offset_x;
+			selection_w = r->glyph_adv * selection_offset_w;
+		}
+		/* the selection starts on the token and extends through it to the left - color part of token */
+		else if (selection_beg > buffer_pos && selection_beg <= token_end && selection_end <= buffer_pos) {
+			selection_offset_w = selection_beg - buffer_pos;
+			selection_x = adj_text_pos.x;
+			selection_w = r->glyph_adv * selection_offset_w;
+		}
+		/* the selection starts before the token and ends in it - color part of token */
+		else if (selection_beg <= buffer_pos && selection_end >= buffer_pos && selection_end <= token_end) {
+			selection_offset_w = selection_end - buffer_pos;
+			selection_x = adj_text_pos.x;
+			selection_w = r->glyph_adv * selection_offset_w;
+		} 
+		/* selection stars after the token and ends in it */
+		else if ((selection_beg >= token_end && (selection_end >= buffer_pos && selection_end <= token_end))) {
+			selection_offset_x = selection_end - buffer_pos;
+			selection_offset_w = token_len - selection_offset_x;
+			selection_x = adj_text_pos.x + r->glyph_adv * selection_offset_x;
+			selection_w = r->glyph_adv * selection_offset_w;
+		} 
+		/* selection starts in the token and ends in the token */
+		else if (selection_beg > buffer_pos && selection_end <= token_end) {
+			selection_offset_x = MIN(selection_beg, selection_end) - buffer_pos;
+			selection_offset_w = abs(selection_size);
+			selection_x = adj_text_pos.x + r->glyph_adv * selection_offset_x;
+			selection_w = r->glyph_adv * selection_offset_w;
+			
+		}
+		renderQuad(r, rect_init(selection_x, adj_text_pos.y - e->descender, selection_w, e->line_height), selection_color);
+	} 
+}
+
 void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorTheme theme) {
 	UNUSED(delta_time);
 
@@ -394,8 +451,15 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 		renderQuad(r, rect_init(e->frame.x, e->cursor.screen_pos.y, e->frame.w, atlas.atlas_height), theme.current_line);
 
 		// Render the tokens
+		size_t buffer_pos = 0;
+		
 		for (size_t i = 0; i < e->lexer.token_count; i++) {
 			Token curToken = e->lexer.tokens[i];
+			size_t token_len = strlen(curToken.text);
+			
+			renderSelectionOnToken (r, e, adj_text_pos, buffer_pos, token_len, theme.user_selection);
+			buffer_pos += token_len;
+			
 			switch(curToken.type) {
 				case TOKEN_COMMENT_SINGLE:
 					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.single_line_comment);
@@ -458,6 +522,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.foreground);
 				break;
 			}
+			
 		}
 		
 		// Render cursor

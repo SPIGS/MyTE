@@ -14,7 +14,8 @@ Cursor cursorInit(vec2 init_screen_pos, f32 blink_rate) {
         .blink_time = 0.0,
         .blink_rate = blink_rate,
         .alpha = 1.0,
-        .target_alpha = 0.0
+        .target_alpha = 0.0,
+        .selection_size = 0
     };
 }
 
@@ -103,150 +104,143 @@ void editorChangeMode(Editor *ed, EditorMode new_mode) {
 }
 
 void moveCursorLeft(Editor *ed) {
-    if (ed->mode != EDITOR_MODE_OPEN) {
-        ed->cursor_move_last_frame = true;
-        ed->scroll_mode = SCROLL_MODE_CURSOR;
-        if (ed->cursor.buffer_pos == 0) {
-            return;
-        }
-
+    ed->cursor_move_last_frame = true;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
+    if (ed->cursor.buffer_pos == 0) {
         ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-        ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
+        return;
+    }
 
-        // If we moved to the prev line
-        if (getBufChar(ed->buf, ed->cursor.buffer_pos) == '\n') {
-           ed->cursor.disp_row--;  
-        }
+    ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
+    ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
 
-        ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
-        ed->cursor.anim_time = 0.0f;
-        ed->goal_column = ed->cursor.disp_column;
-    } 
+    // If we moved to the prev line
+    if (getBufChar(ed->buf, ed->cursor.buffer_pos) == '\n') {
+        ed->cursor.disp_row--;  
+    }
+
+    ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
+    ed->cursor.anim_time = 0.0f;
+    ed->goal_column = ed->cursor.disp_column;
 }
 
 void moveCursorRight(Editor *ed) {
-    if (ed->mode != EDITOR_MODE_OPEN) {
-        ed->cursor_move_last_frame = true;
-        ed->scroll_mode = SCROLL_MODE_CURSOR;
-        if (ed->cursor.buffer_pos == getBufLength(ed->buf)) {
-            return;
-        }
-
+    ed->cursor_move_last_frame = true;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
+    if (ed->cursor.buffer_pos == getBufLength(ed->buf)) {
         ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-        ed->cursor.buffer_pos = getNextCharCursor(ed->buf, ed->cursor.buffer_pos);
-
-        // If we moved to the next line
-        if (ed->cursor.buffer_pos == getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_pos)) {
-            ed->cursor.disp_row++;
-        }
-
-        ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
-        ed->cursor.anim_time = 0.0f;
-        ed->goal_column = ed->cursor.disp_column;
+        return;
     }
+
+    ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
+    ed->cursor.buffer_pos = getNextCharCursor(ed->buf, ed->cursor.buffer_pos);
+
+    // If we moved to the next line
+    if (ed->cursor.buffer_pos == getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_pos)) {
+        ed->cursor.disp_row++;
+    }
+
+    ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
+    ed->cursor.anim_time = 0.0f;
+    ed->goal_column = ed->cursor.disp_column;
 }
 
 void moveCursorUp(Editor *ed) {
-    if (ed->mode != EDITOR_MODE_OPEN) {
-        ed->cursor_move_last_frame = true;
-        ed->scroll_mode = SCROLL_MODE_CURSOR;
-        if (ed->goal_column == -1) {
-            ed->goal_column = ed->cursor.disp_column;
-        }
-        
-        size_t beg_prev_line = getBeginningOfPrevLineCursor(ed->buf, ed->cursor.buffer_pos);
-        size_t beg_line = getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_pos);
-        ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-
-        if (beg_line == 0) {
-            ed->cursor.buffer_pos = beg_line;
-            ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
-            ed->goal_column = ed->cursor.disp_column;
-        } else {
-            size_t len_prev_line = getBufLineLength(ed->buf, beg_prev_line);
-            ed->cursor.buffer_pos = beg_prev_line + MIN((size_t)ed->goal_column - 1, len_prev_line);
-            ed->cursor.disp_row--;
-            ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
-        }
-        ed->cursor.anim_time = 0.0f;
-    } else {
-        decrementSelection(&ed->browser);
+    ed->cursor_move_last_frame = true;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
+    if (ed->goal_column == -1) {
+        ed->goal_column = ed->cursor.disp_column;
     }
+    
+    size_t beg_prev_line = getBeginningOfPrevLineCursor(ed->buf, ed->cursor.buffer_pos);
+    size_t beg_line = getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_pos);
+    ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
+
+    if (beg_line == 0) {
+        ed->cursor.buffer_pos = beg_line;
+        ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
+        ed->goal_column = ed->cursor.disp_column;
+    } else {
+        size_t len_prev_line = getBufLineLength(ed->buf, beg_prev_line);
+        ed->cursor.buffer_pos = beg_prev_line + MIN((size_t)ed->goal_column - 1, len_prev_line);
+        ed->cursor.disp_row--;
+        ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
+    }
+    ed->cursor.anim_time = 0.0f;
 }
 
 void moveCursorDown(Editor *ed) {
-    if (ed->mode != EDITOR_MODE_OPEN) {
-        ed->cursor_move_last_frame = true;
-        ed->scroll_mode = SCROLL_MODE_CURSOR;
-        if (ed->goal_column == -1) {
-            ed->goal_column = ed->cursor.disp_column;
-        }
-
-        size_t beg_next_line = getBeginningOfNextLineCursor(ed->buf, ed->cursor.buffer_pos);
-        size_t end_line = getEndOfLineCursor(ed->buf, ed->cursor.buffer_pos);
-        ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-
-        if (end_line == getBufLength(ed->buf)) {
-            ed->cursor.buffer_pos = beg_next_line;
-            ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
-            ed->goal_column = ed->cursor.disp_column;
-        } else {
-            size_t len_next_line = getBufLineLength(ed->buf, beg_next_line);
-            ed->cursor.buffer_pos = beg_next_line + MIN((size_t)ed->goal_column - 1, len_next_line);
-            ed->cursor.disp_row++;
-            ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
-        }
-        ed->cursor.anim_time = 0.0f;
-    } else {
-        incrementSelection(&ed->browser);
+    ed->cursor_move_last_frame = true;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
+    if (ed->goal_column == -1) {
+        ed->goal_column = ed->cursor.disp_column;
     }
+
+    size_t beg_next_line = getBeginningOfNextLineCursor(ed->buf, ed->cursor.buffer_pos);
+    size_t end_line = getEndOfLineCursor(ed->buf, ed->cursor.buffer_pos);
+    ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
+
+    if (end_line == getBufLength(ed->buf)) {
+        ed->cursor.buffer_pos = beg_next_line;
+        ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
+        ed->goal_column = ed->cursor.disp_column;
+    } else {
+        size_t len_next_line = getBufLineLength(ed->buf, beg_next_line);
+        ed->cursor.buffer_pos = beg_next_line + MIN((size_t)ed->goal_column - 1, len_next_line);
+        ed->cursor.disp_row++;
+        ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
+    }
+    ed->cursor.anim_time = 0.0f;
 }
 
 void insertCharacter(Editor *ed, char character, bool move_cursor_forward) {
-    if (ed->mode != EDITOR_MODE_OPEN) {
-        ed->scroll_mode = SCROLL_MODE_CURSOR;
-        insertCharIntoBuf(ed->buf, ed->cursor.buffer_pos, character);
-        if (character == '\n') {
-            ed->line_count ++;
-        }
-        
-        if (move_cursor_forward) {
-            moveCursorRight(ed);
-        }
-        ed->dirty = true;
+    if (ed->cursor.selection_size != 0) {
+        deleteSelection(ed);
+    } else {
+        unselectSelection(ed);
     }
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
+    insertCharIntoBuf(ed->buf, ed->cursor.buffer_pos, character);
+    if (character == '\n') {
+        ed->line_count ++;
+    }
+    
+    if (move_cursor_forward) {
+        moveCursorRight(ed);
+    }
+    ed->dirty = true;
 }
 
 void deleteCharacterLeft(Editor *ed) {
-    if (ed->mode != EDITOR_MODE_OPEN) {
-        ed->cursor_move_last_frame = true;
-        ed->scroll_mode = SCROLL_MODE_CURSOR;
-        if (ed->cursor.buffer_pos != 0) {
-            if (getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos)) != '\n') {
-                removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
-                ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-                ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
-                ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
-                ed->goal_column = ed->cursor.disp_column;
-                ed->cursor.anim_time = 0.0f;
-                ed->dirty = true;
-            } else {
-                removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
-                ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
-                ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
-                ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
-                ed->goal_column = ed->cursor.disp_column;
-                ed->cursor.disp_row--;
-                ed->line_count--;
-                ed->cursor.anim_time = 0.0f;
-                ed->dirty = true;
-            }
+    unselectSelection(ed);
+    ed->cursor_move_last_frame = true;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
+    if (ed->cursor.buffer_pos != 0) {
+        if (getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos)) != '\n') {
+            removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
+            ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
+            ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
+            ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
+            ed->goal_column = ed->cursor.disp_column;
+            ed->cursor.anim_time = 0.0f;
+            ed->dirty = true;
+        } else {
+            removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
+            ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
+            ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
+            ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
+            ed->goal_column = ed->cursor.disp_column;
+            ed->cursor.disp_row--;
+            ed->line_count--;
+            ed->cursor.anim_time = 0.0f;
+            ed->dirty = true;
         }
     }
 }
 
 void deleteCharacterRight(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
+        unselectSelection(ed);
         ed->cursor_move_last_frame = true;
         ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (removeCharAfterGap (ed->buf, ed->cursor.buffer_pos) == '\n') {
@@ -435,59 +429,59 @@ void clearBuffer(Editor *ed) {
 }
 
 void moveEndOfNextWord(Editor *ed) {
-    if (ed->mode != EDITOR_MODE_OPEN) {
-        ed->scroll_mode = SCROLL_MODE_CURSOR;
-        moveCursorRight(ed);
-        char c = getBufChar(ed->buf, ed->cursor.buffer_pos);
-        
-        // skip spaces
-        if (isspace(c)) {
-           while (isspace(c) && c != '\n') {
-                moveCursorRight(ed);
-                c = getBufChar(ed->buf, ed->cursor.buffer_pos);
-            } 
-        }
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
+    size_t prev_pos = ed->cursor.buffer_pos;
+    moveCursorRight(ed);
+    char c = getBufChar(ed->buf, ed->cursor.buffer_pos);
+    
+    // skip spaces
+    if (isspace(c)) {
+        while (isspace(c) && c != '\n' && ed->cursor.buffer_pos != getBufLength(ed->buf)) {
+            moveCursorRight(ed);
+            c = getBufChar(ed->buf, ed->cursor.buffer_pos);
+        } 
+    }
 
-        if (ispunct(c) && c != '_') {
-            while (ispunct(c) && c != '_') {
-                moveCursorRight(ed);
-                c = getBufChar(ed->buf, ed->cursor.buffer_pos);
-            }
-        } else if (isalnum(c) || c == '_'){
-            while (isalnum(c) || c == '_') {
-                moveCursorRight(ed);
-                c = getBufChar(ed->buf, ed->cursor.buffer_pos);
-            }
+    if (ispunct(c) && c != '_') {
+        while (ispunct(c) && c != '_' && ed->cursor.buffer_pos != getBufLength(ed->buf)) {
+            moveCursorRight(ed);
+            c = getBufChar(ed->buf, ed->cursor.buffer_pos);
+        }
+    } else if (isalnum(c) || c == '_'){
+        while ((isalnum(c) || c == '_') && ed->cursor.buffer_pos != getBufLength(ed->buf)) {
+            moveCursorRight(ed);
+            c = getBufChar(ed->buf, ed->cursor.buffer_pos);
         }
     }
+    ed->cursor.prev_buffer_pos = prev_pos;
 }
 
 void moveBegOfPrevWord(Editor *ed) {
-    if (ed->mode != EDITOR_MODE_OPEN) {
-        ed->scroll_mode = SCROLL_MODE_CURSOR;
-        moveCursorLeft(ed);
-        char c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
-        
-        // skip spaces
-        if (isspace(c)) {
-           while (isspace(c) && c != '\n' && ed->cursor.buffer_pos != 0) {
-                moveCursorLeft(ed);
-                c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
-            } 
-        }
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
+    size_t prev_pos = ed->cursor.buffer_pos;
+    moveCursorLeft(ed);
+    char c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
+    
+    // skip spaces
+    if (isspace(c)) {
+        while (isspace(c) && c != '\n' && ed->cursor.buffer_pos != 0) {
+            moveCursorLeft(ed);
+            c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
+        } 
+    }
 
-        if (ispunct(c) && c != '_') {
-            while (ispunct(c) && c != '_' && ed->cursor.buffer_pos != 0) {
-                moveCursorLeft(ed);
-                c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
-            }
-        } else if (isalnum(c) || c == '_'){
-            while ((isalnum(c) || c == '_') && ed->cursor.buffer_pos != 0) {
-                moveCursorLeft(ed);
-                c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
-            }
+    if (ispunct(c) && c != '_') {
+        while (ispunct(c) && c != '_' && ed->cursor.buffer_pos != 0) {
+            moveCursorLeft(ed);
+            c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
+        }
+    } else if (isalnum(c) || c == '_'){
+        while ((isalnum(c) || c == '_') && ed->cursor.buffer_pos != 0) {
+            moveCursorLeft(ed);
+            c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
         }
     }
+    ed->cursor.prev_buffer_pos = prev_pos;
 }
 
 void deleteWordLeft(Editor *ed) {
@@ -517,29 +511,27 @@ void deleteWordLeft(Editor *ed) {
 }
 
 void deleteWordRight(Editor *ed) {
-    if (ed->mode != EDITOR_MODE_OPEN) {
-        ed->scroll_mode = SCROLL_MODE_CURSOR;
-        char c = getBufChar(ed->buf, ed->cursor.buffer_pos);
-        
-        // We don't want to skip here - if there are spaces we want to delete those
-        // and let the user choose to delete more.
-        if (c == '\n') {
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
+    char c = getBufChar(ed->buf, ed->cursor.buffer_pos);
+    
+    // We don't want to skip here - if there are spaces we want to delete those
+    // and let the user choose to delete more.
+    if (c == '\n') {
+        deleteCharacterRight(ed);
+    } else if (isspace(c) && c != '\n') {
+        while (isspace(c) && c != '\n') {
             deleteCharacterRight(ed);
-        } else if (isspace(c) && c != '\n') {
-           while (isspace(c) && c != '\n') {
-                deleteCharacterRight(ed);
-                c = getBufChar(ed->buf, ed->cursor.buffer_pos);
-            } 
-        } else if (ispunct(c) && c != '_') {
-            while (ispunct(c) && c != '_') {
-                deleteCharacterRight(ed);
-                c = getBufChar(ed->buf, ed->cursor.buffer_pos);
-            }
-        } else if (isalnum(c) || c == '_'){
-            while (isalnum(c) || c == '_') {
-                deleteCharacterRight(ed);
-                c = getBufChar(ed->buf, ed->cursor.buffer_pos);
-            }
+            c = getBufChar(ed->buf, ed->cursor.buffer_pos);
+        } 
+    } else if (ispunct(c) && c != '_') {
+        while (ispunct(c) && c != '_') {
+            deleteCharacterRight(ed);
+            c = getBufChar(ed->buf, ed->cursor.buffer_pos);
+        }
+    } else if (isalnum(c) || c == '_'){
+        while (isalnum(c) || c == '_') {
+            deleteCharacterRight(ed);
+            c = getBufChar(ed->buf, ed->cursor.buffer_pos);
         }
     }
 }
@@ -596,5 +588,56 @@ void scrollWithMouseWheel(Editor *ed, f32 yoffset) {
         ed->target_scroll_pos.y = (ed->line_height * (ed->line_count - 1.0));
     } else if (ed->target_scroll_pos.y < 0) {
         ed->target_scroll_pos.y = 0;
+    }
+}
+
+void makeSelection (Editor *ed) {
+    if (ed->cursor.buffer_pos != ed->cursor.prev_buffer_pos) {
+        
+        i32 new_selection_size = (i32)ed->cursor.buffer_pos - (i32)ed->cursor.prev_buffer_pos;
+        if (ed->cursor.selection_size == 0) {
+            ed->cursor.screen_pos_beg_selection = ed->cursor.target_screen_pos;
+        }
+        ed->cursor.selection_size += new_selection_size;
+    }
+}
+
+void unselectSelection(Editor *ed) {
+    ed->cursor.selection_size = 0;
+}
+
+static void deleteSelectionLeft(Editor *ed) {
+    if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->scroll_mode = SCROLL_MODE_CURSOR;
+        ed->cursor_move_last_frame = true;
+        size_t i = ed->cursor.buffer_pos;
+        size_t selection_beg = ed->cursor.buffer_pos - ed->cursor.selection_size;
+        while (i > selection_beg) {
+            deleteCharacterLeft(ed);
+            i--;
+        }
+        unselectSelection(ed);
+    }
+}
+
+static void deleteSelectionRight(Editor *ed) {
+    if (ed->mode != EDITOR_MODE_OPEN) {
+        ed->scroll_mode = SCROLL_MODE_CURSOR;
+        ed->cursor_move_last_frame = true;
+        size_t i = ed->cursor.buffer_pos;
+        size_t selection_end = ed->cursor.buffer_pos - ed->cursor.selection_size;
+        while (i < selection_end) {
+            deleteCharacterRight(ed);
+            i++;
+        }
+        unselectSelection(ed);
+    }
+}
+
+void deleteSelection(Editor *ed) {
+    if (ed->cursor.selection_size > 0) {
+        deleteSelectionLeft(ed);
+    } else if (ed->cursor.selection_size < 0) {
+        deleteSelectionRight(ed);
     }
 }
