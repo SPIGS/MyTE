@@ -1,8 +1,0 @@
-[highlighting]
-    keywords = [ "return", "if", "else", "auto","break", "const","case", "for", "do", "typedef", "struct", "sizeof", "goto", "switch", "do", "while", "true", "false", "NULL" ]
-    symbols = [ "(", ")", "{", "}", "*", "=", "|", "&", "!", "%", "-", "+", "/", "?", "<", ">" ]
-    built_in_types = [ "int","char", "float", "double", "long", "size_t", "bool", "short", "signed", "void" ]
-    comment_single_prefix = "//"
-    comment_multi_begin = "/*"
-    comment_multi_end = "*/"
-    additional_colors = true

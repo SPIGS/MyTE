@@ -1,5 +1,0 @@
-[editor]
-    color_theme = "./config/themes/spaceduck.toml"
-    tab_stop = 3
-    cursor_speed = 6.5
-    font = "./fonts/iosevka-firamono.ttf"
