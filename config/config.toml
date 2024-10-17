@@ -6,7 +6,7 @@
     font_size = 22
 
     # displays an fps counter in the bottom right corner (debug)
-    show_fps = true
+    show_fps = false
 
 [editor]
     # how many characters a tab is worth

@@ -4,4 +4,4 @@
     comment_single_prefix = "#"
     comment_multi_begin = "/*"
     comment_multi_end = "*/"
-    enable_identifier_heuristics = false
+    identifier_heuristics = false
