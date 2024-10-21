@@ -5,6 +5,9 @@
 
 #include "application.h"
 
+#define REGISTER_COMMAND(app, command) \
+    applicationRegisterCommand(app, #command, Command_##command);
+
 /* BEGIN GLFW CALLBACKS */
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action , int mods) {
@@ -21,7 +24,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
             }
         }
     }
-    
 
     switch (app->editor.mode) {
         case EDITOR_MODE_OPEN:
@@ -49,7 +51,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
         clearBuffer(&app->editor);
         applicationSetStatusMessage(app, "Cleared buffer.", 2.0f);
     } else if (key == GLFW_KEY_ESCAPE && (action == GLFW_PRESS)) {
-        editorChangeMode(&app->editor, EDITOR_MODE_NORMAL);
+        
     } 
 }
 
@@ -161,8 +163,33 @@ void applicationInit(Application *app, int argc, char **argv) {
     app->numCommands = 0;
     app->numKeybinds = 0;
 
-    applicationRegisterCommand(app, "test", Command_Test);
-    applicationRegisterCommand(app, "move_right", Command_moveRight);
+    REGISTER_COMMAND(app, moveRight);
+    REGISTER_COMMAND(app, selectRight);
+    REGISTER_COMMAND(app, moveForwardWord);
+    REGISTER_COMMAND(app, selectForwardWord);
+
+    REGISTER_COMMAND(app, moveLeft);
+    REGISTER_COMMAND(app, selectLeft);
+    REGISTER_COMMAND(app, moveBackwardWord);
+    REGISTER_COMMAND(app, selectBackwardWord);
+
+    REGISTER_COMMAND(app, moveUp);
+    REGISTER_COMMAND(app, selectUp);
+
+    REGISTER_COMMAND(app, moveDown);
+    REGISTER_COMMAND(app, selectDown);
+
+    REGISTER_COMMAND(app, deleteLeft);
+    REGISTER_COMMAND(app, deleteWordLeft);
+
+    REGISTER_COMMAND(app, deleteRight);
+    REGISTER_COMMAND(app, deleteWordRight);
+
+    REGISTER_COMMAND(app, unselect);
+
+    REGISTER_COMMAND(app, openBrowser);
+    REGISTER_COMMAND(app, closeBrowser);
+    REGISTER_COMMAND(app, write);
 
     // Initialize glfw
    if (!glfwInit()) {
@@ -327,76 +354,12 @@ void applicationProcessEditorInput (Application *app, int key, int scancode, int
     UNUSED(scancode);
     UNUSED(mods);
 
-    if (key == GLFW_KEY_LEFT && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        if ((mods & GLFW_MOD_CONTROL) == GLFW_MOD_CONTROL) {
-            moveBegOfPrevWord(&app->editor);
-        } else {
-            moveCursorLeft(&app->editor);
-        }
-
-        // Selection
-        if ((mods & GLFW_MOD_SHIFT) == GLFW_MOD_SHIFT)
-            makeSelection(&app->editor);
-        else
-            unselectSelection(&app->editor);
-    } else if (key == GLFW_KEY_UP && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        moveCursorUp(&app->editor);
-
-        // Selection
-        if ((mods & GLFW_MOD_SHIFT) == GLFW_MOD_SHIFT)
-            makeSelection(&app->editor);
-        else
-            unselectSelection(&app->editor);
-    } else if (key == GLFW_KEY_DOWN && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        moveCursorDown(&app->editor);
-
-        // Selection
-        if ((mods & GLFW_MOD_SHIFT) == GLFW_MOD_SHIFT)
-            makeSelection(&app->editor);
-        else
-            unselectSelection(&app->editor);
-    } else if (key == GLFW_KEY_RIGHT && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        if ((mods & GLFW_MOD_CONTROL) == GLFW_MOD_CONTROL) {
-            moveEndOfNextWord(&app->editor);
-        } else {
-            moveCursorRight(&app->editor);
-        }
-
-        // Selection
-        if ((mods & GLFW_MOD_SHIFT) == GLFW_MOD_SHIFT)
-            makeSelection(&app->editor);
-        else
-            unselectSelection(&app->editor);
-    } else if (key == GLFW_KEY_BACKSPACE && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        if (app->editor.cursor.selection_size != 0) {
-            deleteSelection(&app->editor);
-        } else {
-            if (mods == GLFW_MOD_CONTROL) {
-                deleteWordLeft(&app->editor);
-            } else {
-                deleteCharacterLeft(&app->editor);
-            }
-        }
-    } else if (key == GLFW_KEY_DELETE && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        if (mods == GLFW_MOD_CONTROL) {
-            deleteWordRight(&app->editor);
-        } else {
-            deleteCharacterRight(&app->editor);
-        }
-    } else if (key == GLFW_KEY_ENTER && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
+    if (key == GLFW_KEY_ENTER && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
         insertCharacter(&app->editor, '\n', true);
     } else if (key == GLFW_KEY_TAB && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
         for (size_t i = 0; i< (size_t)app->editor.tab_stop; i++) {
             insertCharacter(&app->editor, ' ', true);
         }
-    } else if (key == GLFW_KEY_O && (action == GLFW_PRESS)) {
-        if (mods == GLFW_MOD_CONTROL)
-            editorChangeMode(&app->editor, EDITOR_MODE_OPEN);
-    } else if (key == GLFW_KEY_S && (action == GLFW_PRESS)) {
-        if (mods == GLFW_MOD_CONTROL) {
-            writeToFile(&app->editor);
-            applicationSetStatusMessage(app, "Saved to disk.", 2.0f);
-        }  
     }
 }
 
@@ -437,10 +400,103 @@ void applicationProcessBrowserInput (Application *app, int key, int scancode, in
     }
 }
 
-void Command_Test(Application *app) {
-    applicationSetStatusMessage(app, "Command invoked!", 2.0);
-}
-
 void Command_moveRight(Application *app) {
     moveCursorRight(&app->editor);
+    unselectSelection(&app->editor);
+}
+
+void Command_moveForwardWord(Application *app) {
+    moveEndOfNextWord(&app->editor);
+    unselectSelection(&app->editor);
+}
+
+void Command_selectRight(Application *app) {
+    moveCursorRight(&app->editor);
+    makeSelection(&app->editor);
+}
+
+void Command_selectForwardWord(Application *app) {
+    moveEndOfNextWord(&app->editor);
+    makeSelection(&app->editor);
+}
+
+void Command_moveLeft(Application *app) {
+    moveCursorLeft(&app->editor);
+    unselectSelection(&app->editor);
+}
+
+void Command_moveBackwardWord(Application *app) {
+    moveBegOfPrevWord(&app->editor);
+    unselectSelection(&app->editor);
+}
+
+void Command_selectLeft(Application *app) {
+    moveCursorLeft(&app->editor);
+    makeSelection(&app->editor);
+}
+
+void Command_selectBackwardWord(Application *app) {
+    moveBegOfPrevWord(&app->editor);
+    makeSelection(&app->editor);
+}
+
+void Command_moveUp(Application *app) {
+    moveCursorUp(&app->editor);
+    unselectSelection(&app->editor);
+}
+
+void Command_selectUp(Application *app) {
+    moveCursorUp(&app->editor);
+    makeSelection(&app->editor);
+}
+
+void Command_moveDown(Application *app) {
+    moveCursorDown(&app->editor);
+    
+}
+
+void Command_selectDown(Application *app) {
+    moveCursorDown(&app->editor);
+    makeSelection(&app->editor);
+}
+
+void Command_deleteLeft(Application *app) {
+    if (app->editor.cursor.selection_size != 0) {
+        deleteSelection(&app->editor);
+    } else {
+        deleteCharacterLeft(&app->editor);
+    }
+}
+
+void Command_deleteWordLeft(Application *app) {
+    deleteWordLeft(&app->editor);
+}
+
+void Command_deleteRight(Application *app) {
+    if (app->editor.cursor.selection_size != 0) {
+        deleteSelection(&app->editor);
+    } else {
+        deleteCharacterRight(&app->editor);
+    }
+}
+
+void Command_deleteWordRight(Application *app) {
+    deleteWordRight(&app->editor);
+}
+
+void Command_openBrowser(Application *app) {
+    editorChangeMode(&app->editor, EDITOR_MODE_OPEN);
+}
+
+void Command_unselect(Application *app) {
+    unselectSelection(&app->editor);
+}
+
+void Command_closeBrowser(Application *app) {
+    editorChangeMode(&app->editor, EDITOR_MODE_NORMAL);
+}
+
+void Command_write(Application *app) {
+    writeToFile(&app->editor);
+    applicationSetStatusMessage(app, "Saved to disk.", 2.0f);
 }

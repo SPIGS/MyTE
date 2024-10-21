@@ -23,10 +23,64 @@
     scroll_stop_top = 6
     scroll_stop_bottom = 2
 
-[keybind.test]
-    key = "1"
+
+# Keybinds
+[keybind.moveRight]
+    key = "right"
+[keybind.selectRight]
+    key = "right"
+    mods = ["shift"]
+[keybind.moveForwardWord]
+    key = "right"
+    mods = ["control"]
+[keybind.selectForwardWord]
+    key = "right"
+    mods = ["shift", "control"]
+
+[keybind.moveLeft]
+    key = "left"
+[keybind.selectLeft]
+    key = "left"
+    mods = ["shift"]
+[keybind.moveBackwardWord]
+    key = "left"
+    mods = ["control"]
+[keybind.selectBackwardWord]
+    key = "left"
+    mods = ["shift", "control"]
+
+[keybind.moveUp]
+    key = "up"
+[keybind.selectUp]
+    key = "up"
+    mods = ["shift"]
+
+[keybind.moveDown]
+    key = "down"
+[keybind.selectDown]
+    key = "down"
+    mods = ["shift"]
+
+[keybind.deleteLeft]
+    key = "backspace"
+[keybind.deleteWordLeft]
+    key = "backspace"
     mods = ["control"]
 
-[keybind.move_right]
-    key = "f7"
-    mods = []
+[keybind.deleteRight]
+    key = "delete"
+[keybind.deleteWordRight]
+    key = "delete"
+    mods = ["control"]
+
+[keybind.openBrowser]
+    key = "o"
+    mods = ["control"]
+[keybind.write]
+    key = "s"
+    mods = ["control"]
+[keybind.closeBrowser]
+    key = "escape"
+
+[keybind.unselect]
+    key = "escape"

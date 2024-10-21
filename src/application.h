@@ -46,5 +46,31 @@ void applicationProcessBrowserInput (Application *app, int key, int scancode, in
 
 void applicationRegisterCommand(Application *app, char *name, void (*command)());
 void applicationBindKey(Application *app, int key, int mods, const char *commandName);
-void Command_Test(Application *app);
+
 void Command_moveRight(Application *app);
+void Command_moveForwardWord(Application *app);
+void Command_selectRight(Application *app);
+void Command_selectForwardWord(Application *app);
+
+void Command_moveLeft(Application *app);
+void Command_moveBackwardWord(Application *app);
+void Command_selectLeft(Application *app);
+void Command_selectBackwardWord(Application *app);
+
+void Command_moveUp(Application *app);
+void Command_selectUp(Application *app);
+
+void Command_moveDown(Application *app);
+void Command_selectDown(Application *app);
+
+void Command_deleteLeft(Application *app);
+void Command_deleteWordLeft(Application *app);
+
+void Command_deleteRight(Application *app);
+void Command_deleteWordRight(Application *app);
+
+void Command_unselect(Application *app);
+
+void Command_openBrowser(Application *app);
+void Command_closeBrowser(Application *app);
+void Command_write(Application *app);
