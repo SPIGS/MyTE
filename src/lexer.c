@@ -106,8 +106,7 @@ static int is_function_name(const char *source, size_t start, size_t length) {
 
 Token createToken() {
     Token token;
-    token.text = (char *)malloc(sizeof(char) );
-    token.text[0] = '\0';
+    token.text = NULL;
     token.type = TOKEN_UNKNOWN;
     return token;
 }
@@ -293,7 +292,7 @@ static void loadHighlightingInfo (Lexer *lexer, FileType file_type) {
 }
 
 static void pushToken(Lexer *lexer, Token token) {
-    if (strlen(token.text) == 0) {
+    if (!token.text || strlen(token.text) == 0) {
         return;
     }
     if (!lexer->tokens) {
@@ -319,7 +318,7 @@ void lexerUpdateFileType(Lexer *lexer, FileType file_type) {
 }
 
 static void refreshToken(Lexer *lexer, Token *curToken, TokenType new_type) {
-    if (curToken->type == new_type && strlen(curToken->text) != 0) {
+    if (curToken->type == new_type && curToken->text) {
         pushToken(lexer, *curToken);
         *curToken = createToken();
     }
@@ -360,7 +359,7 @@ void lex (Lexer *lexer, const char *source) {
                 refreshToken(lexer, &curToken, TOKEN_UNKNOWN);
             }
         }
-        if (strlen(curToken.text) != 0) {
+        if (curToken.text) {
             pushToken(lexer, curToken);
         }
     } else {
@@ -611,7 +610,7 @@ void lex (Lexer *lexer, const char *source) {
             }
             // Handle symbols
             else if (is_symbol(lexer, source[i])) {
-                if (curToken.type != TOKEN_SYMBOL && strlen(curToken.text) != 0) {
+                if (curToken.type != TOKEN_SYMBOL && curToken.text) {
                     pushToken(lexer, curToken);
                     curToken = createToken();
                 }
@@ -687,7 +686,7 @@ void lex (Lexer *lexer, const char *source) {
                 }
             }
         }
-        if (strlen(curToken.text) != 0) {
+        if (curToken.text) {
             pushToken(lexer, curToken);
         }
     }

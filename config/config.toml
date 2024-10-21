@@ -21,4 +21,12 @@
     # Controls how far from the top/bottom the cursor needs to be
     # before scrolling the buffer (arrow keys)
     scroll_stop_top = 6
-    scroll_stop_bottom = 2  
+    scroll_stop_bottom = 2
+
+[keybind.test]
+    key = "1"
+    mods = ["control"]
+
+[keybind.move_right]
+    key = "f7"
+    mods = []

@@ -82,6 +82,7 @@ void rendererInit(Renderer* r, Color clear_color) {
 	
 	glCompileShader(vert_module);
 	glCompileShader(frag_module);
+	free(frag_code);
 
     GLchar* vert_info;
     GLchar* frag_info;

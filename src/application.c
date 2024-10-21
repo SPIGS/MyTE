@@ -13,6 +13,16 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
 
     Application *app = glfwGetWindowUserPointer(window);
 
+    if (action == GLFW_REPEAT || action == GLFW_PRESS) {
+        for (size_t i = 0; i < app->numKeybinds; ++i) {
+            if (app->keybinds[i].key == key && app->keybinds[i].mods == mods) {
+                app->keybinds[i].command(app);
+                break;
+            }
+        }
+    }
+    
+
     switch (app->editor.mode) {
         case EDITOR_MODE_OPEN:
             applicationProcessBrowserInput(app, key, scancode, action, mods);
@@ -77,10 +87,20 @@ void character_callback(GLFWwindow* window, unsigned int codepoint) {
     }
 }
 
+void mouseMoveCallback(GLFWwindow *window, double xpos, double ypos) {
+    Application *app = glfwGetWindowUserPointer(window);
+    if (app->mouse_held) {
+        moveCursorToMousePos(&app->editor, vec2_init(xpos, ypos));
+        makeSelection(&app->editor);
+    } 
+}
+
 void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
     Application *app = glfwGetWindowUserPointer(window);
 
+
     if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        app->mouse_held = true;
         f64 mouse_x = 0.0;
         f64 mouse_y = 0.0;
         glfwGetCursorPos(app->window, &mouse_x, &mouse_y);
@@ -91,6 +111,8 @@ void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
             makeSelection(&app->editor);
         else
             unselectSelection(&app->editor);
+    } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
+        app->mouse_held = false;
     }
 }
 
@@ -114,11 +136,33 @@ void resize_window(GLFWwindow *window, int width, int height) {
    rendererResizeWindow(&app->renderer, width, height);
 }
 
+void applicationRegisterCommand(Application *app, char *name, void (*command)()) {
+    if (app->numCommands < MAX_COMMANDS) {
+        app->commands[app->numCommands++] = (Command) { name, command };
+    }
+}
+
+void applicationBindKey(Application *app, int key, int mods, const char *commandName) {
+    for (size_t i = 0; i < app->numCommands; i++) {
+        if (strcmp(app->commands[i].name, commandName) == 0) {
+            app->keybinds[app->numKeybinds++] = (KeyBind){key, mods, app->commands[i].command};
+            return;
+        }
+    }
+    LOG_ERROR("Cannot bind command \'%s\' - command not found.", commandName);
+}
+
 /* END GLFW CALLBACKS */
 
 void applicationInit(Application *app, int argc, char **argv) {
     app->status_message = NULL;
     app->status_disp_time = 0.0f;
+    app->mouse_held = false;
+    app->numCommands = 0;
+    app->numKeybinds = 0;
+
+    applicationRegisterCommand(app, "test", Command_Test);
+    applicationRegisterCommand(app, "move_right", Command_moveRight);
 
     // Initialize glfw
    if (!glfwInit()) {
@@ -149,6 +193,16 @@ void applicationInit(Application *app, int argc, char **argv) {
     app->config = configInit();
     loadConfigFromFile(&app->config, "./config/config.toml");
 
+    // bind hotkeys
+    for (size_t i = 0; i < app->config.numCommandConfigs; i++) {
+        int key =  app->config.commandConfigs[i].key;
+        int mods =  app->config.commandConfigs[i].mods;
+        char *commandName = (char *)malloc(sizeof(char) * (strlen(app->config.commandConfigs[i].command_name) + 1));
+        strcpy(commandName, app->config.commandConfigs[i].command_name);
+        applicationBindKey(app, key, mods, commandName);
+        free(commandName);
+    }
+
     rendererInit(&app->renderer, COLOR_BLACK);
     app->font_id = rendererLoadFont(&app->renderer, app->config.font_path, app->config.font_size);
     rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
@@ -161,6 +215,7 @@ void applicationInit(Application *app, int argc, char **argv) {
     glfwSetMouseButtonCallback(app->window, mouseButtonCallback);
     glfwSetScrollCallback(app->window, scrollCallback);
     glfwSetCursorEnterCallback(app->window, cursorEnterCallback);
+    glfwSetCursorPosCallback(app->window, mouseMoveCallback);
     
     if (argc > 1) {
         const char *file_path = argv[1];
@@ -380,4 +435,12 @@ void applicationProcessBrowserInput (Application *app, int key, int scancode, in
             free(cur_dir);
         }
     }
+}
+
+void Command_Test(Application *app) {
+    applicationSetStatusMessage(app, "Command invoked!", 2.0);
+}
+
+void Command_moveRight(Application *app) {
+    moveCursorRight(&app->editor);
 }

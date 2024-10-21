@@ -133,6 +133,7 @@ Config configInit() {
     config.theme_path = NULL;
     config.tab_stop = 3;
     config.cursor_speed = 3.5;
+    config.numCommandConfigs = 0;
     return config;
 }
 void configDestroy(Config *config) {
@@ -141,6 +142,12 @@ void configDestroy(Config *config) {
 
     if (config->theme_path)
         free(config->theme_path);
+
+    for (size_t i = 0; i < config->numCommandConfigs; i++) {
+        if (config->commandConfigs[i].command_name) {
+            free(config->commandConfigs[i].command_name);
+        }
+    }
 }
 
 void loadConfigFromFile(Config *config, const char* path) {
@@ -191,6 +198,50 @@ void loadConfigFromFile(Config *config, const char* path) {
     config->scroll_speed = scroll_speed.ok ? scroll_speed.u.i : DEFAULT_SCROLL_SPEED;
     config->scroll_speed = scroll_speed.ok ? scroll_speed.u.i : DEFAULT_SCROLL_STOP_TOP;
     config->scroll_stop_bottom = scroll_stop_bottom.ok ? scroll_stop_bottom.u.i : DEFAULT_SCROLL_STOP_BOTTOM;
+
+    // Get Command Configs
+    toml_table_t* keybinds_table = toml_table_in(config_file, "keybind");
+    if (!keybinds_table) {
+        LOG_ERROR("Config file missing [keybind]", "");
+        return;
+    }
+
+    for (int i = 0; ; i++) {
+        const char *command = toml_key_in(keybinds_table, i);
+        if (!command) break;
+        toml_table_t *command_table = toml_table_in(keybinds_table, command);
+        
+        LOAD_TOML_STR(command_table, key);
+        LOAD_TOML_STR_ARRAY(command_table, "mods", mods_array, mods_array_len, mods, mods_count);
+
+        // get mods
+        int mod_bitmask = 0;
+        for (size_t i = 0; i < mods_count; i ++) {
+            if (strcmp(mods[i], "alt") == 0) {
+                mod_bitmask = mod_bitmask | GLFW_MOD_ALT;
+            } else if (strcmp(mods[i], "control") == 0) {
+                mod_bitmask = mod_bitmask | GLFW_MOD_CONTROL;
+            } else if (strcmp(mods[i], "shift") == 0) {
+                mod_bitmask = mod_bitmask | GLFW_MOD_SHIFT;
+            } else if (strcmp(mods[i], "super") == 0) {
+                mod_bitmask = mod_bitmask | GLFW_MOD_SUPER;
+            }
+        }
+        int key_code = getKeyFromString(key.u.s);
+        config->commandConfigs[i].key = key_code;
+        config->commandConfigs[i].mods = mod_bitmask;
+        config->commandConfigs[i].command_name = (char *)malloc(sizeof(char) * (strlen(command) + 1));
+        strcpy(config->commandConfigs[i].command_name, command);
+        config->numCommandConfigs++;
+
+        free(key.u.s);
+        for (size_t i = 0; i < mods_count; i++) {
+            if (mods[i]) {
+                free(mods[i]);
+            }
+        }
+        free(mods);
+    }
 
     toml_free(config_file);
 }

@@ -1,6 +1,7 @@
 #pragma once
 #include "util.h"
 #include "toml.h"
+#include "keys.h"
 
 #define LOAD_TOML_INT(table, var) \
     toml_datum_t var = toml_int_in(table, #var); \
@@ -71,6 +72,12 @@ ColorTheme colorThemeInit();
 void colorThemeLoad(ColorTheme *theme, const char *path);
 
 typedef struct {
+    int key;
+    int mods;
+    char *command_name;
+} CommandConfig;
+
+typedef struct {
     // General
     char *font_path;
     char *theme_path;
@@ -83,6 +90,9 @@ typedef struct {
     i32 scroll_speed;
     i32 scroll_stop_top;
     i32 scroll_stop_bottom;
+
+    CommandConfig commandConfigs[100];
+    size_t numCommandConfigs;
 } Config;
 
 Config configInit();
