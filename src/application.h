@@ -1,6 +1,8 @@
+#pragma once
 //#define GLEW_STATIC
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+
 
 #include "renderer.h"
 #include "font.h"
@@ -9,6 +11,19 @@
 #include "keys.h"
 
 #define MAX_COMMANDS 100
+
+typedef struct {
+    int key;
+    int mods;
+    void (*command)();
+    CommandType type;
+} KeyBind;
+
+typedef struct {
+    char *name;
+    void (*command)();
+} Command;
+
 
 typedef struct {
     // The window for this application - this lives for the entire program.
@@ -42,11 +57,11 @@ void applicationUpdate(Application *app, f64 delta_time);
 void applicationRender(Application *app, f64 delta_time);
 
 void applicationProcessEditorInput (Application *app, int key, int scancode, int action , int mods);
-void applicationProcessBrowserInput (Application *app, int key, int scancode, int action , int mods);
 
 void applicationRegisterCommand(Application *app, char *name, void (*command)());
-void applicationBindKey(Application *app, int key, int mods, const char *commandName);
+void applicationBindKey(Application *app, int key, int mods, const char *commandName, CommandType type);
 
+// TODO come up with naming convention for commands
 void Command_moveRight(Application *app);
 void Command_moveForwardWord(Application *app);
 void Command_selectRight(Application *app);
@@ -74,3 +89,7 @@ void Command_unselect(Application *app);
 void Command_openBrowser(Application *app);
 void Command_closeBrowser(Application *app);
 void Command_write(Application *app);
+
+void Command_decrementSelection(Application *app);
+void Command_incrementSelection(Application *app);
+void Command_openSelection(Application *app);

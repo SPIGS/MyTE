@@ -6,7 +6,7 @@
     font_size = 22
 
     # displays an fps counter in the bottom right corner (debug)
-    show_fps = false
+    show_fps = true
 
 [editor]
     # how many characters a tab is worth
@@ -25,62 +25,72 @@
 
 
 # Keybinds
-[keybind.moveRight]
-    key = "right"
-[keybind.selectRight]
-    key = "right"
-    mods = ["shift"]
-[keybind.moveForwardWord]
-    key = "right"
-    mods = ["control"]
-[keybind.selectForwardWord]
-    key = "right"
-    mods = ["shift", "control"]
 
-[keybind.moveLeft]
-    key = "left"
-[keybind.selectLeft]
-    key = "left"
-    mods = ["shift"]
-[keybind.moveBackwardWord]
-    key = "left"
-    mods = ["control"]
-[keybind.selectBackwardWord]
-    key = "left"
-    mods = ["shift", "control"]
-
-[keybind.moveUp]
-    key = "up"
-[keybind.selectUp]
-    key = "up"
-    mods = ["shift"]
-
-[keybind.moveDown]
-    key = "down"
-[keybind.selectDown]
-    key = "down"
-    mods = ["shift"]
-
-[keybind.deleteLeft]
-    key = "backspace"
-[keybind.deleteWordLeft]
-    key = "backspace"
-    mods = ["control"]
-
-[keybind.deleteRight]
-    key = "delete"
-[keybind.deleteWordRight]
-    key = "delete"
-    mods = ["control"]
-
-[keybind.openBrowser]
+[keybind.global.openBrowser]
     key = "o"
     mods = ["control"]
-[keybind.write]
-    key = "s"
-    mods = ["control"]
-[keybind.closeBrowser]
+[keybind.global.closeBrowser]
     key = "escape"
 
-[keybind.unselect]
+
+[keybind.editor.moveRight]
+    key = "right"
+[keybind.editor.selectRight]
+    key = "right"
+    mods = ["shift"]
+[keybind.editor.moveForwardWord]
+    key = "right"
+    mods = ["control"]
+[keybind.editor.selectForwardWord]
+    key = "right"
+    mods = ["shift", "control"]
+
+[keybind.editor.moveLeft]
+    key = "left"
+[keybind.editor.selectLeft]
+    key = "left"
+    mods = ["shift"]
+[keybind.editor.moveBackwardWord]
+    key = "left"
+    mods = ["control"]
+[keybind.editor.selectBackwardWord]
+    key = "left"
+    mods = ["shift", "control"]
+
+[keybind.editor.moveUp]
+    key = "up"
+[keybind.editor.selectUp]
+    key = "up"
+    mods = ["shift"]
+
+[keybind.editor.moveDown]
+    key = "down"
+[keybind.editor.selectDown]
+    key = "down"
+    mods = ["shift"]
+
+[keybind.editor.deleteLeft]
+    key = "backspace"
+[keybind.editor.deleteWordLeft]
+    key = "backspace"
+    mods = ["control"]
+
+[keybind.editor.deleteRight]
+    key = "delete"
+[keybind.editor.deleteWordRight]
+    key = "delete"
+    mods = ["control"]
+
+[keybind.editor.write]
+    key = "s"
+    mods = ["control"]
+
+[keybind.editor.unselect]
     key = "escape"
+
+[keybind.browser.decrementSelection]
+    key = "up"
+[keybind.browser.incrementSelection]
+    key = "down"
+[keybind.browser.openSelection]
+    key = "enter"

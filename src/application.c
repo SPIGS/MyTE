@@ -8,6 +8,20 @@
 #define REGISTER_COMMAND(app, command) \
     applicationRegisterCommand(app, #command, Command_##command);
 
+static bool isCommandForMode(EditorMode mode, CommandType command_type) {
+    if (command_type == COMMAND_TYPE_GLOBAL)
+        return true;
+
+    switch (mode) {
+        case EDITOR_MODE_NORMAL:
+            return (command_type == COMMAND_TYPE_EDITOR);
+        case EDITOR_MODE_OPEN:
+            return (command_type == COMMAND_TYPE_BROWSER);
+        default:
+            return false;
+    }
+}
+
 /* BEGIN GLFW CALLBACKS */
 
 void key_callback(GLFWwindow* window, int key, int scancode, int action , int mods) {
@@ -16,23 +30,17 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
 
     Application *app = glfwGetWindowUserPointer(window);
 
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
+        applicationProcessEditorInput(app, key, scancode, action, mods);
+    }
+
     if (action == GLFW_REPEAT || action == GLFW_PRESS) {
         for (size_t i = 0; i < app->numKeybinds; ++i) {
-            if (app->keybinds[i].key == key && app->keybinds[i].mods == mods) {
+            if (app->keybinds[i].key == key && app->keybinds[i].mods == mods && isCommandForMode(app->editor.mode, app->keybinds[i].type)) {
                 app->keybinds[i].command(app);
                 break;
             }
         }
-    }
-
-    switch (app->editor.mode) {
-        case EDITOR_MODE_OPEN:
-            applicationProcessBrowserInput(app, key, scancode, action, mods);
-        break;
-        
-        default:
-            applicationProcessEditorInput(app, key, scancode, action, mods);
-        break;
     }
     
     // Global hotkeys 
@@ -50,9 +58,7 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
         LOG_INFO("Clearing Buffer...", "");
         clearBuffer(&app->editor);
         applicationSetStatusMessage(app, "Cleared buffer.", 2.0f);
-    } else if (key == GLFW_KEY_ESCAPE && (action == GLFW_PRESS)) {
-        
-    } 
+    }
 }
 
 void character_callback(GLFWwindow* window, unsigned int codepoint) {
@@ -144,10 +150,10 @@ void applicationRegisterCommand(Application *app, char *name, void (*command)())
     }
 }
 
-void applicationBindKey(Application *app, int key, int mods, const char *commandName) {
+void applicationBindKey(Application *app, int key, int mods, const char *commandName, CommandType type) {
     for (size_t i = 0; i < app->numCommands; i++) {
         if (strcmp(app->commands[i].name, commandName) == 0) {
-            app->keybinds[app->numKeybinds++] = (KeyBind){key, mods, app->commands[i].command};
+            app->keybinds[app->numKeybinds++] = (KeyBind){key, mods, app->commands[i].command, type};
             return;
         }
     }
@@ -191,6 +197,10 @@ void applicationInit(Application *app, int argc, char **argv) {
     REGISTER_COMMAND(app, closeBrowser);
     REGISTER_COMMAND(app, write);
 
+    REGISTER_COMMAND(app, decrementSelection);
+    REGISTER_COMMAND(app, incrementSelection);
+    REGISTER_COMMAND(app, openSelection);
+
     // Initialize glfw
    if (!glfwInit()) {
         LOG_ERROR("Failed to initialize GLFW", "");
@@ -224,9 +234,10 @@ void applicationInit(Application *app, int argc, char **argv) {
     for (size_t i = 0; i < app->config.numCommandConfigs; i++) {
         int key =  app->config.commandConfigs[i].key;
         int mods =  app->config.commandConfigs[i].mods;
+        CommandType type = app->config.commandConfigs[i].mode;
         char *commandName = (char *)malloc(sizeof(char) * (strlen(app->config.commandConfigs[i].command_name) + 1));
         strcpy(commandName, app->config.commandConfigs[i].command_name);
-        applicationBindKey(app, key, mods, commandName);
+        applicationBindKey(app, key, mods, commandName, type);
         free(commandName);
     }
 
@@ -354,48 +365,12 @@ void applicationProcessEditorInput (Application *app, int key, int scancode, int
     UNUSED(scancode);
     UNUSED(mods);
 
+    // not sure what to do with these yet.
     if (key == GLFW_KEY_ENTER && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
         insertCharacter(&app->editor, '\n', true);
     } else if (key == GLFW_KEY_TAB && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
         for (size_t i = 0; i< (size_t)app->editor.tab_stop; i++) {
             insertCharacter(&app->editor, ' ', true);
-        }
-    }
-}
-
-void applicationProcessBrowserInput (Application *app, int key, int scancode, int action , int mods) {
-    UNUSED(scancode);
-    UNUSED(mods);
-
-    if (key == GLFW_KEY_UP && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        FileBrowser *browser = &app->editor.browser;
-        decrementSelection(browser);
-    } else if (key == GLFW_KEY_DOWN && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        FileBrowser *browser = &app->editor.browser;
-        incrementSelection(browser);
-    } else if (key == GLFW_KEY_ENTER && (action == GLFW_REPEAT || action == GLFW_PRESS)){
-        BrowserItem selection = getSelection(&app->editor.browser);
-        if (selection.is_dir) {
-            if (strcmp(selection.name_ext, "..") == 0) {
-                goUpDirectoryLevel(&app->editor.browser);
-                app->editor.browser.selection = 0;
-                getPaths(&app->editor.browser);
-            } else {
-                enterDirectory(&app->editor.browser, selection.name_ext);
-                app->editor.browser.selection = 0;
-                getPaths(&app->editor.browser);
-            }
-        } else {
-            char *cur_dir = (char *)malloc(sizeof(char) * strlen(app->editor.browser.cur_dir) + 1);
-            strcpy(cur_dir, app->editor.browser.cur_dir);
-            char *full_path = (char *)malloc(sizeof(char) * strlen(selection.full_path) + 1);
-            strcpy(full_path, selection.full_path);
-
-            editorDestroy(&app->editor);
-            editorInit(&app->editor, INIT_EDITOR_FRAME, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, cur_dir);
-            editorLoadConfig(&app->editor, &app->config);
-            loadFromFile(&app->editor, full_path);
-            free(cur_dir);
         }
     }
 }
@@ -499,4 +474,40 @@ void Command_closeBrowser(Application *app) {
 void Command_write(Application *app) {
     writeToFile(&app->editor);
     applicationSetStatusMessage(app, "Saved to disk.", 2.0f);
+}
+
+void Command_decrementSelection(Application *app) {
+    FileBrowser *browser = &app->editor.browser;
+    decrementSelection(browser);
+}
+
+void Command_incrementSelection(Application *app) {
+    FileBrowser *browser = &app->editor.browser;
+    incrementSelection(browser);
+}
+
+void Command_openSelection(Application *app) {
+    BrowserItem selection = getSelection(&app->editor.browser);
+    if (selection.is_dir) {
+        if (strcmp(selection.name_ext, "..") == 0) {
+            goUpDirectoryLevel(&app->editor.browser);
+            app->editor.browser.selection = 0;
+            getPaths(&app->editor.browser);
+        } else {
+            enterDirectory(&app->editor.browser, selection.name_ext);
+            app->editor.browser.selection = 0;
+            getPaths(&app->editor.browser);
+        }
+    } else {
+        char *cur_dir = (char *)malloc(sizeof(char) * strlen(app->editor.browser.cur_dir) + 1);
+        strcpy(cur_dir, app->editor.browser.cur_dir);
+        char *full_path = (char *)malloc(sizeof(char) * strlen(selection.full_path) + 1);
+        strcpy(full_path, selection.full_path);
+
+        editorDestroy(&app->editor);
+        editorInit(&app->editor, INIT_EDITOR_FRAME, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, cur_dir);
+        editorLoadConfig(&app->editor, &app->config);
+        loadFromFile(&app->editor, full_path);
+        free(cur_dir);
+    }
 }

@@ -71,10 +71,18 @@ typedef struct {
 ColorTheme colorThemeInit();
 void colorThemeLoad(ColorTheme *theme, const char *path);
 
+
+typedef enum {
+    COMMAND_TYPE_EDITOR,
+    COMMAND_TYPE_BROWSER,
+    COMMAND_TYPE_GLOBAL
+} CommandType;
+
 typedef struct {
     int key;
     int mods;
     char *command_name;
+    CommandType mode;
 } CommandConfig;
 
 typedef struct {

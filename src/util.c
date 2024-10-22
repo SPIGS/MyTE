@@ -428,8 +428,11 @@ char* get_filename_from_path(const char* filepath) {
     // Find the last occurrence of '/' or '\' to get the file name
     const char* last_slash = strrchr(filepath, '/');
     const char* last_backslash = strrchr(filepath, '\\');
-    const char* filename = (last_slash > last_backslash) ? last_slash + 1 : last_backslash + 1;
-
+    const char* filename = NULL;
+    if (last_slash && last_backslash) {
+        filename = (last_slash > last_backslash) ? last_slash + 1 : last_backslash + 1;
+    }   
+     
     // If no slashes are found, the whole path is the file name
     if (filename == NULL || *filename == '\0') {
         filename = filepath;
