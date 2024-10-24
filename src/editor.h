@@ -84,7 +84,6 @@ void editorMoveEndOfNextWord(Editor *ed);
 void editorMoveBegOfPrevWord(Editor *ed);
 
 // Buffer manipulation
-void editorClearBuffer(Editor *ed);
 void editorInsertCharacter(Editor *ed, char character, bool move_cursor_forward);
 void editorDeleteCharLeft(Editor *ed);
 void editorDeleteCharRight(Editor *ed);

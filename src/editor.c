@@ -309,27 +309,28 @@ void editorLoadFile(Editor *ed, AppContext *ctx, const char *file_path) {
 
      // If there's stuff in the editor already, we don't care for now just over write it
     FILE *f = fopen(file_path, "r");
+    
     if (f == NULL) {
-        LOG_ERROR("Could not open file \'%s\'", file_path);
-        exit(1);
-    }
+        LOG_INFO("No file named \'%s\', opening an empty file", file_path);
+    } else {
+        // Load the file into the editor
+        #define CHUNK 1024
+        char read_buf[CHUNK];
+        size_t nread;
 
-    #define CHUNK 1024
-    char read_buf[CHUNK];
-    size_t nread;
-
-    while ((nread = fread(read_buf, 1, sizeof(read_buf), f)) > 0) {
-        for (size_t i = 0; i < nread; i++) {
-            if (read_buf[i] == '\t') {
-                for (size_t i = 0; i < (size_t)ed->tab_stop; i++) {
-                    editorInsertCharacter(ed, ' ', true);
+        while ((nread = fread(read_buf, 1, sizeof(read_buf), f)) > 0) {
+            for (size_t i = 0; i < nread; i++) {
+                if (read_buf[i] == '\t') {
+                    for (size_t i = 0; i < (size_t)ed->tab_stop; i++) {
+                        editorInsertCharacter(ed, ' ', true);
+                    }
+                } else {
+                    editorInsertCharacter(ed, read_buf[i], true);
                 }
-            } else {
-                editorInsertCharacter(ed, read_buf[i], true);
             }
         }
+        fclose(f);
     }
-    fclose(f);
 
     // move the cursor position back to the start of the file/ update some parameters
     ed->cursor.buffer_pos = 0;
@@ -364,7 +365,7 @@ void editorWriteFile(Editor *ed) {
     LOG_INFO("Wrote to disk: %s", ed->file_path);
 }
 
-void editorClearBuffer(Editor *ed) {
+static void editorClearBuffer(Editor *ed) {
     gapBufferDestroy(ed->buf);
     ed->buf = gapBufferInit(INITIAL_BUFFER_SIZE);
     ed->cursor = cursorInit(vec2_init(ed->frame.x, ed->frame.h),  1.0);

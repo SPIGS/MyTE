@@ -195,6 +195,7 @@ void applicationInit(Application *app, int argc, char **argv) {
     REGISTER_COMMAND(app, returnToEditor);
     REGISTER_COMMAND(app, submitSaveDialog);
 
+    REGISTER_COMMAND(app, openNewFile);
 
     // Initialize glfw
     if (!glfwInit()) {
@@ -269,8 +270,7 @@ void applicationInit(Application *app, int argc, char **argv) {
             editorInit(&app->editor, editor_frame, &app->ctx, file_path);
             editorChangeMode(&app->editor, &app->ctx, EDITOR_MODE_OPEN);
         } else {
-            LOG_ERROR("Error evaluating path. The file might be moved or missing!", "");
-            applicationSetStatusMessage(app, "Error evaluating path. The file might be moved or missing!", 2.0f);
+            editorLoadFile(&app->editor, &app->ctx, file_path);
         }
     }
 
@@ -609,4 +609,10 @@ void Command_submitSaveDialog(Application *app) {
     editorWriteFile(&app->editor);
     sprintf(alert, "Saved file \'%s\' to disk.", ed->file_path);
     applicationSetStatusMessage(app, alert, 2.0f);
+}
+
+void Command_openNewFile(Application *app) {
+    editorDestroy(&app->editor);
+    editorInit(&app->editor, INIT_EDITOR_FRAME, &app->ctx, ".");
+    editorLoadConfig(&app->editor, &app->config);
 }

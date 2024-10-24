@@ -108,3 +108,7 @@
     key = "backspace"
 [keybind.save.submitSaveDialog]
     key = "enter"
+
+[keybind.editor.openNewFile]
+    key ="n"
+    mods = ["control"]

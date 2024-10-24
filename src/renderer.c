@@ -621,7 +621,7 @@ void renderEditor(Renderer* r, Editor *e, AppContext *ctx, f32 delta_time, Color
 
 	renderQuad(r, rect_init(0, 0, r->screen_width, ctx->line_height), theme.background);
 	vec2 mode_text_pos = vec2_init(r->glyph_adv * 2.0, ctx->line_height + r->descender);
-	if (e->mode == EDITOR_MODE_NORMAL) {
+	if (e->mode == EDITOR_MODE_NORMAL || e->mode == EDITOR_MODE_SAVE) {
 		if (e->file_path) {
 			char *name = get_filename_from_path(e->file_path);
 			if (name) {

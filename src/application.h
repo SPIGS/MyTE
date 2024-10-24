@@ -100,3 +100,5 @@ void Command_reloadConfig(Application *app);
 
 void Command_openSaveDialog(Application *app);
 void Command_submitSaveDialog(Application *app);
+
+void Command_openNewFile(Application *app);
