@@ -244,8 +244,10 @@ void loadConfigFromFile(Config *config, const char* path) {
                 config->commandConfigs[config->numCommandConfigs].mode = COMMAND_TYPE_EDITOR;
             } else if (strcmp(mode, "browser") == 0){
                 config->commandConfigs[config->numCommandConfigs].mode = COMMAND_TYPE_BROWSER;
-            } else {
+            } else if (strcmp(mode, "global") == 0){
                 config->commandConfigs[config->numCommandConfigs].mode = COMMAND_TYPE_GLOBAL;
+            } else {
+                config->commandConfigs[config->numCommandConfigs].mode = COMMAND_TYPE_SAVE_DIALOG;
             }
 
             config->numCommandConfigs++;

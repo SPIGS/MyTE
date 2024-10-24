@@ -35,13 +35,9 @@ void fileBrowserInit(FileBrowser *fb, vec2 selection_screen_pos, const char *cur
     strcpy(fb->cur_dir, cur_dir);
 
     fb->scroll_pos = vec2_init(0,0);
-    fb->sel_screen_pos = selection_screen_pos;
-    fb->sel_prev_screen_pos = selection_screen_pos;
-    fb->sel_target_screen_pos = selection_screen_pos;
-    fb->sel_size = vec2_init(0.0f, 0.0f);
-    fb->sel_prev_size = vec2_init(0.0f, 0.0f);
-    fb->sel_target_size = vec2_init(0.0f, 0.0f);
-    fb->anim_time = 0.0;
+
+    fb->cursor = cursorInit(selection_screen_pos, 0.5);
+    fb->cursor.blinkable = false;
 }
 
 void browserItemInit(BrowserItem *item) {
@@ -183,14 +179,14 @@ void incrementSelection(FileBrowser *fb) {
     if (fb->selection >= fb->num_paths) {
         fb->selection = fb->num_paths - 1;
     }
-    fb->anim_time = 0.0f;
+    resetAnimTime(&fb->cursor);
 }
 
 void decrementSelection(FileBrowser *fb) {
     if (fb->selection == 0)
         return;
     fb->selection --;
-    fb->anim_time = 0.0f;
+    resetAnimTime(&fb->cursor);
 }
 
 BrowserItem getSelection(FileBrowser *fb) {

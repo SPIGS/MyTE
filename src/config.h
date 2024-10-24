@@ -6,19 +6,19 @@
 #define LOAD_TOML_INT(table, var) \
     toml_datum_t var = toml_int_in(table, #var); \
     if (!var.ok) { \
-        LOG_WARN("cannot read TOML int \'%s\'", #var); \
+        LOG_DEBUG("cannot read TOML int \'%s\'", #var); \
     }
 
 #define LOAD_TOML_STR(table, var) \
     toml_datum_t var = toml_string_in(table, #var); \
     if (!var.ok) { \
-        LOG_WARN("cannot read TOML string \'%s\'", #var); \
+        LOG_DEBUG("cannot read TOML string \'%s\'", #var); \
     }
 
 #define LOAD_TOML_BOOL(table, var) \
     toml_datum_t var = toml_bool_in(table, #var); \
     if (!var.ok) { \
-        LOG_WARN("cannot read TOML bool \'%s\'", #var); \
+        LOG_DEBUG("cannot read TOML bool \'%s\'", #var); \
     }
 
 #define LOAD_TOML_STR_ARRAY(table, key, array, array_count, var, count) \
@@ -26,7 +26,7 @@
     size_t count = 0; \
     char **var = NULL; \
     if (!array) { \
-        LOG_WARN("cannot read TOML string array \'%s\'", key); \
+        LOG_DEBUG("cannot read TOML string array \'%s\'", key); \
     } else { \
         size_t array_count = toml_array_nelem(array); \
         var = malloc(array_count * sizeof(char *)); \
@@ -43,7 +43,7 @@
 #define LOAD_TOML_DOUBLE(table, var) \
     toml_datum_t var = toml_double_in(table, #var); \
     if (!var.ok) { \
-        LOG_WARN("cannot read TOML double \'%s\'", #var); \
+        LOG_DEBUG("cannot read TOML double \'%s\'", #var); \
     }
 
 typedef struct {
@@ -75,7 +75,8 @@ void colorThemeLoad(ColorTheme *theme, const char *path);
 typedef enum {
     COMMAND_TYPE_EDITOR,
     COMMAND_TYPE_BROWSER,
-    COMMAND_TYPE_GLOBAL
+    COMMAND_TYPE_GLOBAL,
+    COMMAND_TYPE_SAVE_DIALOG
 } CommandType;
 
 typedef struct {

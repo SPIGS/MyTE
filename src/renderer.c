@@ -380,7 +380,7 @@ u32 rendererGetWhiteTexture() {
 	return _cached_white;
 }
 
-static void renderSelectionOnToken (Renderer* r, Editor *e, vec2 adj_text_pos, size_t buffer_pos, size_t token_len, Color selection_color) {
+static void renderSelectionOnToken (Renderer* r, Editor *e, AppContext *ctx, vec2 adj_text_pos, size_t buffer_pos, size_t token_len, Color selection_color) {
 	i32 selection_size = e->cursor.selection_size;
 	size_t selection_beg = e->cursor.buffer_pos - selection_size;
 	size_t selection_end = e->cursor.buffer_pos;
@@ -434,22 +434,24 @@ static void renderSelectionOnToken (Renderer* r, Editor *e, vec2 adj_text_pos, s
 			selection_w = r->glyph_adv * selection_offset_w;
 			
 		}
-		renderQuad(r, rect_init(selection_x, adj_text_pos.y - e->descender, selection_w, e->line_height), selection_color);
+		renderQuad(r, rect_init(selection_x, adj_text_pos.y - ctx->descender, selection_w, ctx->line_height), selection_color);
 	} 
 }
 
-void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorTheme theme) {
+void renderEditor(Renderer* r, Editor *e, AppContext *ctx, f32 delta_time, ColorTheme theme) {
 	UNUSED(delta_time);
 
 	renderQuad(r, e->frame, theme.background);
-	GlyphAtlas atlas = r->font_atlases[font_id];
+	GlyphAtlas atlas = r->font_atlases[ctx->font_id];
 	
 	if (e->mode != EDITOR_MODE_OPEN) {
-		vec2 init_pos = vec2_init(e->text_pos.x, e->text_pos.y - e->line_height);
+		vec2 init_pos = vec2_init(e->text_pos.x, e->text_pos.y - ctx->line_height);
 		vec2 adj_text_pos = vec2_add(init_pos, e->scroll_pos);
 		
 		// Render line highlight
-		renderQuad(r, rect_init(e->frame.x, e->cursor.screen_pos.y, e->frame.w, atlas.atlas_height), theme.current_line);
+		if (e->mode == EDITOR_MODE_NORMAL) {
+			renderQuad(r, rect_init(e->frame.x, e->cursor.screen_pos.y, e->frame.w, atlas.atlas_height), theme.current_line);
+		}
 
 		// Render the tokens
 		size_t buffer_pos = 0;
@@ -458,7 +460,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 			Token curToken = e->lexer.tokens[i];
 			size_t token_len = strlen(curToken.text);
 			
-			renderSelectionOnToken (r, e, adj_text_pos, buffer_pos, token_len, theme.user_selection);
+			renderSelectionOnToken (r, e, ctx, adj_text_pos, buffer_pos, token_len, theme.user_selection);
 			buffer_pos += token_len;
 			
 			switch(curToken.type) {
@@ -523,20 +525,52 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 					renderText(r, e->lexer.tokens[i].text, &adj_text_pos, &atlas, theme.foreground);
 				break;
 			}
-			
 		}
 		
-		// Render cursor
-		rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
-		Color cursor_color = theme.foreground;
-		cursor_color.a = e->cursor.alpha;
-		renderQuad(r, cursor_quad, cursor_color);
-	} else {
-		vec2 init_text_pos = vec2_init(e->text_pos.x, e->text_pos.y - e->line_height);
-		vec2 adj_text_pos = init_text_pos;
 
+		if (e->mode == EDITOR_MODE_SAVE) {
+			SaveDialog sd = e->sd;
+
+			renderQuad(r, sd.frame, theme.background);
+			
+			rect left_border_quad = rect_init(sd.frame.x, sd.frame.y, 1, sd.frame.h);
+			renderQuad(r, left_border_quad, theme.user_selection);
+
+			rect right_border_quad = rect_init(sd.frame.x + sd.frame.w, sd.frame.y, 1, sd.frame.h);
+			renderQuad(r, right_border_quad, theme.user_selection);
+
+			rect top_border_quad = rect_init(sd.frame.x, sd.frame.y + sd.frame.h, sd.frame.w, 1);
+			renderQuad(r, top_border_quad, theme.user_selection);
+
+			rect bottom_border_quad = rect_init(sd.frame.x, sd.frame.y, sd.frame.w, 1);
+			renderQuad(r, bottom_border_quad, theme.user_selection);
+
+			renderText(r, "Save As:", &sd.title_pos, &atlas, theme.foreground);
+			renderQuad(r, sd.input_box, theme.current_line);
+
+			// Render cursor
+			rect cursor_quad = rect_init(sd.cursor.screen_pos.x, sd.cursor.screen_pos.y, 3, atlas.atlas_height);
+			Color cursor_color = theme.foreground;
+			cursor_color.a = sd.cursor.alpha;
+			renderQuad(r, cursor_quad, cursor_color);
+
+			// render text in dialog input box
+			char *text = getBufString(sd.buf);
+			renderText(r, text, &sd.text_pos, &atlas, theme.foreground);
+		} else {
+			// Render cursor
+			rect cursor_quad = rect_init(e->cursor.screen_pos.x, e->cursor.screen_pos.y, 3, atlas.atlas_height);
+			Color cursor_color = theme.foreground;
+			cursor_color.a = e->cursor.alpha;
+			renderQuad(r, cursor_quad, cursor_color);
+		}
+
+	} else {
+		vec2 init_text_pos = vec2_init(e->text_pos.x, e->text_pos.y - ctx->line_height);
+		vec2 adj_text_pos = init_text_pos;
+		Cursor selection = e->browser.cursor;
 		// Render selection highlight
-		rect selection_highlight = rect_init(e->browser.sel_screen_pos.x, e->browser.sel_screen_pos.y, e->browser.sel_size.x, e->browser.sel_size.y);
+		rect selection_highlight = rect_init(selection.screen_pos.x, selection.screen_pos.y, selection.width, ctx->line_height);
 		renderQuad(r, selection_highlight, theme.user_selection);
 
 		for (size_t i = 0; i < e->browser.num_paths; i++){
@@ -558,7 +592,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 	// render divider
 	renderQuad(r, rect_init(e->gutter.gutter_width + r->glyph_adv, 0, 1, r->screen_height), theme.gutter_foreground);
 	
-	vec2 gutter_text_pos = vec2_init(0, e->frame.y + e->frame.h - e->line_height);
+	vec2 gutter_text_pos = vec2_init(0, e->frame.y + e->frame.h - ctx->line_height);
 	gutter_text_pos.x = r->glyph_adv;
 	if (e->mode != EDITOR_MODE_OPEN) {
 		gutter_text_pos = vec2_add(gutter_text_pos, e->scroll_pos);
@@ -569,7 +603,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 			sprintf(num, "%*d", gutter_digit_padding, i);
 			renderText(r, num, &gutter_text_pos, &atlas, cur_line == i ? theme.user_selection : theme.gutter_foreground);
 			gutter_text_pos.x = r->glyph_adv;
-			gutter_text_pos.y -= e->line_height;
+			gutter_text_pos.y -= ctx->line_height;
 		}
 	} else {
 		gutter_text_pos = vec2_add(gutter_text_pos, e->browser.scroll_pos);
@@ -578,15 +612,15 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 			sprintf(num, "%3s", "~");
 			renderText(r, num, &gutter_text_pos, &atlas, theme.gutter_foreground);
 			gutter_text_pos.x = r->glyph_adv;
-			gutter_text_pos.y -= e->line_height;
+			gutter_text_pos.y -= ctx->line_height;
 		}
 	}
 
 	// Status line
-	renderQuad(r, rect_init(0, e->line_height, r->screen_width, e->line_height), theme.gutter_foreground);
+	renderQuad(r, rect_init(0, ctx->line_height, r->screen_width, ctx->line_height), theme.gutter_foreground);
 
-	renderQuad(r, rect_init(0, 0, r->screen_width, e->line_height), theme.background);
-	vec2 mode_text_pos = vec2_init(r->glyph_adv * 2.0, e->line_height + r->descender);
+	renderQuad(r, rect_init(0, 0, r->screen_width, ctx->line_height), theme.background);
+	vec2 mode_text_pos = vec2_init(r->glyph_adv * 2.0, ctx->line_height + r->descender);
 	if (e->mode == EDITOR_MODE_NORMAL) {
 		if (e->file_path) {
 			char *name = get_filename_from_path(e->file_path);
@@ -600,9 +634,9 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 			renderText(r, "(null)", &mode_text_pos, &atlas, theme.foreground);
 		}
 
-		f32 per = (e->scroll_pos.y / (((e->line_count + 2) * e->line_height) - r->screen_height)) * 100.0;
-		vec2 doc_perc_pos = vec2_init(r->screen_width - (4 * r->glyph_adv), e->line_height + r->descender);
-		if ((e->line_count * e->line_height) < r->screen_height) {
+		f32 per = (e->scroll_pos.y / (((e->line_count + 2) * ctx->line_height) - r->screen_height)) * 100.0;
+		vec2 doc_perc_pos = vec2_init(r->screen_width - (4 * r->glyph_adv), ctx->line_height + r->descender);
+		if ((e->line_count * ctx->line_height) < r->screen_height) {
 			renderText(r, "All", &doc_perc_pos, &atlas, theme.foreground);
 		} else {
 			if (per < 1.0) {
@@ -621,7 +655,7 @@ void renderEditor(Renderer* r, u32 font_id, Editor *e, f64 delta_time, ColorThem
 	
 	char col_row_disp[24];
 	sprintf(col_row_disp, "%lu,%lu", e->cursor.disp_row, e->cursor.disp_column);
-	vec2 col_row_disp_pos = vec2_init(r->screen_width - (strlen(col_row_disp) * r->glyph_adv) - (r->glyph_adv * 6), e->line_height + r->descender);
+	vec2 col_row_disp_pos = vec2_init(r->screen_width - (strlen(col_row_disp) * r->glyph_adv) - (r->glyph_adv * 6), ctx->line_height + r->descender);
 	renderText(r, col_row_disp, &col_row_disp_pos, &atlas, theme.foreground);
 }
 

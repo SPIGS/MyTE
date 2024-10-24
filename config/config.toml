@@ -3,7 +3,7 @@
     theme = "./config/themes/spaceduck.toml"
 
     # font size in pixels
-    font_size = 22
+    font_size = 24
 
     # displays an fps counter in the bottom right corner (debug)
     show_fps = true
@@ -23,13 +23,14 @@
     scroll_stop_top = 6
     scroll_stop_bottom = 2
 
-
 # Keybinds
 
 [keybind.global.openBrowser]
     key = "o"
     mods = ["control"]
-[keybind.global.closeBrowser]
+[keybind.global.reloadConfig]
+    key = "f5"
+[keybind.global.returnToEditor]
     key = "escape"
 
 
@@ -85,6 +86,10 @@
     key = "s"
     mods = ["control"]
 
+[keybind.editor.openSaveDialog]
+    key = "s"
+    mods = ["control", "shift"]
+
 [keybind.editor.unselect]
     key = "escape"
 
@@ -93,4 +98,13 @@
 [keybind.browser.incrementSelection]
     key = "down"
 [keybind.browser.openSelection]
+    key = "enter"
+
+[keybind.save.moveRight]
+    key = "right"
+[keybind.save.moveLeft]
+    key = "left"
+[keybind.save.deleteLeft]
+    key = "backspace"
+[keybind.save.submitSaveDialog]
     key = "enter"

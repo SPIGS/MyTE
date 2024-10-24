@@ -13,6 +13,8 @@ static bool isCommandForMode(EditorMode mode, CommandType command_type) {
         return true;
 
     switch (mode) {
+        case EDITOR_MODE_SAVE:
+            return (command_type == COMMAND_TYPE_SAVE_DIALOG);
         case EDITOR_MODE_NORMAL:
             return (command_type == COMMAND_TYPE_EDITOR);
         case EDITOR_MODE_OPEN:
@@ -42,23 +44,6 @@ void key_callback(GLFWwindow* window, int key, int scancode, int action , int mo
             }
         }
     }
-    
-    // Global hotkeys 
-    if (key == GLFW_KEY_F3 && (action == GLFW_PRESS)) {
-        char *content = getContents(&app->editor);
-        LOG_DEBUG("---------------------------\n%s", content);
-        LOG_DEBUG("---------------------------", "");
-        free(content);
-    } else if (key == GLFW_KEY_F5 && (action == GLFW_PRESS)) {
-        LOG_INFO("Reloading Config...", "");
-        applicationReload(app);
-        LOG_INFO("Config reloaded.", "");
-        applicationSetStatusMessage(app, "Reloaded config.", 2.0f);
-    }  else if (key == GLFW_KEY_F12 && (action == GLFW_PRESS)) {
-        LOG_INFO("Clearing Buffer...", "");
-        clearBuffer(&app->editor);
-        applicationSetStatusMessage(app, "Cleared buffer.", 2.0f);
-    }
 }
 
 void character_callback(GLFWwindow* window, unsigned int codepoint) {
@@ -67,39 +52,41 @@ void character_callback(GLFWwindow* window, unsigned int codepoint) {
     // TODO: keep track of the last character that the user entered,
     // If they reflexively try to complete these pairs, we should ignore
     // the second character
-    if (app->editor.mode != EDITOR_MODE_OPEN) {
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
         switch (codepoint) {
         case '{':
-            insertCharacter(&app->editor, (char)codepoint, true);
-            insertCharacter(&app->editor, '}', false);
+            editorInsertCharacter(&app->editor, (char)codepoint, true);
+            editorInsertCharacter(&app->editor, '}', false);
             break;
         case '(':
-            insertCharacter(&app->editor, (char)codepoint, true);
-            insertCharacter(&app->editor, ')', false);
+            editorInsertCharacter(&app->editor, (char)codepoint, true);
+            editorInsertCharacter(&app->editor, ')', false);
             break;
         case '\'':
-            insertCharacter(&app->editor, (char)codepoint, true);
-            insertCharacter(&app->editor, '\'', false);
+            editorInsertCharacter(&app->editor, (char)codepoint, true);
+            editorInsertCharacter(&app->editor, '\'', false);
             break;
         case '"':
-            insertCharacter(&app->editor, (char)codepoint, true);
-            insertCharacter(&app->editor, '"', false);
+            editorInsertCharacter(&app->editor, (char)codepoint, true);
+            editorInsertCharacter(&app->editor, '"', false);
             break;
         case '[':
-            insertCharacter(&app->editor, (char)codepoint, true);
-            insertCharacter(&app->editor, ']', false);
+            editorInsertCharacter(&app->editor, (char)codepoint, true);
+            editorInsertCharacter(&app->editor, ']', false);
             break;
         default:
-            insertCharacter(&app->editor, (char)codepoint, true);
+            editorInsertCharacter(&app->editor, (char)codepoint, true);
         }
+    } else if (app->editor.mode == EDITOR_MODE_SAVE) {
+        dialogInsertCharacter(&app->editor.sd, (char)codepoint);
     }
 }
 
 void mouseMoveCallback(GLFWwindow *window, double xpos, double ypos) {
     Application *app = glfwGetWindowUserPointer(window);
     if (app->mouse_held) {
-        moveCursorToMousePos(&app->editor, vec2_init(xpos, ypos));
-        makeSelection(&app->editor);
+        moveCursorToMousePos(&app->editor, &app->ctx, vec2_init(xpos, ypos));
+        editorMakeSelection(&app->editor);
     } 
 }
 
@@ -112,13 +99,13 @@ void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
         f64 mouse_x = 0.0;
         f64 mouse_y = 0.0;
         glfwGetCursorPos(app->window, &mouse_x, &mouse_y);
-        moveCursorToMousePos(&app->editor, vec2_init(mouse_x, mouse_y));
+        moveCursorToMousePos(&app->editor, &app->ctx, vec2_init(mouse_x, mouse_y));
 
         // Selection
         if ((mods & GLFW_MOD_SHIFT) == GLFW_MOD_SHIFT)
-            makeSelection(&app->editor);
+            editorMakeSelection(&app->editor);
         else
-            unselectSelection(&app->editor);
+            editorUnselectSelection(&app->editor);
     } else if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_RELEASE) {
         app->mouse_held = false;
     }
@@ -127,7 +114,7 @@ void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
 void scrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
     UNUSED(xoffset);
     Application *app = glfwGetWindowUserPointer(window);
-    scrollWithMouseWheel(&app->editor, yoffset);
+    scrollWithMouseWheel(&app->editor, &app->ctx, yoffset);
 }
 
 void cursorEnterCallback(GLFWwindow *window, int entered) {
@@ -142,6 +129,9 @@ void cursorEnterCallback(GLFWwindow *window, int entered) {
 void resize_window(GLFWwindow *window, int width, int height) {
    Application *app = glfwGetWindowUserPointer(window);
    rendererResizeWindow(&app->renderer, width, height);
+
+    app->ctx.screen_width = app->renderer.screen_width;
+    app->ctx.screen_height = app->renderer.screen_height;
 }
 
 void applicationRegisterCommand(Application *app, char *name, void (*command)()) {
@@ -194,22 +184,27 @@ void applicationInit(Application *app, int argc, char **argv) {
     REGISTER_COMMAND(app, unselect);
 
     REGISTER_COMMAND(app, openBrowser);
-    REGISTER_COMMAND(app, closeBrowser);
     REGISTER_COMMAND(app, write);
 
     REGISTER_COMMAND(app, decrementSelection);
     REGISTER_COMMAND(app, incrementSelection);
     REGISTER_COMMAND(app, openSelection);
+    REGISTER_COMMAND(app, reloadConfig);
+    
+    REGISTER_COMMAND(app, openSaveDialog);
+    REGISTER_COMMAND(app, returnToEditor);
+    REGISTER_COMMAND(app, submitSaveDialog);
+
 
     // Initialize glfw
-   if (!glfwInit()) {
+    if (!glfwInit()) {
         LOG_ERROR("Failed to initialize GLFW", "");
         exit(1);
     }
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
-   glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-   glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     app->window = glfwCreateWindow(INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT, "MyTE", NULL, NULL);
     if (!app->window) {
@@ -242,9 +237,19 @@ void applicationInit(Application *app, int argc, char **argv) {
     }
 
     rendererInit(&app->renderer, COLOR_BLACK);
-    app->font_id = rendererLoadFont(&app->renderer, app->config.font_path, app->config.font_size);
+    u32 font_id = rendererLoadFont(&app->renderer, app->config.font_path, app->config.font_size);
     rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
-    editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, ".");
+
+    app->ctx = (AppContext) {
+        .font_id = font_id,
+        .glyph_adv = app->renderer.glyph_adv,
+        .line_height = app->renderer.font_atlases[font_id].atlas_height,
+        .descender = app->renderer.descender,
+        .screen_width = app->renderer.screen_width,
+        .screen_height = app->renderer.screen_height
+    };
+
+    editorInit(&app->editor, editor_frame, &app->ctx, ".");
 
     glfwSetWindowUserPointer(app->window, app);
     glfwSetFramebufferSizeCallback(app->window, resize_window);
@@ -258,11 +263,11 @@ void applicationInit(Application *app, int argc, char **argv) {
     if (argc > 1) {
         const char *file_path = argv[1];
         if (checkPath(file_path) == 0) {
-            loadFromFile(&app->editor, file_path);
+            editorLoadFile(&app->editor, &app->ctx, file_path);
         } else if (checkPath(file_path) == 1) {
             editorDestroy(&app->editor);
-            editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, file_path);
-            editorChangeMode(&app->editor, EDITOR_MODE_OPEN);
+            editorInit(&app->editor, editor_frame, &app->ctx, file_path);
+            editorChangeMode(&app->editor, &app->ctx, EDITOR_MODE_OPEN);
         } else {
             LOG_ERROR("Error evaluating path. The file might be moved or missing!", "");
             applicationSetStatusMessage(app, "Error evaluating path. The file might be moved or missing!", 2.0f);
@@ -293,7 +298,7 @@ void applicationReload(Application *app) {
     configDestroy(&app->config);
     app->config = configInit();
     loadConfigFromFile(&app->config, "./config/config.toml");
-    app->font_id = rendererLoadFont(&app->renderer, app->config.font_path, app->config.font_size);
+    u32 font_id = rendererLoadFont(&app->renderer, app->config.font_path, app->config.font_size);
     
     // Save the current directory for the browser
     char *cur_dir = (char *)malloc(strlen(app->editor.browser.cur_dir) + 1);
@@ -308,14 +313,24 @@ void applicationReload(Application *app) {
     
     editorDestroy(&app->editor);
     rect editor_frame = rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200);
-    editorInit(&app->editor, editor_frame, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, cur_dir);
+
+    app->ctx = (AppContext) {
+        .font_id = font_id,
+        .glyph_adv = app->renderer.glyph_adv,
+        .line_height = app->renderer.font_atlases[font_id].atlas_height,
+        .descender = app->renderer.descender,
+        .screen_width = app->renderer.screen_width,
+        .screen_height = app->renderer.screen_height
+    };
+
+    editorInit(&app->editor, editor_frame, &app->ctx, cur_dir);
     editorLoadConfig(&app->editor, &app->config);
     app->theme = colorThemeInit();
     if (app->config.theme_path)
         colorThemeLoad(&app->theme, app->config.theme_path);
 
     if (cur_file_path) {
-        loadFromFile(&app->editor, cur_file_path);
+        editorLoadFile(&app->editor, &app->ctx, cur_file_path);
     }
 }
 
@@ -331,19 +346,19 @@ void applicationSetStatusMessage(Application *app, const char *msg, f32 t) {
 
 void applicationUpdate(Application *app, f64 delta_time) {
     glfwPollEvents();
-    editorUpdate(&app->editor, app->renderer.screen_width, app->renderer.screen_height, delta_time);
+    editorUpdate(&app->editor, &app->ctx, delta_time);
 }
 
 void applicationRender(Application *app, f64 delta_time) {
     rendererBegin(&app->renderer);
         
     // Render stuff goes here
-    renderEditor(&app->renderer, app->font_id, &app->editor, delta_time, app->theme);
+    renderEditor(&app->renderer, &app->editor, &app->ctx, delta_time, app->theme);
 
     // Draw the status message
     if (app->status_message && app->status_disp_time > 0.0f) {
-        vec2 status_pos = vec2_init(app->editor.glyph_adv, 5.0);
-        renderText(&app->renderer, app->status_message, &status_pos, &app->renderer.font_atlases[app->font_id], app->theme.foreground);
+        vec2 status_pos = vec2_init(app->ctx.glyph_adv, 5.0);
+        renderText(&app->renderer, app->status_message, &status_pos, &app->renderer.font_atlases[app->ctx.font_id], app->theme.foreground);
         app->status_disp_time -= (f32)delta_time;
     }
 
@@ -352,8 +367,8 @@ void applicationRender(Application *app, f64 delta_time) {
         f64 fps = 1.0f / delta_time;
         char fps_str[200];
         sprintf(fps_str, "FPS: %f", fps);
-        vec2 fps_pos = vec2_init(app->renderer.screen_width - (app->renderer.glyph_adv * 10.0), app->editor.line_height * 2);
-        GlyphAtlas atlas = app->renderer.font_atlases[app->font_id];
+        vec2 fps_pos = vec2_init(app->renderer.screen_width - (app->renderer.glyph_adv * 10.0), app->ctx.line_height * 2);
+        GlyphAtlas atlas = app->renderer.font_atlases[app->ctx.font_id];
         renderText(&app->renderer, fps_str, &fps_pos, &atlas, COLOR_RED);
     }
 
@@ -367,113 +382,165 @@ void applicationProcessEditorInput (Application *app, int key, int scancode, int
 
     // not sure what to do with these yet.
     if (key == GLFW_KEY_ENTER && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
-        insertCharacter(&app->editor, '\n', true);
+        editorInsertCharacter(&app->editor, '\n', true);
     } else if (key == GLFW_KEY_TAB && (action == GLFW_REPEAT || action == GLFW_PRESS)) {
         for (size_t i = 0; i< (size_t)app->editor.tab_stop; i++) {
-            insertCharacter(&app->editor, ' ', true);
+            editorInsertCharacter(&app->editor, ' ', true);
         }
     }
 }
 
 void Command_moveRight(Application *app) {
-    moveCursorRight(&app->editor);
-    unselectSelection(&app->editor);
-}
-
-void Command_moveForwardWord(Application *app) {
-    moveEndOfNextWord(&app->editor);
-    unselectSelection(&app->editor);
-}
-
-void Command_selectRight(Application *app) {
-    moveCursorRight(&app->editor);
-    makeSelection(&app->editor);
-}
-
-void Command_selectForwardWord(Application *app) {
-    moveEndOfNextWord(&app->editor);
-    makeSelection(&app->editor);
-}
-
-void Command_moveLeft(Application *app) {
-    moveCursorLeft(&app->editor);
-    unselectSelection(&app->editor);
-}
-
-void Command_moveBackwardWord(Application *app) {
-    moveBegOfPrevWord(&app->editor);
-    unselectSelection(&app->editor);
-}
-
-void Command_selectLeft(Application *app) {
-    moveCursorLeft(&app->editor);
-    makeSelection(&app->editor);
-}
-
-void Command_selectBackwardWord(Application *app) {
-    moveBegOfPrevWord(&app->editor);
-    makeSelection(&app->editor);
-}
-
-void Command_moveUp(Application *app) {
-    moveCursorUp(&app->editor);
-    unselectSelection(&app->editor);
-}
-
-void Command_selectUp(Application *app) {
-    moveCursorUp(&app->editor);
-    makeSelection(&app->editor);
-}
-
-void Command_moveDown(Application *app) {
-    moveCursorDown(&app->editor);
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
+        editorMoveRight(&app->editor);
+        editorUnselectSelection(&app->editor);
+    } else if (app->editor.mode == EDITOR_MODE_SAVE) {
+        dialogMoveCursorRight(&app->editor.sd);
+    }
     
 }
 
+void Command_moveForwardWord(Application *app) {
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
+        editorMoveEndOfNextWord(&app->editor);
+        editorUnselectSelection(&app->editor);
+    } else if (app->editor.mode == EDITOR_MODE_SAVE) {
+        // TODO   
+    }
+}
+
+void Command_selectRight(Application *app) {
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
+        editorMoveRight(&app->editor);
+        editorMakeSelection(&app->editor);
+    } else if (app->editor.mode == EDITOR_MODE_SAVE) {
+        // TODO
+    }
+}
+
+void Command_selectForwardWord(Application *app) {
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
+        editorMoveEndOfNextWord(&app->editor);
+        editorMakeSelection(&app->editor);
+    } else if (app->editor.mode == EDITOR_MODE_SAVE) {
+        //TODO
+    }
+}
+
+void Command_moveLeft(Application *app) {
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
+        editorMoveLeft(&app->editor);
+        editorUnselectSelection(&app->editor);
+    } else if (app->editor.mode == EDITOR_MODE_SAVE) {
+        dialogMoveCursorLeft(&app->editor.sd);
+    }
+}
+
+void Command_moveBackwardWord(Application *app) {
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
+        editorMoveBegOfPrevWord(&app->editor);
+        editorUnselectSelection(&app->editor);
+    } else if (app->editor.mode == EDITOR_MODE_SAVE) {
+        //TODO
+    }
+}
+
+void Command_selectLeft(Application *app) {
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
+        editorMoveLeft(&app->editor);
+        editorMakeSelection(&app->editor);
+    } else if (app->editor.mode == EDITOR_MODE_SAVE) {
+        //TODO
+    }
+}
+
+void Command_selectBackwardWord(Application *app) {
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
+        editorMoveBegOfPrevWord(&app->editor);
+        editorMakeSelection(&app->editor);
+    } else if (app->editor.mode == EDITOR_MODE_SAVE) {
+        // TODO
+    }
+}
+
+void Command_moveUp(Application *app) {
+    editorMoveUp(&app->editor);
+    editorUnselectSelection(&app->editor);
+}
+
+void Command_selectUp(Application *app) {
+    editorMoveUp(&app->editor);
+    editorMakeSelection(&app->editor);
+}
+
+void Command_moveDown(Application *app) {
+    editorMoveDown(&app->editor);
+}
+
 void Command_selectDown(Application *app) {
-    moveCursorDown(&app->editor);
-    makeSelection(&app->editor);
+    editorMoveDown(&app->editor);
+    editorMakeSelection(&app->editor);
 }
 
 void Command_deleteLeft(Application *app) {
-    if (app->editor.cursor.selection_size != 0) {
-        deleteSelection(&app->editor);
-    } else {
-        deleteCharacterLeft(&app->editor);
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
+        if (app->editor.cursor.selection_size != 0) {
+            editorDeleteSelection(&app->editor);
+        } else {
+            editorDeleteCharLeft(&app->editor);
+        }
+    } else if (app->editor.mode == EDITOR_MODE_SAVE) {
+        dialogDeleteCharLeft(&app->editor.sd);
     }
 }
 
 void Command_deleteWordLeft(Application *app) {
-    deleteWordLeft(&app->editor);
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
+        editorDeleteWordLeft(&app->editor);
+    } else if (app->editor.mode == EDITOR_MODE_SAVE) {
+        //TODO
+    }
 }
 
 void Command_deleteRight(Application *app) {
-    if (app->editor.cursor.selection_size != 0) {
-        deleteSelection(&app->editor);
-    } else {
-        deleteCharacterRight(&app->editor);
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
+        if (app->editor.cursor.selection_size != 0) {
+            editorDeleteSelection(&app->editor);
+        } else {
+            editorDeleteCharRight(&app->editor);
+        }
+    } else if (app->editor.mode == EDITOR_MODE_SAVE) {
+        //TODO
     }
 }
 
 void Command_deleteWordRight(Application *app) {
-    deleteWordRight(&app->editor);
+    if (app->editor.mode == EDITOR_MODE_NORMAL) {
+        editorDeleteWordRight(&app->editor);
+    } else if (app->editor.mode == EDITOR_MODE_SAVE) {
+        //TODO
+    }
 }
 
 void Command_openBrowser(Application *app) {
-    editorChangeMode(&app->editor, EDITOR_MODE_OPEN);
+    editorChangeMode(&app->editor, &app->ctx, EDITOR_MODE_OPEN);
 }
 
 void Command_unselect(Application *app) {
-    unselectSelection(&app->editor);
-}
-
-void Command_closeBrowser(Application *app) {
-    editorChangeMode(&app->editor, EDITOR_MODE_NORMAL);
+    editorUnselectSelection(&app->editor);
 }
 
 void Command_write(Application *app) {
-    writeToFile(&app->editor);
-    applicationSetStatusMessage(app, "Saved to disk.", 2.0f);
+    if (!app->editor.file_path) {
+        Command_openSaveDialog(app);
+    } else {
+        editorWriteFile(&app->editor);
+        applicationSetStatusMessage(app, "Saved to disk.", 2.0f);
+    }
+}
+
+void Command_openSaveDialog(Application *app) {
+    editorChangeMode(&app->editor, &app->ctx, EDITOR_MODE_SAVE);
 }
 
 void Command_decrementSelection(Application *app) {
@@ -505,9 +572,41 @@ void Command_openSelection(Application *app) {
         strcpy(full_path, selection.full_path);
 
         editorDestroy(&app->editor);
-        editorInit(&app->editor, INIT_EDITOR_FRAME, app->renderer.font_atlases[app->font_id].atlas_height, app->renderer.glyph_adv, app->renderer.descender, cur_dir);
+        editorInit(&app->editor, INIT_EDITOR_FRAME, &app->ctx, cur_dir);
         editorLoadConfig(&app->editor, &app->config);
-        loadFromFile(&app->editor, full_path);
+        editorLoadFile(&app->editor, &app->ctx, full_path);
         free(cur_dir);
     }
+}
+
+void Command_reloadConfig(Application *app) {
+    LOG_INFO("Reloading Config...", "");
+    applicationReload(app);
+    LOG_INFO("Config reloaded.", "");
+    applicationSetStatusMessage(app, "Reloaded config.", 2.0f);
+}
+
+void Command_returnToEditor(Application *app) {
+    if (app->editor.mode != EDITOR_MODE_NORMAL) {
+        editorChangeMode(&app->editor, &app->ctx, EDITOR_MODE_NORMAL);
+    }
+}
+
+void Command_submitSaveDialog(Application *app) {
+    Editor *ed = &app->editor;
+
+    if (ed->file_path == NULL) {
+        ed->file_path = (char *)malloc(getBufLength(ed->sd.buf) * sizeof(char));
+        strcpy(ed->file_path, getBufString(ed->sd.buf));
+    } else {
+        char *temp = realloc(ed->file_path, getBufLength(ed->sd.buf));
+        if (!temp)
+        ed->file_path = temp;
+        strcpy(ed->file_path, getBufString(ed->sd.buf));
+    }
+    editorChangeMode(ed, &app->ctx, EDITOR_MODE_NORMAL);
+    char alert[1024];
+    editorWriteFile(&app->editor);
+    sprintf(alert, "Saved file \'%s\' to disk.", ed->file_path);
+    applicationSetStatusMessage(app, alert, 2.0f);
 }

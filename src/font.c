@@ -8,7 +8,7 @@ void glyphAtlasInit(GlyphAtlas *atlas, FT_Face face, f32 *glyph_adv, f32 *descen
 	u32 h = 0;
 	f32 top = 0;
 
-	for (u32 i = 32; i < 128; i++) {
+	for (u8 i = 32; i < 128; i++) {
 		if (FT_Load_Char(face, i, FT_LOAD_RENDER)) {
 			LOG_ERROR("Loading character \'%c\' for atlas failed!", i);
     		continue;
@@ -24,7 +24,7 @@ void glyphAtlasInit(GlyphAtlas *atlas, FT_Face face, f32 *glyph_adv, f32 *descen
     atlas->atlas_height = h;
 	*descender = atlas->atlas_height - top;
 	// for zero initializing the buffer
-	char* blank_buffer = (char*)malloc(sizeof(char) * (size_t)w * (size_t)h);
+	u8* blank_buffer = (u8*)malloc(sizeof(u8) * (size_t)w * (size_t)h);
 
 	// Make a blank texture the size needed for the atlas
 	glActiveTexture(GL_TEXTURE0);
@@ -53,7 +53,7 @@ void glyphAtlasInit(GlyphAtlas *atlas, FT_Face face, f32 *glyph_adv, f32 *descen
 
 	// Add the glyphs to the atlas
     int x = 0;
-    for (int i = 32; i < 128; ++i) {
+    for (u8 i = 32; i < 128; ++i) {
         if (FT_Load_Char(face, i, FT_LOAD_RENDER)) {
 			LOG_ERROR("Could not load glyph of a character with code %d", i);
             continue;

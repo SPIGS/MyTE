@@ -1,24 +1,6 @@
 #include "editor.h"
 #include <stdio.h>
 
-Cursor cursorInit(vec2 init_screen_pos, f32 blink_rate) {
-    return (Cursor) { 
-        .buffer_pos = 0, 
-        .prev_buffer_pos = 0, 
-        .screen_pos = init_screen_pos, 
-        .prev_screen_pos = init_screen_pos, 
-        .target_screen_pos = init_screen_pos,
-        .anim_time = 0.0f,
-        .disp_column = 1,
-        .disp_row = 1,
-        .blink_time = 0.0,
-        .blink_rate = blink_rate,
-        .alpha = 1.0,
-        .target_alpha = 0.0,
-        .selection_size = 0
-    };
-}
-
 Gutter gutterInit(vec2 screen_pos, f32 glyph_adv) {
     return (Gutter) {
         .screen_pos = screen_pos,
@@ -26,7 +8,8 @@ Gutter gutterInit(vec2 screen_pos, f32 glyph_adv) {
         .digits = 1
     };
 }
-void calculateGutterWidth(Editor *ed) {
+
+static void calculateGutterWidth(Editor *ed, AppContext *ctx) {
     // calculate the new gutter width;
     ed->gutter.digits = 1;
 	i32 num_lines = (i32)ed->line_count;
@@ -34,33 +17,27 @@ void calculateGutterWidth(Editor *ed) {
 		ed->gutter.digits++;
     
     f32 gutter_padding = MAX(ed->gutter.digits + 2, 4);
-	ed->gutter.gutter_width = ed->glyph_adv * gutter_padding;
+	ed->gutter.gutter_width = ctx->glyph_adv * gutter_padding;
 
     //update positions of everything
-    f32 text_offset_x = ed->gutter.gutter_width + (ed->glyph_adv * 3);
+    f32 text_offset_x = ed->gutter.gutter_width + (ctx->glyph_adv * 3);
     ed->text_pos = vec2_init(text_offset_x, ed->frame.y + ed->frame.h);
 }
 
-
-void editorInit(Editor *ed, rect frame, f32 line_height, f32 glyph_adv, f32 descender, const char *cur_dir) {
+void editorInit(Editor *ed, rect frame, AppContext *ctx, const char *cur_dir) {
     ed->buf = gapBufferInit(INITIAL_BUFFER_SIZE);
-    ed->gutter = gutterInit(vec2_init(frame.x, frame.y), glyph_adv);
-    ed->cursor = cursorInit(vec2_init(frame.x + ed->gutter.gutter_width + (ed->glyph_adv * 3), frame.h), 0.5);
+    ed->gutter = gutterInit(vec2_init(frame.x, frame.y), ctx->glyph_adv);
+    ed->cursor = cursorInit(vec2_init(frame.x + ed->gutter.gutter_width + (ctx->glyph_adv * 3), frame.h), 0.5);
     ed->goal_column = -1;
     ed->frame = rect_init(frame.x, frame.y, frame.w, frame.h);
-    ed->text_pos = vec2_init(frame.x + ed->gutter.gutter_width + (ed->glyph_adv * 3), frame.y + frame.h);
+    ed->text_pos = vec2_init(frame.x + ed->gutter.gutter_width + (ctx->glyph_adv * 3), frame.y + frame.h);
     ed->scroll_pos = vec2_init(0,0);
     ed->target_scroll_pos = vec2_init(0,0);
     ed->scroll_mode = SCROLL_MODE_CURSOR;
     ed->line_count = 1;
-    ed->line_height = line_height;
-    ed->glyph_adv = glyph_adv;
-    ed->descender = descender;
     ed->file_path = NULL;
-    ed->cursor_move_last_frame = false;
     lexerInit(&ed->lexer);
     ed->dirty = true;
-    
     ed->tab_stop = 4;
     ed->cursor_speed = 3.5;
     ed->scroll_speed = 1;
@@ -84,27 +61,43 @@ void editorLoadConfig(Editor *ed, Config *config) {
     ed->dirty = true;
 }
 
-void editorChangeMode(Editor *ed, EditorMode new_mode) {
-    ed->cursor.anim_time = 0.0f;
-    ed->browser.anim_time = 0.0f;
-    switch (new_mode)
-    {
+void editorChangeMode(Editor *ed, AppContext *ctx, EditorMode new_mode) {
+    resetAnimTime(&ed->cursor);
+    resetAnimTime(&ed->browser.cursor);
+
+    switch (new_mode) {
     case EDITOR_MODE_OPEN:
         LOG_INFO("Load paths", "");
-        ed->browser.sel_screen_pos = ed->cursor.screen_pos;
-        ed->browser.sel_size = vec2_init(3, ed->browser.sel_size.y);
+        ed->browser.cursor.screen_pos = ed->cursor.screen_pos;
+        ed->browser.cursor.width = ed->cursor.width;
         getPaths(&ed->browser);
+        break;
+
+    case EDITOR_MODE_SAVE:
+        LOG_INFO("save mode", "");
+        ed->sd = dialogInit(ed->cursor.screen_pos, ctx->line_height, ctx->glyph_adv);
+        ed->sd.cursor.moved_last_frame = true;
         break;
     
     default:
-        ed->cursor.screen_pos = ed->browser.sel_screen_pos;
+        if (ed->mode == EDITOR_MODE_SAVE && new_mode != EDITOR_MODE_SAVE) {
+            dialogDestroy(&ed->sd);
+        }
+        
+        if (ed->mode == EDITOR_MODE_SAVE) {
+            ed->cursor.screen_pos = ed->sd.cursor.screen_pos;
+            ed->cursor.moved_last_frame = true;
+        } else if (ed->mode == EDITOR_MODE_OPEN){
+            ed->cursor.screen_pos = ed->browser.cursor.screen_pos;
+            ed->cursor.moved_last_frame = true;
+        }
         break;
     }
     ed->mode = new_mode;
 }
 
-void moveCursorLeft(Editor *ed) {
-    ed->cursor_move_last_frame = true;
+void editorMoveLeft(Editor *ed) {
+    ed->cursor.moved_last_frame = true;
     ed->scroll_mode = SCROLL_MODE_CURSOR;
     if (ed->cursor.buffer_pos == 0) {
         ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
@@ -120,12 +113,12 @@ void moveCursorLeft(Editor *ed) {
     }
 
     ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
-    ed->cursor.anim_time = 0.0f;
+    ed->cursor.pos_anim_time = 0.0f;
     ed->goal_column = ed->cursor.disp_column;
 }
 
-void moveCursorRight(Editor *ed) {
-    ed->cursor_move_last_frame = true;
+void editorMoveRight(Editor *ed) {
+    ed->cursor.moved_last_frame = true;
     ed->scroll_mode = SCROLL_MODE_CURSOR;
     if (ed->cursor.buffer_pos == getBufLength(ed->buf)) {
         ed->cursor.prev_buffer_pos = ed->cursor.buffer_pos;
@@ -141,12 +134,12 @@ void moveCursorRight(Editor *ed) {
     }
 
     ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
-    ed->cursor.anim_time = 0.0f;
+    ed->cursor.pos_anim_time = 0.0f;
     ed->goal_column = ed->cursor.disp_column;
 }
 
-void moveCursorUp(Editor *ed) {
-    ed->cursor_move_last_frame = true;
+void editorMoveUp(Editor *ed) {
+    ed->cursor.moved_last_frame = true;
     ed->scroll_mode = SCROLL_MODE_CURSOR;
     if (ed->goal_column == -1) {
         ed->goal_column = ed->cursor.disp_column;
@@ -166,11 +159,11 @@ void moveCursorUp(Editor *ed) {
         ed->cursor.disp_row--;
         ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
     }
-    ed->cursor.anim_time = 0.0f;
+    ed->cursor.pos_anim_time = 0.0f;
 }
 
-void moveCursorDown(Editor *ed) {
-    ed->cursor_move_last_frame = true;
+void editorMoveDown(Editor *ed) {
+    ed->cursor.moved_last_frame = true;
     ed->scroll_mode = SCROLL_MODE_CURSOR;
     if (ed->goal_column == -1) {
         ed->goal_column = ed->cursor.disp_column;
@@ -190,14 +183,14 @@ void moveCursorDown(Editor *ed) {
         ed->cursor.disp_row++;
         ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
     }
-    ed->cursor.anim_time = 0.0f;
+    ed->cursor.pos_anim_time = 0.0f;
 }
 
-void insertCharacter(Editor *ed, char character, bool move_cursor_forward) {
+void editorInsertCharacter(Editor *ed, char character, bool move_cursor_forward) {
     if (ed->cursor.selection_size != 0) {
-        deleteSelection(ed);
+        editorDeleteSelection(ed);
     } else {
-        unselectSelection(ed);
+        editorUnselectSelection(ed);
     }
     ed->scroll_mode = SCROLL_MODE_CURSOR;
     insertCharIntoBuf(ed->buf, ed->cursor.buffer_pos, character);
@@ -206,14 +199,14 @@ void insertCharacter(Editor *ed, char character, bool move_cursor_forward) {
     }
     
     if (move_cursor_forward) {
-        moveCursorRight(ed);
+        editorMoveRight(ed);
     }
     ed->dirty = true;
 }
 
-void deleteCharacterLeft(Editor *ed) {
-    unselectSelection(ed);
-    ed->cursor_move_last_frame = true;
+void editorDeleteCharLeft(Editor *ed) {
+    editorUnselectSelection(ed);
+    ed->cursor.moved_last_frame = true;
     ed->scroll_mode = SCROLL_MODE_CURSOR;
     if (ed->cursor.buffer_pos != 0) {
         if (getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos)) != '\n') {
@@ -222,7 +215,7 @@ void deleteCharacterLeft(Editor *ed) {
             ed->cursor.buffer_pos = getPrevCharCursor(ed->buf, ed->cursor.buffer_pos);
             ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
             ed->goal_column = ed->cursor.disp_column;
-            ed->cursor.anim_time = 0.0f;
+            ed->cursor.pos_anim_time = 0.0f;
             ed->dirty = true;
         } else {
             removeCharBeforeGap (ed->buf, ed->cursor.buffer_pos);
@@ -232,16 +225,16 @@ void deleteCharacterLeft(Editor *ed) {
             ed->goal_column = ed->cursor.disp_column;
             ed->cursor.disp_row--;
             ed->line_count--;
-            ed->cursor.anim_time = 0.0f;
+            ed->cursor.pos_anim_time = 0.0f;
             ed->dirty = true;
         }
     }
 }
 
-void deleteCharacterRight(Editor *ed) {
+void editorDeleteCharRight(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
-        unselectSelection(ed);
-        ed->cursor_move_last_frame = true;
+        editorUnselectSelection(ed);
+        ed->cursor.moved_last_frame = true;
         ed->scroll_mode = SCROLL_MODE_CURSOR;
         if (removeCharAfterGap (ed->buf, ed->cursor.buffer_pos) == '\n') {
             ed->line_count = (ed->line_count - 1 < 1) ? 1 : ed->line_count - 1;
@@ -250,82 +243,50 @@ void deleteCharacterRight(Editor *ed) {
     }
 }
 
-void setCursorTargetScreenPos(Editor *ed, vec2 new_target) {
-    ed->cursor.target_screen_pos = new_target;
-    ed->cursor.prev_screen_pos = ed->cursor.screen_pos;
-    ed->browser.sel_target_screen_pos = new_target;
-    ed->browser.sel_prev_screen_pos = ed->browser.sel_screen_pos;
-}
-
-void lerpCursorScreenPos(Editor *ed) {
-    ed->cursor.screen_pos = vec2_ease_out(ed->cursor.prev_screen_pos, ed->cursor.target_screen_pos, ed->cursor.anim_time);
-    ed->browser.sel_screen_pos = vec2_ease_out(ed->browser.sel_prev_screen_pos, ed->browser.sel_target_screen_pos, ed->browser.anim_time);
-}
-
-char *getContents(Editor *ed) {
-    return getBufString(ed->buf);
-}
-
-void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, f64 delta_time) {
-    //Update cursor position
+void editorUpdate(Editor *ed, AppContext *ctx, f64 delta_time) {
     //Initial cursor position
-    vec2 adj_cursor_pos = vec2_init(ed->text_pos.x, ed->text_pos.y - ed->line_height - ed->descender);
-
+    vec2 adj_cursor_pos = vec2_init(ed->text_pos.x, ed->text_pos.y - ctx->line_height - ctx->descender);
     if (ed->mode == EDITOR_MODE_NORMAL) {
         // Vertical/horizontal adjustment from column/row offset
-        adj_cursor_pos.x += ed->glyph_adv * (ed->cursor.disp_column - 1);
-        adj_cursor_pos.y -= ed->line_height * (ed->cursor.disp_row - 1);
+        adj_cursor_pos.x += ctx->glyph_adv * (ed->cursor.disp_column - 1);
+        adj_cursor_pos.y -= ctx->line_height * (ed->cursor.disp_row - 1);
 
         // offet from scroll position
         adj_cursor_pos = vec2_add(adj_cursor_pos, ed->scroll_pos);
-        setCursorTargetScreenPos(ed, vec2_init(adj_cursor_pos.x, adj_cursor_pos.y));
-
-        // increment the animation timer
-        //ed->cursor.anim_time += (f32)delta_time * ed->cursor_speed;
-        ed->cursor.anim_time += (f32)delta_time;
-        if (ed->cursor.anim_time >= 1.0f) {
-            ed->cursor.anim_time = 1.0f;
-        }
-
-        lerpCursorScreenPos(ed);
+        cursorUpdate(&ed->cursor, adj_cursor_pos, delta_time);
     } else if (ed->mode == EDITOR_MODE_OPEN) {
-        // Render the selection highlight
-		setCursorTargetScreenPos(ed, vec2_init(adj_cursor_pos.x, adj_cursor_pos.y - (ed->line_height * (ed->browser.selection))));
-		f32 target_sel_w = (strlen(ed->browser.items[ed->browser.selection].name_ext) + (ed->browser.items[ed->browser.selection].is_dir ? 1 : 0)) * ed->glyph_adv;
-        ed->browser.sel_target_size = vec2_init((target_sel_w) + 5, ed->line_height);
-
-        ed->browser.sel_prev_size = ed->browser.sel_size;
-
-        //ed->browser.anim_time += (f32)delta_time * ed->cursor_speed;
-        ed->browser.anim_time += (f32)delta_time;
-		if (ed->browser.anim_time >= 1.0f)
-			ed->browser.anim_time = 1.0f;
-
-		lerpCursorScreenPos(ed);
-		ed->browser.sel_size = vec2_ease_out(ed->browser.sel_prev_size, ed->browser.sel_target_size, ed->browser.anim_time);
+        // Update the selection highlight
+        f32 target_sel_w = (strlen(ed->browser.items[ed->browser.selection].name_ext) + (ed->browser.items[ed->browser.selection].is_dir ? 1 : 0)) * ctx->glyph_adv;
+        ed->browser.cursor.target_width = (target_sel_w) + 5;
+        ed->browser.cursor.prev_width = ed->browser.cursor.width;
+        
+        adj_cursor_pos = vec2_init(adj_cursor_pos.x, adj_cursor_pos.y - (ctx->line_height * (ed->browser.selection)));
+        cursorUpdate(&ed->browser.cursor, adj_cursor_pos, delta_time);
+    } else if (ed->mode == EDITOR_MODE_SAVE) {
+        dialogUpdate(&ed->sd, ctx, delta_time);
     }
 
     if (ed->scroll_mode != SCROLL_MODE_MOUSE) {
-
         ed->target_scroll_pos = vec2_init(ed->scroll_pos.x, ed->scroll_pos.y);
 
-        // If  the cursor is moving down
-        if (ed->cursor.target_screen_pos.y <= (ed->frame.y + (ed->scroll_stop_bottom * ed->line_height)) && ed->scroll_pos.y < (ed->line_height * ed->line_count)) {
-            ed->target_scroll_pos.y += ed->line_height;
-        // If the cursor is moving up
-        } else if (ed->cursor.target_screen_pos.y >= (ed->frame.y + ed->frame.h - (ed->scroll_stop_top* ed->line_height)) && ed->scroll_pos.y > 0.0) {
-            ed->target_scroll_pos.y -= ed->line_height;
+        f32 bottom_scroll_bound = ed->frame.y + (ed->scroll_stop_bottom * ctx->line_height);
+        f32 top_scroll_bound = ed->frame.y + ed->frame.h - (ed->scroll_stop_top * ctx->line_height);
+        f32 bottom_line_y = ctx->line_height * ed->line_count;
+        
+        if (ed->cursor.target_screen_pos.y <= bottom_scroll_bound && ed->scroll_pos.y < bottom_line_y) {
+            ed->target_scroll_pos.y += ctx->line_height;
+        } else if (ed->cursor.target_screen_pos.y >= top_scroll_bound && ed->scroll_pos.y > 0.0) {
+            ed->target_scroll_pos.y -= ctx->line_height;
         }
-        ed->scroll_pos = vec2_lerp(ed->scroll_pos, ed->target_scroll_pos, (f32)delta_time  * 35.0f);
-    } else {
-        ed->scroll_pos = vec2_lerp(ed->scroll_pos, ed->target_scroll_pos, (f32)delta_time  * 35.0f);
     }
 
+    ed->scroll_pos = vec2_lerp(ed->scroll_pos, ed->target_scroll_pos, (f32)delta_time  * 35.0f);
+
     // Update frame
-    f32 STATUS_LINE_HEIGHT = ed->line_height;
-    ed->frame = rect_init(0,0 + STATUS_LINE_HEIGHT, screen_width, screen_height - STATUS_LINE_HEIGHT);
-    ed->text_pos = vec2_init(ed->text_pos.x, 0 + screen_height);
-    calculateGutterWidth(ed);
+    f32 STATUS_LINE_HEIGHT = ctx->line_height;
+    ed->frame = rect_init(0,0 + STATUS_LINE_HEIGHT, ctx->screen_width, ctx->screen_height - STATUS_LINE_HEIGHT);
+    ed->text_pos = vec2_init(ed->text_pos.x, 0 + ctx->screen_height);
+    calculateGutterWidth(ed, ctx);
 
     // Update the lexer
     if (ed->dirty) {
@@ -334,24 +295,9 @@ void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, f64 delta_tim
         free(data);
         ed->dirty = false;
     }
-
-    // Update the cursor
-    ed->cursor.blink_time += (f32)delta_time;
-    if (ed->cursor.blink_time >= ed->cursor.blink_rate) {
-        ed->cursor.blink_time = 0.0;
-        ed->cursor.target_alpha = ed->cursor.target_alpha == 1.0 ? 0.0 : 1.0;
-    }
-    if (ed->cursor_move_last_frame) {
-        ed->cursor.alpha = 1.0;
-        ed->cursor.target_alpha = 1.0;
-        ed->cursor.blink_time = 0.0;
-        ed->cursor_move_last_frame = false;
-    } else {
-        ed->cursor.alpha = ease_out(ed->cursor.alpha, ed->cursor.target_alpha, ed->cursor.blink_time);
-    }
 }
 
-void loadFromFile(Editor *ed, const char *file_path) {
+void editorLoadFile(Editor *ed, AppContext *ctx, const char *file_path) {
     // Get file info
     const char *file_ext = getFileExtFromPath(file_path);
     char *file_name = getFileNameFromPath(file_path);
@@ -376,10 +322,10 @@ void loadFromFile(Editor *ed, const char *file_path) {
         for (size_t i = 0; i < nread; i++) {
             if (read_buf[i] == '\t') {
                 for (size_t i = 0; i < (size_t)ed->tab_stop; i++) {
-                    insertCharacter(ed, ' ', true);
+                    editorInsertCharacter(ed, ' ', true);
                 }
             } else {
-                insertCharacter(ed, read_buf[i], true);
+                editorInsertCharacter(ed, read_buf[i], true);
             }
         }
     }
@@ -393,10 +339,10 @@ void loadFromFile(Editor *ed, const char *file_path) {
     ed->goal_column = -1;
     ed->file_path = file_path;
     ed->dirty = true;
-    calculateGutterWidth(ed);
+    calculateGutterWidth(ed, ctx);
 }
 
-void writeToFile(Editor *ed) {
+void editorWriteFile(Editor *ed) {
     if (!ed->file_path) {
         LOG_ERROR("Writing a blank file to disk is not supported!", "");
         return;
@@ -418,131 +364,131 @@ void writeToFile(Editor *ed) {
     LOG_INFO("Wrote to disk: %s", ed->file_path);
 }
 
-void clearBuffer(Editor *ed) {
+void editorClearBuffer(Editor *ed) {
     gapBufferDestroy(ed->buf);
     ed->buf = gapBufferInit(INITIAL_BUFFER_SIZE);
-    ed->cursor = cursorInit(vec2_init(ed->frame.x, ed->frame.h), 1.0);
+    ed->cursor = cursorInit(vec2_init(ed->frame.x, ed->frame.h),  1.0);
     ed->goal_column = -1;
     ed->scroll_pos = vec2_init(0,0);
     ed->line_count = 1;
     ed->dirty = true;
 }
 
-void moveEndOfNextWord(Editor *ed) {
+void editorMoveEndOfNextWord(Editor *ed) {
     ed->scroll_mode = SCROLL_MODE_CURSOR;
     size_t prev_pos = ed->cursor.buffer_pos;
-    moveCursorRight(ed);
+    editorMoveRight(ed);
     char c = getBufChar(ed->buf, ed->cursor.buffer_pos);
     
     // skip spaces
     if (isspace(c)) {
         while (isspace(c) && c != '\n' && ed->cursor.buffer_pos != getBufLength(ed->buf)) {
-            moveCursorRight(ed);
+            editorMoveRight(ed);
             c = getBufChar(ed->buf, ed->cursor.buffer_pos);
         } 
     }
 
     if (ispunct(c) && c != '_') {
         while (ispunct(c) && c != '_' && ed->cursor.buffer_pos != getBufLength(ed->buf)) {
-            moveCursorRight(ed);
+            editorMoveRight(ed);
             c = getBufChar(ed->buf, ed->cursor.buffer_pos);
         }
     } else if (isalnum(c) || c == '_'){
         while ((isalnum(c) || c == '_') && ed->cursor.buffer_pos != getBufLength(ed->buf)) {
-            moveCursorRight(ed);
+            editorMoveRight(ed);
             c = getBufChar(ed->buf, ed->cursor.buffer_pos);
         }
     }
     ed->cursor.prev_buffer_pos = prev_pos;
 }
 
-void moveBegOfPrevWord(Editor *ed) {
+void editorMoveBegOfPrevWord(Editor *ed) {
     ed->scroll_mode = SCROLL_MODE_CURSOR;
     size_t prev_pos = ed->cursor.buffer_pos;
-    moveCursorLeft(ed);
+    editorMoveLeft(ed);
     char c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
     
     // skip spaces
     if (isspace(c)) {
         while (isspace(c) && c != '\n' && ed->cursor.buffer_pos != 0) {
-            moveCursorLeft(ed);
+            editorMoveLeft(ed);
             c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
         } 
     }
 
     if (ispunct(c) && c != '_') {
         while (ispunct(c) && c != '_' && ed->cursor.buffer_pos != 0) {
-            moveCursorLeft(ed);
+            editorMoveLeft(ed);
             c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
         }
     } else if (isalnum(c) || c == '_'){
         while ((isalnum(c) || c == '_') && ed->cursor.buffer_pos != 0) {
-            moveCursorLeft(ed);
+            editorMoveLeft(ed);
             c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
         }
     }
     ed->cursor.prev_buffer_pos = prev_pos;
 }
 
-void deleteWordLeft(Editor *ed) {
+void editorDeleteWordLeft(Editor *ed) {
     ed->scroll_mode = SCROLL_MODE_CURSOR;
-    deleteCharacterLeft(ed);
+    editorDeleteCharLeft(ed);
     char c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
     
     // skip spaces
     if (isspace(c)) {
         while (isspace(c) && c != '\n' && ed->cursor.buffer_pos != 0) {
-            deleteCharacterLeft(ed);
+            editorDeleteCharLeft(ed);
             c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
         } 
     }
 
     if (ispunct(c) && c != '_') {
         while (ispunct(c) && c != '_' && ed->cursor.buffer_pos != 0) {
-            deleteCharacterLeft(ed);
+            editorDeleteCharLeft(ed);
             c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
         }
     } else if (isalnum(c) || c == '_'){
         while ((isalnum(c) || c == '_') && ed->cursor.buffer_pos != 0) {
-            deleteCharacterLeft(ed);
+            editorDeleteCharLeft(ed);
             c = getBufChar(ed->buf, getPrevCharCursor(ed->buf, ed->cursor.buffer_pos));
         }
     }
 }
 
-void deleteWordRight(Editor *ed) {
+void editorDeleteWordRight(Editor *ed) {
     ed->scroll_mode = SCROLL_MODE_CURSOR;
     char c = getBufChar(ed->buf, ed->cursor.buffer_pos);
     
     // We don't want to skip here - if there are spaces we want to delete those
     // and let the user choose to delete more.
     if (c == '\n') {
-        deleteCharacterRight(ed);
+        editorDeleteCharRight(ed);
     } else if (isspace(c) && c != '\n') {
         while (isspace(c) && c != '\n') {
-            deleteCharacterRight(ed);
+            editorDeleteCharRight(ed);
             c = getBufChar(ed->buf, ed->cursor.buffer_pos);
         } 
     } else if (ispunct(c) && c != '_') {
         while (ispunct(c) && c != '_') {
-            deleteCharacterRight(ed);
+            editorDeleteCharRight(ed);
             c = getBufChar(ed->buf, ed->cursor.buffer_pos);
         }
     } else if (isalnum(c) || c == '_'){
         while (isalnum(c) || c == '_') {
-            deleteCharacterRight(ed);
+            editorDeleteCharRight(ed);
             c = getBufChar(ed->buf, ed->cursor.buffer_pos);
         }
     }
 }
 
-void moveCursorToMousePos(Editor *ed, vec2 screen_pos) {
-    ed->cursor_move_last_frame = true;
-    i32 row = MAX((i32)((ed->scroll_pos.y + screen_pos.y) / ed->line_height), 0);
-    i32 col = MAX((i32)((screen_pos.x - ed->text_pos.x + (ed->glyph_adv * 0.5)) / ed->glyph_adv), 0);
+void moveCursorToMousePos(Editor *ed, AppContext *ctx, vec2 screen_pos) {
+    ed->cursor.moved_last_frame = true;
+    i32 row = MAX((i32)((ed->scroll_pos.y + screen_pos.y) / ctx->line_height), 0);
+    i32 col = MAX((i32)((screen_pos.x - ed->text_pos.x + (ctx->glyph_adv * 0.5)) / ctx->glyph_adv), 0);
 
     // clamp to maximum line
-    i32 max_row = MIN((i32)((ed->scroll_pos.y + ed->frame.h) / ed->line_height), (i32)ed->line_count - 1);
+    i32 max_row = MIN((i32)((ed->scroll_pos.y + ed->frame.h) / ctx->line_height), (i32)ed->line_count - 1);
     row = MIN(max_row, row);
 
     // move the cursor to the correct line
@@ -575,23 +521,23 @@ void moveCursorToMousePos(Editor *ed, vec2 screen_pos) {
     ed->cursor.buffer_pos = i;
     ed->cursor.disp_column = getBufColumn(ed->buf, ed->cursor.buffer_pos) + 1;
     ed->cursor.disp_row = row + 1;
-    ed->cursor.anim_time = 0.0f;
+    ed->cursor.pos_anim_time = 0.0f;
     ed->goal_column = ed->cursor.disp_column;
 }
 
-void scrollWithMouseWheel(Editor *ed, f32 yoffset) {
+void scrollWithMouseWheel(Editor *ed, AppContext *ctx, f32 yoffset) {
     ed->scroll_mode = SCROLL_MODE_MOUSE;
-    ed->target_scroll_pos.y += (-1.0 * yoffset) * (ed->line_height * ed->scroll_speed);
+    ed->target_scroll_pos.y += (-1.0 * yoffset) * (ctx->line_height * ed->scroll_speed);
 
     // clamp the max scroll
-    if (ed->target_scroll_pos.y > (ed->line_height * (ed->line_count - 1.0))) {
-        ed->target_scroll_pos.y = (ed->line_height * (ed->line_count - 1.0));
+    if (ed->target_scroll_pos.y > (ctx->line_height * (ed->line_count - 1.0))) {
+        ed->target_scroll_pos.y = (ctx->line_height * (ed->line_count - 1.0));
     } else if (ed->target_scroll_pos.y < 0) {
         ed->target_scroll_pos.y = 0;
     }
 }
 
-void makeSelection (Editor *ed) {
+void editorMakeSelection (Editor *ed) {
     if (ed->cursor.buffer_pos != ed->cursor.prev_buffer_pos) {
         
         i32 new_selection_size = (i32)ed->cursor.buffer_pos - (i32)ed->cursor.prev_buffer_pos;
@@ -602,39 +548,39 @@ void makeSelection (Editor *ed) {
     }
 }
 
-void unselectSelection(Editor *ed) {
+void editorUnselectSelection(Editor *ed) {
     ed->cursor.selection_size = 0;
 }
 
 static void deleteSelectionLeft(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
         ed->scroll_mode = SCROLL_MODE_CURSOR;
-        ed->cursor_move_last_frame = true;
+        ed->cursor.moved_last_frame = true;
         size_t i = ed->cursor.buffer_pos;
         size_t selection_beg = ed->cursor.buffer_pos - ed->cursor.selection_size;
         while (i > selection_beg) {
-            deleteCharacterLeft(ed);
+            editorDeleteCharLeft(ed);
             i--;
         }
-        unselectSelection(ed);
+        editorUnselectSelection(ed);
     }
 }
 
 static void deleteSelectionRight(Editor *ed) {
     if (ed->mode != EDITOR_MODE_OPEN) {
         ed->scroll_mode = SCROLL_MODE_CURSOR;
-        ed->cursor_move_last_frame = true;
+        ed->cursor.moved_last_frame = true;
         size_t i = ed->cursor.buffer_pos;
         size_t selection_end = ed->cursor.buffer_pos - ed->cursor.selection_size;
         while (i < selection_end) {
-            deleteCharacterRight(ed);
+            editorDeleteCharRight(ed);
             i++;
         }
-        unselectSelection(ed);
+        editorUnselectSelection(ed);
     }
 }
 
-void deleteSelection(Editor *ed) {
+void editorDeleteSelection(Editor *ed) {
     if (ed->cursor.selection_size > 0) {
         deleteSelectionLeft(ed);
     } else if (ed->cursor.selection_size < 0) {

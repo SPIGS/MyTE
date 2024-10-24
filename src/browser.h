@@ -6,6 +6,7 @@
 #include <errno.h>
 #include <sys/stat.h>
 #include "util.h"
+#include "cursor.h"
 
 typedef struct {
     char *full_path;
@@ -26,13 +27,7 @@ typedef struct {
     // Render info
     vec2 scroll_pos;
 
-    vec2 sel_screen_pos;
-    vec2 sel_prev_screen_pos;
-    vec2 sel_target_screen_pos;
-    vec2 sel_size;
-    vec2 sel_prev_size;
-    vec2 sel_target_size;
-    f32 anim_time;
+    Cursor cursor;
 } FileBrowser;
 
 void fileBrowserInit(FileBrowser *fb, vec2 selection_screen_pos, const char * cur_dir);

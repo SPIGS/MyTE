@@ -9,6 +9,7 @@
 #include "editor.h"
 #include "config.h"
 #include "keys.h"
+#include "context.h"
 
 #define MAX_COMMANDS 100
 
@@ -24,7 +25,6 @@ typedef struct {
     void (*command)();
 } Command;
 
-
 typedef struct {
     // The window for this application - this lives for the entire program.
     GLFWwindow *window;
@@ -35,7 +35,6 @@ typedef struct {
     Editor editor;
     Config config;
     ColorTheme theme;
-    u32 font_id;
 
     char *status_message;
     f32 status_disp_time;
@@ -46,6 +45,8 @@ typedef struct {
     KeyBind keybinds[MAX_COMMANDS];
     size_t numCommands;
     size_t numKeybinds;
+
+    AppContext ctx;
 } Application;
 
 void applicationInit(Application *app, int argc, char **argv);
@@ -86,10 +87,16 @@ void Command_deleteWordRight(Application *app);
 
 void Command_unselect(Application *app);
 
+void Command_returnToEditor(Application *app);
+
 void Command_openBrowser(Application *app);
-void Command_closeBrowser(Application *app);
 void Command_write(Application *app);
 
 void Command_decrementSelection(Application *app);
 void Command_incrementSelection(Application *app);
 void Command_openSelection(Application *app);
+
+void Command_reloadConfig(Application *app);
+
+void Command_openSaveDialog(Application *app);
+void Command_submitSaveDialog(Application *app);

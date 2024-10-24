@@ -5,6 +5,9 @@
 #include "util.h"
 #include "lexer.h"
 #include "browser.h"
+#include "cursor.h"
+#include "dialog.h"
+#include "context.h"
 
 #define CURSOR_SPEED 3.5
 #define INIT_EDITOR_FRAME rect_init(10, 0, INITIAL_SCREEN_WIDTH - 10, INITIAL_SCREEN_HEIGHT - 200)
@@ -21,31 +24,6 @@ typedef enum {
 } ScrollMode;
 
 typedef struct {
-    size_t buffer_pos;
-    size_t prev_buffer_pos;
-    vec2 screen_pos;
-    vec2 prev_screen_pos;
-    vec2 target_screen_pos;
-    f32 anim_time;
-
-    // display coordinates
-    size_t disp_column;
-    size_t disp_row;
-
-    // Blinking
-    f32 blink_time;
-    f32 blink_rate;
-    f32 alpha;
-    f32 target_alpha;
-
-    // Selection
-    i32 selection_size;
-    vec2 screen_pos_beg_selection;
-} Cursor;
-
-Cursor cursorInit(vec2 init_screen_pos, f32 blink_rate);
-
-typedef struct {
     vec2 screen_pos;
     f32 gutter_width;
     i32 digits;
@@ -54,11 +32,19 @@ typedef struct {
 Gutter gutterInit(vec2 screen_pos, f32 glyph_adv);
 
 typedef struct {
-    // Buffer / cursor movement
+    FileBrowser browser;
+    Gutter gutter;
+    SaveDialog sd;
+
     GapBuffer *buf;
     Cursor cursor;
     i32 goal_column;
-    Gutter gutter;
+    
+    EditorMode mode;
+
+    // Lexing stuff
+    Lexer lexer;
+    bool dirty;
 
     // Used to draw the editor
     rect frame;
@@ -69,15 +55,7 @@ typedef struct {
 
     // Stats to keep track of
     size_t line_count;
-    f32 line_height;
     const char *file_path;
-    f32 glyph_adv;
-    f32 descender;
-    bool cursor_move_last_frame;
-
-    // Lexing stuff
-    Lexer lexer;
-    bool dirty;
 
     // Configuration stuff
     i32 tab_stop;
@@ -85,48 +63,39 @@ typedef struct {
     i32 scroll_speed;
     i32 scroll_stop_top;
     i32 scroll_stop_bottom;
-
-    // Editor modes
-    EditorMode mode;
-
-    // File Browser stuff
-    FileBrowser browser;
-
+      
 } Editor;
 
-void editorInit(Editor *ed, rect frame, f32 line_height, f32 glyph_adv, f32 descender, const char *cur_dir);
+void editorInit(Editor *ed, rect frame, AppContext *ctx, const char *cur_dir);
 void editorDestroy(Editor *ed);
 void editorLoadConfig(Editor *ed, Config *config);
-void editorChangeMode(Editor *ed, EditorMode new_mode);
-void calculateGutterWidth(Editor *ed);
-char *getContents(Editor *ed);
-void loadFromFile(Editor *ed, const char *file_path);
-void writeToFile(Editor *ed);
-void editorUpdate(Editor *ed, f32 screen_width, f32 screen_height, f64 delta_time);
-void setCursorTargetScreenPos(Editor *ed, vec2 new_target);
-void lerpCursorScreenPos(Editor *ed);
+void editorChangeMode(Editor *ed, AppContext *ctx, EditorMode new_mode);
+
+void editorLoadFile(Editor *ed, AppContext *ctx, const char *file_path);
+void editorWriteFile(Editor *ed);
+void editorUpdate(Editor *ed, AppContext *ctx, f64 delta_time);
 
 // Cursor Movements
-void moveCursorLeft(Editor *ed);
-void moveCursorRight(Editor *ed);
-void moveCursorUp(Editor *ed);
-void moveCursorDown(Editor *ed);
-void moveEndOfNextWord(Editor *ed);
-void moveBegOfPrevWord(Editor *ed);
+void editorMoveLeft(Editor *ed);
+void editorMoveRight(Editor *ed);
+void editorMoveUp(Editor *ed);
+void editorMoveDown(Editor *ed);
+void editorMoveEndOfNextWord(Editor *ed);
+void editorMoveBegOfPrevWord(Editor *ed);
 
 // Buffer manipulation
-void clearBuffer(Editor *ed);
-void insertCharacter(Editor *ed, char character, bool move_cursor_forward);
-void deleteCharacterLeft(Editor *ed);
-void deleteCharacterRight(Editor *ed);
-void deleteWordLeft(Editor *ed);
-void deleteWordRight(Editor *ed);
+void editorClearBuffer(Editor *ed);
+void editorInsertCharacter(Editor *ed, char character, bool move_cursor_forward);
+void editorDeleteCharLeft(Editor *ed);
+void editorDeleteCharRight(Editor *ed);
+void editorDeleteWordLeft(Editor *ed);
+void editorDeleteWordRight(Editor *ed);
 
 // Mouse controls
-void moveCursorToMousePos(Editor *ed, vec2 mouse_pos);
-void scrollWithMouseWheel(Editor *ed, f32 yoffset);
+void moveCursorToMousePos(Editor *ed, AppContext *ctx, vec2 mouse_pos);
+void scrollWithMouseWheel(Editor *ed, AppContext *ctx, f32 yoffset);
 
 // Selection manipulation
-void makeSelection(Editor *ed);
-void unselectSelection(Editor *ed);
-void deleteSelection(Editor *ed);
+void editorMakeSelection(Editor *ed);
+void editorUnselectSelection(Editor *ed);
+void editorDeleteSelection(Editor *ed);
