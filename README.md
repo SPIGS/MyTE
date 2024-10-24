@@ -25,7 +25,8 @@ MyTE currently has two modes - an editor mode and a file browsing mode. The edit
     - `CTRL + left/right` move the cursor back/forward one whole word.
     - `CTRL + BACKSPACE/DELETE` backspaces/deletes a whole word.
     - `CTRL + O` opens file browsing mode
-    - `CTRL + S` saves the current file to disk (doesn't work for new unnamed files)
+    - `CTRL + S` saves the current file to disk
+    - `CTRL + SHIFT + S` opens a save dialog to save a new file.
     - `MOUSE LEFT` moves to the cursor to the position you clicked in the buffer
     - `MOUSE SCROLL` scrolls the buffer
     - `SHIFT + arrows/mouse` selects text
@@ -33,11 +34,8 @@ MyTE currently has two modes - an editor mode and a file browsing mode. The edit
     - `up/down` moves the selection up and down the directory listing.
     - `ENTER` opens the selected directory/file
     - `ESCAPE` closes the file browser and goes back to editor mode.
- - **Special global shortcuts (temporary)**
-    - `F1` writes the content of the editor to the currently open file path (this is used for debugging)
-    - `F3` pretty prints contents of the editor to console
+ - **Special global shortcuts**
     - `F5` completely hot reloads the application (user configs, themes, and the current file)
-    - `F12` clears the editor
   
 ## Configuration
 
