@@ -1,4 +1,5 @@
 .vscode
 *.o
 /build
+.cache/
 myte

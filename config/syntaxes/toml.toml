@@ -1,7 +1,0 @@
-[highlighting]
-    keywords = ["true", "false", "inf", "nan"]
-    symbols = [ "(", ")", "{", "}", "[", "]", "*", "=", "+", "-", ":" ]
-    comment_single_prefix = "#"
-    comment_multi_begin = "/*"
-    comment_multi_end = "*/"
-    identifier_heuristics = false

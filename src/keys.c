@@ -1,7 +1,9 @@
 #include "keys.h"
+#include <GLFW/glfw3.h>
+#include <string.h>
 
 // Is there a better way of doing this?
-static KeyMapping keyMappings[] = {
+static const KeyNameMapping KEY_MAPPINGS[] = {
     {"space", GLFW_KEY_SPACE},
     {"apostrophe", GLFW_KEY_APOSTROPHE},  /* ' */
     {"comma", GLFW_KEY_COMMA},            /* , */
@@ -119,14 +121,16 @@ static KeyMapping keyMappings[] = {
     {"control", GLFW_KEY_LEFT_CONTROL},
     {"alt", GLFW_KEY_LEFT_ALT},
     {"super", GLFW_KEY_LEFT_SUPER},
+    {"cmd", GLFW_KEY_LEFT_SUPER},
+    {"windows", GLFW_KEY_LEFT_SUPER},
 
     {"menu", GLFW_KEY_MENU}
 };
 
-int getKeyFromString (const char *keyName) {
-    for (size_t i = 0; i < sizeof(keyMappings) / sizeof(KeyMapping); i++) {
-        if (strcmp(keyMappings[i].name, keyName) == 0) {
-            return keyMappings[i].key;
+int getKeyFromString(const char *key_name) {
+    for (size_t i = 0; i < sizeof(KEY_MAPPINGS) / sizeof(KeyNameMapping); i++) {
+        if (strcmp(KEY_MAPPINGS[i].name, key_name) == 0) {
+            return KEY_MAPPINGS[i].key;
         }
     }
     return -1;
