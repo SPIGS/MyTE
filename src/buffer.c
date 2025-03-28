@@ -6,6 +6,7 @@
 
 #include "buffer.h"
 #include "putils/pmath.h"
+#include "putils/unicode.h"
 
 
 GapBuffer *gapBufferNew(size_t inital_size) {
@@ -137,6 +138,14 @@ UnicodeChar removeGraphemeAfterGap(GapBuffer *buf, size_t cursor) {
         return removed_char;
     }
     return 0;
+}
+
+UnicodeChar *getBufferString(GapBuffer *buf) {
+    UnicodeChar *graphemes = (UnicodeChar *)malloc(sizeof(UnicodeChar) * getBufLength(buf));
+    memcpy(graphemes, buf->data, sizeof(UnicodeChar) * buf->gap_start);
+    memcpy(graphemes + buf->gap_start, buf->data + buf->gap_end, sizeof(UnicodeChar) * (buf->end - buf->gap_end));
+
+    return graphemes;
 }
 
 void outputBufferString(GapBuffer *buf, size_t cursor) {

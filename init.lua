@@ -10,6 +10,7 @@ Myte.bind("f2", "testBuiltin")
 Myte.bind("left", "moveCursorLeft")
 Myte.bind("right", "moveCursorRight")
 Myte.bind("backspace", "deleteGraphemeLeft")
+Myte.bind("delete", "deleteGraphemeRight")
 
 Myte.a = 69
 Myte.b = 4.20

@@ -1,9 +1,9 @@
 #include "unicode.h"
 #include <stdlib.h>
 
-UnicodeChar packUTF8(const char *bytes, size_t len) {
+UnicodeChar packUTF8(const char *bytes, size_t len_bytes) {
     UnicodeChar uc = 0;
-    for (size_t i = 0; i < len; i++) {
+    for (size_t i = 0; i < len_bytes; i++) {
         uc |= ((UnicodeChar)(uint8_t)bytes[i]) << (i * 8);
     }
     return uc;

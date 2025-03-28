@@ -4,14 +4,16 @@
 #include "config.h"
 #include "putils/defines.h"
 #include "api.h"
-#include "buffer.h"
+#include "editor.h"
+#include "renderer.h"
 
 typedef struct _Application{
     GLFWwindow *window;
+    Renderer *r;
     lua_State *L;
     Config *conf;
     CommandRegistry *reg;
-    GapBuffer *buf;
+    Editor *ed;
 } Application;
 
 Application *applicationNew(int argc, char **argv);

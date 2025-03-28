@@ -67,6 +67,7 @@ hashmap *hashmapNew(void) {
 void hashmapFree(hashmap *m) {
   for (size_t i = 0; i < m->capacity; i++) {
     free((void*)m->entries[i].key);
+    free((void*)m->entries[i].value);
   }
 
   free(m->entries);
@@ -128,7 +129,7 @@ static const char* hashmapSetEntry(hashmapEntry* entries, size_t capacity,
         if (!key_copy) return NULL;
         strcpy(key_copy, key);
         (*plength)++;
-        entries[index].key = key_copy;
+        key = key_copy;
     }
     entries[index].key = (char*)key;
     entries[index].value = value;

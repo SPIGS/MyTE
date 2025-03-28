@@ -6,37 +6,46 @@
 #include <stdlib.h>
 #include "buffer.h"
 #include "config.h"
+#include "editor.h"
+#include "putils/color.h"
 #include "putils/defines.h"
 #include "putils/log.h"
 #include "putils/pstring.h"
 #include "application.h"
 #include "command.h"
+#include "putils/unicode.h"
+#include "renderer.h"
 
-#define INITIAL_SCREEN_WIDTH 1280
-#define INITIAL_SCREEN_HEIGHT 720
 
-// NOTE: temporary
-size_t cursor = 0;
-void testCommand(Application *app) {
+
+// The command name must be prefixed with "_" or the macro won't work
+#define REGISTER_COMMAND(reg, command) \
+    registryPushCommand(reg, #command, CMD_TYPE_BUILTIN, _##command);
+
+// The command name must be prefixed with "_" or the macro won't work
+#define COMMAND(command) \
+    void _##command(Application *app)
+
+
+COMMAND(testBuiltin) {
     LOG_DEBUG("Builtin command!", "");
-    cursor = insertIntoBuf(app->buf, cursor, "ぁあぃいぅうぇえぉお");
-    outputBufferString(app->buf, cursor);
+    editorInsert(app->ed, "¶ Þẞðþſß ΓΔΛαβγδηθικλμνξπτυφχψ ЖЗКНРУЭЯавжзклмнруфчьыэя");
 }
 
-void moveCursorLeft(Application *app) {
-    cursor = getPrevGraphemeCursor(app->buf, cursor);
-    outputBufferString(app->buf, cursor);
+COMMAND(moveCursorLeft) {
+    editorMoveLeft(app->ed);
 }
 
-void moveCursorRight(Application *app) {
-    cursor = getNextGraphemeCursor(app->buf, cursor);
-    outputBufferString(app->buf, cursor);
+COMMAND(moveCursorRight) {
+    editorMoveRight(app->ed);
 }
 
-void deleteGraphemeLeft(Application *app) {
-    removeGraphemeBeforeGap(app->buf, cursor);
-    cursor = getPrevGraphemeCursor(app->buf, cursor);
-    outputBufferString(app->buf, cursor);
+COMMAND(deleteGraphemeLeft) {
+    editorDeleteLeft(app->ed);
+}
+
+COMMAND(deleteGraphemeRight) {
+    editorDeleteRight(app->ed);
 }
 
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
@@ -51,6 +60,11 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
                 registryExecuteCommand(app->reg, app, app->reg->binds[i].cmd_name);
             }
         }
+
+        if (key == GLFW_KEY_ENTER) {
+            char bytes[2] = {'\n', '\0'};
+            editorInsert(app->ed, bytes);
+        }
     }
 }
 
@@ -58,12 +72,19 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
 void characterCallback(GLFWwindow *window, unsigned int codepoint) {
     LOG_DEBUG("%c", codepoint);
     Application *app = glfwGetWindowUserPointer(window);
-    char buffer[2] = {codepoint, '\0'};
-    cursor = insertIntoBuf(app->buf, cursor, buffer);
-    outputBufferString(app->buf, cursor);
+    char bytes[2] = {codepoint, '\0'};
+    editorInsert(app->ed, bytes);
+}
+
+void resizeWindowCallback(GLFWwindow *window, int width, int height) {
+    Application *app = glfwGetWindowUserPointer(window);
+    rendererResizeWindow(app->r, width, height);
+    LOG_DEBUG("Resized window.", "");
 }
 
 Application *applicationNew(int argc, char **argv) {
+    glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+
     if (!glfwInit()) {
         LOG_ERROR("Failed to init GLFW", "");
         return NULL;
@@ -85,6 +106,7 @@ Application *applicationNew(int argc, char **argv) {
     glfwSetWindowUserPointer(app->window, app);
     glfwSetKeyCallback(app->window, keyCallback);
     glfwSetCharCallback(app->window, characterCallback);
+    glfwSetFramebufferSizeCallback(app->window, resizeWindowCallback);
     
     if (glewInit() != GLEW_OK) {
         glfwTerminate();
@@ -97,12 +119,13 @@ Application *applicationNew(int argc, char **argv) {
     // Load default config
     app->conf = configCreate();
 
-    // Register commands
+    // Register built-in commands
     app->reg = registryNew();
-    registryPushCommand(app->reg,  "testBuiltin", CMD_TYPE_BUILTIN, testCommand);
-    registryPushCommand(app->reg, "moveCursorLeft", CMD_TYPE_BUILTIN, moveCursorLeft);
-    registryPushCommand(app->reg, "moveCursorRight", CMD_TYPE_BUILTIN, moveCursorRight);
-    registryPushCommand(app->reg, "deleteGraphemeLeft",CMD_TYPE_BUILTIN, deleteGraphemeLeft);
+    REGISTER_COMMAND(app->reg, testBuiltin);
+    REGISTER_COMMAND(app->reg, moveCursorLeft);
+    REGISTER_COMMAND(app->reg, moveCursorRight);
+    REGISTER_COMMAND(app->reg, deleteGraphemeLeft);
+    REGISTER_COMMAND(app->reg, deleteGraphemeRight);
 
     // Setup lua context
     lua_State *L = luaL_newstate();
@@ -117,19 +140,21 @@ Application *applicationNew(int argc, char **argv) {
     app->L = L;
     configLoad(app->conf, L);
 
-    glEnable(GL_BLEND);
-    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+    //Initialize renderer
+    app->r = rendererNew(COLOR_BLACK);
 
-    app->buf = gapBufferNew(64);
+    // Open an editor
+    app->ed = editorNew();
 
     return app;
 }
 
 void applicationDestroy(Application *app) {
     glfwDestroyWindow(app->window);
+    rendererDestroy(app->r);
     lua_close(app->L);
     configDestroy(app->conf);
-    gapBufferDestroy(app->buf);
+    editorDestroy(app->ed);
     glfwTerminate();
 }
 
@@ -144,7 +169,22 @@ void applicationUpdate(Application *app, f64 delta_time) {
     }
 }
 void applicationRender(Application *app, f64 delta_time) {
-    glClear(GL_COLOR_BUFFER_BIT);
-    glClearColor(0.0, 0.0, 0.5, 1.0);
+    rendererBegin(app->r);
+
+    /*char *bytes = "Á";*/
+    /*UnicodeChar grapheme = packUTF8(bytes, strlen(bytes));*/
+    UnicodeChar *graphemes = getBufferString(app->ed->buf);
+    float x = 10.0f;
+    float y = INITIAL_SCREEN_HEIGHT - 24.0f;
+    for (size_t i = 0; i< getBufLength(app->ed->buf); i++) {
+        if (graphemes[i] == 10) { // newline
+            y -= 24.0f;
+            x = 10.0f;
+            continue;
+        }
+        renderGrapheme(app->r, graphemes[i], &x, y, 1.0, COLOR_WHITE);
+    }
+    free(graphemes);
+    rendererEnd(app->r);
     glfwSwapBuffers(app->window);
 }

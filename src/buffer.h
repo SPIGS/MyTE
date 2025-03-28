@@ -1,6 +1,8 @@
 #pragma once
 #include "putils/unicode.h"
 
+#define INITIAL_BUFFER_SIZE 64
+
 typedef struct {
     UnicodeChar *data;
     size_t gap_start;
@@ -18,6 +20,7 @@ void resizeGap(GapBuffer *buf, size_t required_space);
 size_t insertIntoBuf(GapBuffer *buf, size_t cursor, char *bytes);
 void removeGraphemeBeforeGap(GapBuffer *buf, size_t cursor);
 UnicodeChar removeGraphemeAfterGap(GapBuffer *buf, size_t cursor);
+UnicodeChar *getBufferString(GapBuffer *buf);
 void outputBufferString(GapBuffer *buf, size_t cursor);
 
 size_t getNextGraphemeCursor(GapBuffer *buf, size_t cursor);

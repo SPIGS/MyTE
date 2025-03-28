@@ -1,6 +1,6 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -std=c11 -pedantic -ggdb `pkg-config --cflags gl glew glfw3 lua` -Iinclude
-LDLIBS=-lm `pkg-config --libs gl glew glfw3 lua libgrapheme`
+CFLAGS=-Wall -Wextra -std=c11 -pedantic -ggdb `pkg-config --cflags gl glew glfw3 lua freetype2 harfbuzz` -Iinclude
+LDLIBS=-lm `pkg-config --libs gl glew glfw3 lua libgrapheme freetype2 harfbuzz`
 TARGET=myte
 SRCS=$(shell find src include -name '*.c')
 OBJ=$(patsubst src/%.c, build/%.o, $(SRCS))

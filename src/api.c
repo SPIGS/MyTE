@@ -70,7 +70,7 @@ int lua_bindKey(lua_State *L) {
     return 0;
 }
 
-// LUA API: execute command from lua
+// LUA API: execute a command from lua
 int lua_executeCommand(lua_State *L) {
     const char *name = luaL_checkstring(L, 1);
     if (!name) {
