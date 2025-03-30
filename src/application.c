@@ -171,8 +171,6 @@ void applicationUpdate(Application *app, f64 delta_time) {
 void applicationRender(Application *app, f64 delta_time) {
     rendererBegin(app->r);
 
-    /*char *bytes = "Á";*/
-    /*UnicodeChar grapheme = packUTF8(bytes, strlen(bytes));*/
     UnicodeChar *graphemes = getBufferString(app->ed->buf);
     float x = 10.0f;
     float y = INITIAL_SCREEN_HEIGHT - 24.0f;
@@ -182,9 +180,11 @@ void applicationRender(Application *app, f64 delta_time) {
             x = 10.0f;
             continue;
         }
-        renderGrapheme(app->r, graphemes[i], &x, y, 1.0, COLOR_WHITE);
+        renderGrapheme(app->r, graphemes[i], &x, y, 1.0, COLOR_MAGENTA);
     }
     free(graphemes);
+
+    renderQuad(app->r, 100.0, 100.0, 100.0, 100.0, COLOR_ORANGE);
     rendererEnd(app->r);
     glfwSwapBuffers(app->window);
 }

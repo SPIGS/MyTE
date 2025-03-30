@@ -4,11 +4,13 @@
 #include "freetype/freetype.h"
 #include <harfbuzz/hb.h>
 #include <harfbuzz/hb-ft.h>
+#include "putils/defines.h"
 #include "putils/log.h"
 #include "putils/phashmap.h"
 #include "putils/pmath.h"
 #include "putils/pstring.h"
 #include "putils/unicode.h"
+#include "putils/file.h"
 
 #define FONT_PATH "./iosevka-firamono.ttf"
 #define FONT_SIZE 24
@@ -31,7 +33,8 @@ static void glLogCall(void) {
 
 static GLuint compileShader(GLenum type, const char *src) {
     GLuint shader = glCreateShader(type);
-    GL_CALL(glShaderSource(shader, 1, &src, NULL));
+    i32 src_len = strlen(src);
+    GL_CALL(glShaderSource(shader, 1, &src, &src_len));
     GL_CALL(glCompileShader(shader));
     int success;
     GL_CALL(glGetShaderiv(shader, GL_COMPILE_STATUS, &success));
@@ -40,36 +43,21 @@ static GLuint compileShader(GLenum type, const char *src) {
         GL_CALL(glGetShaderInfoLog(shader, 512, NULL, log));
 	LOG_ERROR("Shader Compilation Error: %s", log);
 	// FIX: handle error
+	exit(1);
     }
     return shader;
 }
 
 static void setupShaders(Renderer *r) {
-    const char *vertex_shader_source = 
-	"#version 330 core\n"
-	"layout (location = 0) in vec4 vertex; // (pos.x, pos.y, tex.s, tex.t)\n"
-	"out vec2 TexCoords;\n"
-	"uniform mat4 projection;\n"
-	"void main() {\n"
-	"gl_Position = projection * vec4(vertex.xy, 0.0, 1.0);\n"
-	"TexCoords = vertex.zw;\n"
-	"}";
-
-    const char *fragment_shader_source = 
-	"#version 330 core\n"
-	"in vec2 TexCoords;\n"
-	"out vec4 color;\n"
-	"uniform sampler2D text;\n"
-	"uniform vec3 textColor;\n"
-	"void main() {\n"
-	"vec4 sampled = vec4(1.0, 1.0, 1.0, texture(text, TexCoords).r);\n"
-	"color = vec4(textColor, 1.0) * sampled;\n"
-	"}";
-
-    GLuint vert_shader_pgm = compileShader(GL_VERTEX_SHADER, vertex_shader_source);
-    GLuint frag_shader_pgm = compileShader(GL_FRAGMENT_SHADER, fragment_shader_source);
 
     r->shader_program = glCreateProgram();
+
+    char *vert_code = readFile("./shaders/glyph_vert.glsl");
+    char *frag_code = readFile("./shaders/glyph_frag.glsl");
+
+    GLuint vert_shader_pgm = compileShader(GL_VERTEX_SHADER, vert_code);
+    GLuint frag_shader_pgm = compileShader(GL_FRAGMENT_SHADER, frag_code);
+
     GL_CALL(glAttachShader(r->shader_program, vert_shader_pgm));
     GL_CALL(glAttachShader(r->shader_program, frag_shader_pgm));
     GL_CALL(glLinkProgram(r->shader_program));
@@ -116,6 +104,24 @@ static bool loadFont(Renderer *r) {
     FT_Set_Pixel_Sizes(r->face, 0, FONT_SIZE);
     return true;
 }
+//~ Helper stuff
+u32 _cached_white = 4096;
+
+u32 rendererGetWhiteTexture(void) {
+	if (_cached_white == 4096) {
+		u32 tex;
+		u8 image[4] = { 255, 255, 255, 255 };
+		glGenTextures(1, &tex);
+		glBindTexture(GL_TEXTURE_2D, tex);
+		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+		_cached_white = tex;
+	}
+	return _cached_white;
+}
 
 Renderer *rendererNew(Color clear_color) {
     glEnable(GL_BLEND);
@@ -132,7 +138,13 @@ Renderer *rendererNew(Color clear_color) {
     r->screen_width = INITIAL_SCREEN_WIDTH;
     r->screen_height = INITIAL_SCREEN_HEIGHT;
     GL_CALL(glUseProgram(r->shader_program));
+    r->proj_loc = glGetUniformLocation(r->shader_program, "projection");
     GL_CALL(glUniformMatrix4fv(r->proj_loc, 1, GL_FALSE, r->projection.a));
+
+    // Set up the white texture which will be used to render solid-color quads
+    // this should set the texture id to 0.
+    u32 tex = rendererGetWhiteTexture();
+    UNUSED(tex);
 
     r->glyphs = hashmapNew();
 
@@ -153,6 +165,8 @@ void rendererBegin(Renderer* r) {
 void rendererEnd(Renderer* r) {
     // TODO:
 }
+
+
 
 // HarfBuzz: Shape text using FreeType font
 static hb_glyph_info_t* shapeText(hb_buffer_t* hb_buffer, FT_Face face, const char* text, unsigned int* glyph_count) {
@@ -263,6 +277,34 @@ void renderGrapheme(Renderer *r, UnicodeChar grapheme, float *x, float y, float 
 
     hb_buffer_destroy(hb_buffer);
     GL_CALL(glBindVertexArray(0));
+}
+
+void renderQuad(Renderer *r, float x, float y, float w, float h, Color color) {
+    u32 texture = rendererGetWhiteTexture();
+    GL_CALL(glUseProgram(r->shader_program));
+    // Pass the text color to the shader
+    GL_CALL(glUniform3f(glGetUniformLocation(r->shader_program, "textColor"), color.r, color.g, color.b));
+
+    GL_CALL(glBindVertexArray(r->vao));
+    // Vertex positions for the quad (x, y, tex_x, tex_y)
+    float vertices[6][4] = {
+	{ x,     y + h, 0.0f, 0.0f }, // Top-left
+	{ x,     y,     0.0f, 1.0f }, // Bottom-left
+	{ x + w, y,     1.0f, 1.0f }, // Bottom-right
+
+	{ x,     y + h, 0.0f, 0.0f }, // Top-left
+	{ x + w, y,     1.0f, 1.0f }, // Bottom-right
+	{ x + w, y + h, 1.0f, 0.0f }  // Top-right
+    };
+
+   // Bind texture and update VBO with new vertices
+    GL_CALL(glBindTexture(GL_TEXTURE_2D, texture));
+    GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, r->vbo));
+    GL_CALL(glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices));
+
+    // Draw the quad
+    GL_CALL(glDrawArrays(GL_TRIANGLES, 0, 6));
+
 }
 
 void rendererResizeWindow (Renderer* r, i32 width, i32 height) {

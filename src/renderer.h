@@ -42,7 +42,6 @@ typedef struct {
     Color clear_color;
 
     // grapheme to gl texture mapping
-    // map<uint32_t, GlyphTexture> glyphs;
     hashmap *glyphs;
 
     FT_Library ft;
@@ -59,5 +58,6 @@ void rendererBegin(Renderer* r);
 void rendererEnd(Renderer* r);
 void rendererResizeWindow (Renderer* r, i32 width, i32 height);
 void renderGrapheme(Renderer *r, UnicodeChar grapheme, float *x, float y, float scale, Color color);
+void renderQuad(Renderer *r, float x, float y, float w, float h, Color color);
 
 u32 rendererLoadFont(Renderer *r, const char *path, u32 size_px);
