@@ -27,9 +27,9 @@
     void _##command(Application *app)
 
 
-COMMAND(testBuiltin) {
+COMMAND(splat) {
     LOG_DEBUG("Builtin command!", "");
-    editorInsert(app->ed, "¶ Þẞðþſß ΓΔΛαβγδηθικλμνξπτυφχψ ЖЗКНРУЭЯавжзклмнруфчьыэя");
+    editorInsert(app->ed, "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\n€ƒ„…†‡ˆ‰Š‹ŒŽ˜™š›œžŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ\n·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ\nΓΔΛαβγδηθικλμνξπτυφχψ\nЖЗКНРУЭЯавжзклмнруфчьыэя\nᚠᚡᚢᚣᚤᚥᚦᚧᚨᚩᚪᚫᚬᚭᚮᚯᚰᚱᚲᚳᚴᚵᚶᚷᚸᚹᚺᚻᚼᚽᚾᚿᛀᛁᛂᛃᛄᛅᛆᛇᛈᛉᛊᛋᛌᛍᛎᛏᛐᛑᛒᛓᛔᛕᛖᛗᛘᛙᛚᛛᛜᛝᛞᛟᛠᛡᛢᛣᛤᛥᛦᛧᛨᛩᛪ᛫᛬᛭ᛮᛯᛰ\nԱԲԳԴԵԶԷԸԹԺԻԼԽԾԿՀՁՂՃՄՅՆՇՈՉՊՋՌՍՎՏՐՑՒՓՔՕՖՙ՚՛՜՝՞՟ՠաբգդեզէըթժիլխծկհձղճմյնշոչպջռսվտրցւփքօֆևֈ։֊\nぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろゎわゐゑをんゔゕゖ゛゜ゝゞゟ\n");
 }
 
 COMMAND(moveCursorLeft) {
@@ -79,7 +79,6 @@ void characterCallback(GLFWwindow *window, unsigned int codepoint) {
 void resizeWindowCallback(GLFWwindow *window, int width, int height) {
     Application *app = glfwGetWindowUserPointer(window);
     rendererResizeWindow(app->r, width, height);
-    LOG_DEBUG("Resized window.", "");
 }
 
 Application *applicationNew(int argc, char **argv) {
@@ -121,7 +120,7 @@ Application *applicationNew(int argc, char **argv) {
 
     // Register built-in commands
     app->reg = registryNew();
-    REGISTER_COMMAND(app->reg, testBuiltin);
+    REGISTER_COMMAND(app->reg, splat);
     REGISTER_COMMAND(app->reg, moveCursorLeft);
     REGISTER_COMMAND(app->reg, moveCursorRight);
     REGISTER_COMMAND(app->reg, deleteGraphemeLeft);
@@ -183,7 +182,13 @@ void applicationRender(Application *app, f64 delta_time) {
         renderGrapheme(app->r, graphemes[i], &x, y, 1.0, COLOR_MAGENTA);
     }
     free(graphemes);
+    
+    float fps = 1.0f / delta_time;
+    string fps_str = stringNew("");
+    fps_str = stringFmt(fps_str, "FPS: %f", fps);
+    stringFree(fps_str);
 
+    rendererText(app->r, fps_str, 10.0, 10.0, COLOR_RED);
     renderQuad(app->r, 100.0, 100.0, 100.0, 100.0, COLOR_ORANGE);
     rendererEnd(app->r);
     glfwSwapBuffers(app->window);

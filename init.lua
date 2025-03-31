@@ -5,7 +5,7 @@ end
 Myte.register("Test")
 Myte.bind("f1", "Test")
 -- Myte.executeCommand("Test")
-Myte.bind("f2", "testBuiltin")
+Myte.bind("f2", "splat")
 
 Myte.bind("left", "moveCursorLeft")
 Myte.bind("right", "moveCursorRight")

@@ -11,8 +11,9 @@
 #include "putils/pstring.h"
 #include "putils/unicode.h"
 #include "putils/file.h"
+#include <grapheme.h>
 
-#define FONT_PATH "./iosevka-firamono.ttf"
+#define FONT_PATH "./IosevkaTermNerdFontMono-Regular.ttf"
 #define FONT_SIZE 24
 
 #define GL_CALL(x) glClearError();\
@@ -49,7 +50,6 @@ static GLuint compileShader(GLenum type, const char *src) {
 }
 
 static void setupShaders(Renderer *r) {
-
     r->shader_program = glCreateProgram();
 
     char *vert_code = readFile("./shaders/glyph_vert.glsl");
@@ -69,6 +69,7 @@ static void setupShaders(Renderer *r) {
 	glGetProgramInfoLog(r->shader_program, 512, NULL, log);
 	LOG_ERROR("Shader Linking Error: %s", log);
 	// FIX: handle error
+	exit(1);
     }
 
     glDeleteShader(vert_shader_pgm);
@@ -76,17 +77,43 @@ static void setupShaders(Renderer *r) {
 }
 
 static void setupBuffers(Renderer *r) {
-    GL_CALL(glGenVertexArrays(1, &r->vao));
-    GL_CALL(glGenBuffers(1, &r->vbo));
 
-    GL_CALL(glBindVertexArray(r->vao));
-    GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, r->vbo));
-    GL_CALL(glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * 4, NULL, GL_DYNAMIC_DRAW));
-    GL_CALL(glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 4 * sizeof(float), (void*)0));
-    GL_CALL(glEnableVertexAttribArray(0));
-    GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, 0));
-    GL_CALL(glBindVertexArray(0));
-    
+    glGenVertexArrays(1, &r->vao);
+    glBindVertexArray(r->vao);
+
+    glGenBuffers(1, &r->vbo);
+    glBindBuffer(GL_ARRAY_BUFFER, r->vbo);
+    glBufferData(GL_ARRAY_BUFFER, MAX_VERTICES * sizeof(Render_Vertex), NULL, GL_DYNAMIC_DRAW);
+
+    glVertexAttribPointer(0, 2, GL_FLOAT, GL_FALSE, sizeof(Render_Vertex), (void*) offsetof(Render_Vertex, pos));
+    glEnableVertexAttribArray(0);
+    glVertexAttribPointer(1, 4, GL_FLOAT, GL_FALSE, sizeof(Render_Vertex), (void*) offsetof(Render_Vertex, color));
+    glEnableVertexAttribArray(1);
+
+    glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, sizeof(Render_Vertex), (void*) offsetof(Render_Vertex, uv));
+    glEnableVertexAttribArray(2);
+    glVertexAttribPointer(3, 1, GL_FLOAT, GL_FALSE, sizeof(Render_Vertex), (void*) offsetof(Render_Vertex, tex_index));
+    glEnableVertexAttribArray(3);
+
+    /* Index Buffer stuff */
+    u32 indices[MAX_INDICES];
+    u32 offset = 0;
+    for (size_t i = 0; i < MAX_INDICES; i += 6) {
+	indices[i + 0] = 0 + offset;
+	indices[i + 1] = 1 + offset;
+	indices[i + 2] = 2 + offset;
+
+	indices[i + 3] = 2 + offset;
+	indices[i + 4] = 3 + offset;
+	indices[i + 5] = 0 + offset;
+
+	offset += 4;
+    }
+
+    glGenBuffers(1, &r->ibo);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, r->ibo);
+    glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+
     // FIX: handle errors
 }
 
@@ -104,23 +131,24 @@ static bool loadFont(Renderer *r) {
     FT_Set_Pixel_Sizes(r->face, 0, FONT_SIZE);
     return true;
 }
+
 //~ Helper stuff
 u32 _cached_white = 4096;
 
 u32 rendererGetWhiteTexture(void) {
-	if (_cached_white == 4096) {
-		u32 tex;
-		u8 image[4] = { 255, 255, 255, 255 };
-		glGenTextures(1, &tex);
-		glBindTexture(GL_TEXTURE_2D, tex);
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-		glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-		_cached_white = tex;
-	}
-	return _cached_white;
+    if (_cached_white == 4096) {
+	u32 tex;
+	u8 image[4] = { 255, 255, 255, 255 };
+	glGenTextures(1, &tex);
+	glBindTexture(GL_TEXTURE_2D, tex);
+	glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 1, 1, 0, GL_RGBA, GL_UNSIGNED_BYTE, image);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+	_cached_white = tex;
+    }
+    return _cached_white;
 }
 
 Renderer *rendererNew(Color clear_color) {
@@ -138,13 +166,49 @@ Renderer *rendererNew(Color clear_color) {
     r->screen_width = INITIAL_SCREEN_WIDTH;
     r->screen_height = INITIAL_SCREEN_HEIGHT;
     GL_CALL(glUseProgram(r->shader_program));
-    r->proj_loc = glGetUniformLocation(r->shader_program, "projection");
+    r->proj_loc = glGetUniformLocation(r->shader_program, "u_proj");
     GL_CALL(glUniformMatrix4fv(r->proj_loc, 1, GL_FALSE, r->projection.a));
+    u32 tex_loc = glGetUniformLocation(r->shader_program, "u_tex");
+    i32 textures[8] = { 0, 1, 2, 3, 4, 5, 6, 7 };
+    glUniform1iv(tex_loc, 8, textures);
 
     // Set up the white texture which will be used to render solid-color quads
     // this should set the texture id to 0.
     u32 tex = rendererGetWhiteTexture();
     UNUSED(tex);
+
+    r->atlas.width = 1024;
+    r->atlas.height = 1024;
+    r->atlas.x = 0;
+    r->atlas.y = 0;
+    r->atlas.rowHeight = 0;
+
+    GL_CALL(glGenTextures(1, &r->atlas.texture_id));
+    GL_CALL(glBindTexture(GL_TEXTURE_2D, r->atlas.texture_id));
+
+    // for zero initializing the buffer
+    u8* blank_buffer = (u8*)malloc(sizeof(u8) * (size_t)r->atlas.width * (size_t)r->atlas.height);
+
+    GL_CALL(
+	glTexImage2D(
+	    GL_TEXTURE_2D, 
+	    0, 
+	    GL_RED, 
+	    r->atlas.width, 
+	    r->atlas.height, 
+	    0, 
+	    GL_RED, 
+	    GL_UNSIGNED_BYTE, 
+	    blank_buffer
+	)
+    );
+
+    free(blank_buffer);
+
+    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
 
     r->glyphs = hashmapNew();
 
@@ -156,17 +220,36 @@ Renderer *rendererNew(Color clear_color) {
 
 void rendererDestroy(Renderer* r) {
     hashmapFree(r->glyphs);
+    glDeleteBuffers(1, &r->vbo);
+    glDeleteVertexArrays(1, &r->vao);
+    glDeleteProgram(r->shader_program);
+    FT_Done_Face(r->face);
+    FT_Done_FreeType(r->ft);
     free(r);
 }
+
+i32 cache_miss = 0;
 void rendererBegin(Renderer* r) {
     glClear(GL_COLOR_BUFFER_BIT);
+    r->vert_count = 0;
+    r->texture_count = 0;
+    r->indices_count = 0;
+    cache_miss = 0;
 }
 
 void rendererEnd(Renderer* r) {
-    // TODO:
+    LOG_DEBUG("Cache misses: %d", cache_miss);
+    for (u32 i = 0; i < r->texture_count; i++) {
+	glActiveTexture(GL_TEXTURE0 + i);
+	glBindTexture(GL_TEXTURE_2D, r->textures[i]);
+    }
+
+    glUseProgram(r->shader_program);
+    glBindVertexArray(r->vao);
+    glBindBuffer(GL_ARRAY_BUFFER, r->vbo);
+    glBufferSubData(GL_ARRAY_BUFFER, 0, r->vert_count * sizeof(Render_Vertex), r->vertices);
+    glDrawElements(GL_TRIANGLES, r->indices_count, GL_UNSIGNED_INT, NULL);
 }
-
-
 
 // HarfBuzz: Shape text using FreeType font
 static hb_glyph_info_t* shapeText(hb_buffer_t* hb_buffer, FT_Face face, const char* text, unsigned int* glyph_count) {
@@ -181,7 +264,7 @@ static hb_glyph_info_t* shapeText(hb_buffer_t* hb_buffer, FT_Face face, const ch
 
     // Shape the text (perform glyph substitution and positioning)
     hb_shape(hb_font, hb_buffer, NULL, 0);
-    
+
     // Get shaped glyph information
     hb_glyph_info_t* glyph_info = hb_buffer_get_glyph_infos(hb_buffer, glyph_count);
 
@@ -190,127 +273,239 @@ static hb_glyph_info_t* shapeText(hb_buffer_t* hb_buffer, FT_Face face, const ch
 
     return glyph_info;
 }
-//
-// OpenGL: Create texture from FreeType glyph
-GlyphTexture createGlyphTexture(FT_Bitmap *bitmap, FT_GlyphSlot slot) {
+
+static GlyphTexture addGlyphToAtlas(Renderer *r, FT_Bitmap *bitmap, FT_GlyphSlot slot) {
     GlyphTexture glyph;
-    GL_CALL(glGenTextures(1, &glyph.textureID));
-    GL_CALL(glBindTexture(GL_TEXTURE_2D, glyph.textureID));
-    
-    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-    GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-    
+
+    // Check if we need to move to a new row
+    if (r->atlas.x + bitmap->width >= r->atlas.width) {
+	r->atlas.x = 0;
+	r->atlas.y += r->atlas.rowHeight;
+	r->atlas.rowHeight = 0;
+    }
+
+    // Check if we need to resize the atlas
+    if (r->atlas.y + bitmap->rows >= r->atlas.height) {
+	// Save old atlas ID
+	GLuint old_texture = r->atlas.texture_id;
+	int old_width = r->atlas.width;
+	int old_height = r->atlas.height;
+	
+	// Double the size of the atlas
+	r->atlas.width *= 2;
+	r->atlas.height *= 2;
+	
+	// Create new texture
+	GL_CALL(glGenTextures(1, &r->atlas.texture_id));
+	GL_CALL(glBindTexture(GL_TEXTURE_2D, r->atlas.texture_id));
+	GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, r->atlas.width, r->atlas.height, 0, GL_RED, GL_UNSIGNED_BYTE, NULL));
+	
+	// Set texture parameters
+	GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+	GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+	GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+	GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+	
+	// Copy old texture data to new texture
+	GLubyte *old_data = (GLubyte *)malloc(old_width * old_height);
+	GL_CALL(glBindTexture(GL_TEXTURE_2D, old_texture));
+	GL_CALL(glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_UNSIGNED_BYTE, old_data));
+	
+	GL_CALL(glBindTexture(GL_TEXTURE_2D, r->atlas.texture_id));
+	GL_CALL(glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, old_width, old_height, GL_RED, GL_UNSIGNED_BYTE, old_data));
+	
+	// Clean up
+	free(old_data);
+	GL_CALL(glDeleteTextures(1, &old_texture));
+	
+	// Update all existing glyph UV coordinates
+	// Note: This would require iterating through the hashmap and updating all UVs
+	// This is left as an exercise or could be implemented as a separate function
+    }
+
+    // Add the glyph bitmap to the atlas
+    GL_CALL(glBindTexture(GL_TEXTURE_2D, r->atlas.texture_id));
     GL_CALL(glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
-    GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, bitmap->width, bitmap->rows, 0, GL_RED, GL_UNSIGNED_BYTE, bitmap->buffer));
+    GL_CALL(glTexSubImage2D(GL_TEXTURE_2D, 0, r->atlas.x, r->atlas.y, 
+			   bitmap->width, bitmap->rows, 
+			   GL_RED, GL_UNSIGNED_BYTE, bitmap->buffer));
+
+    // Calculate UV coordinates
+    glyph.uv_min.x = (f32)r->atlas.x / r->atlas.width;
+    glyph.uv_max.y = (f32)r->atlas.y / r->atlas.height;
+    glyph.uv_max.x = (f32)(r->atlas.x + bitmap->width) / r->atlas.width;
+    glyph.uv_min.y = (f32)(r->atlas.y + bitmap->rows) / r->atlas.height;
+
+    // Store glyph metrics
     glyph.width = bitmap->width;
     glyph.height = bitmap->rows;
     glyph.bearingX = slot->bitmap_left;
     glyph.bearingY = slot->bitmap_top;
-    glyph.advance = slot->advance.x >> 6; // Convert 1/64th pixel to integer pixels
+    glyph.advance = slot->advance.x >> 6;
+
+    // Update atlas current position
+    r->atlas.x += bitmap->width + 1;  // Add 1 pixel padding
+    r->atlas.rowHeight = MAX(r->atlas.rowHeight, bitmap->rows);
+
     return glyph;
 }
 
-void renderGrapheme(Renderer *r, UnicodeChar grapheme, float *x, float y, float scale, Color color) {
-    GL_CALL(glUseProgram(r->shader_program));
-    // Pass the text color to the shader
-    GL_CALL(glUniform3f(glGetUniformLocation(r->shader_program, "textColor"), color.r, color.g, color.b));
+static void pushQuad (Renderer* r, Vector2 a, Vector2 b, Vector2 c, Vector2 d,
+					Color a_color, Color b_color, Color c_color, Color d_color,
+					Vector2 a_uv, Vector2 b_uv, Vector2 c_uv, Vector2 d_uv,
+					u32 texture) {
 
-    GL_CALL(glBindVertexArray(r->vao));
-    
-    // Initialize HarfBuzz buffer
-    hb_buffer_t* hb_buffer = hb_buffer_create();
-    unsigned int glyph_count;
-    char *unpacked_grapheme = unpackUTF8(grapheme);
-    hb_glyph_info_t* glyph_info = shapeText(hb_buffer, r->face, unpacked_grapheme, &glyph_count);
-    free(unpacked_grapheme);
+    /*CULLING - This if statement causes textures to glitch out */
+    // if (((b.x) < 0 || a.x > r->screen_width || a.y > r->screen_height)){
+    // 	return;	
+    // }
 
-    if (glyph_count) {
-        int codepoint = glyph_info[0].codepoint;
-	string codepoint_key = stringNew("");
-	codepoint_key = stringFmt(codepoint_key, "%d", codepoint);
-    
-
-	if (hashmapGet(r->glyphs, codepoint_key) == NULL) {
-            if (FT_Load_Glyph(r->face, codepoint, FT_LOAD_RENDER))
-                printf("Loading glyph failed\n");
-
-	    GlyphTexture *new_glyph = (GlyphTexture *)malloc(sizeof(GlyphTexture));
-	    *new_glyph = createGlyphTexture(&r->face->glyph->bitmap, r->face->glyph);
-	    codepoint_key = (char *)hashmapPush(r->glyphs, codepoint_key, new_glyph);
-
-        }
-
-        //GlyphTexture glyph = r->glyphs[codepoint];
-	GlyphTexture *glyph = (GlyphTexture *)hashmapGet(r->glyphs, codepoint_key);
-	//stringFree(codepoint_key);
-
-        // Calculate quad position
-        float xpos = *x + glyph->bearingX * scale;
-        float ypos = y - (glyph->height - glyph->bearingY) * scale;
-        float w = glyph->width * scale;
-        float h = glyph->height * scale;
-
-        // Vertex positions for the quad (x, y, tex_x, tex_y)
-        float vertices[6][4] = {
-            { xpos,     ypos + h, 0.0f, 0.0f }, // Top-left
-            { xpos,     ypos,     0.0f, 1.0f }, // Bottom-left
-            { xpos + w, ypos,     1.0f, 1.0f }, // Bottom-right
-
-            { xpos,     ypos + h, 0.0f, 0.0f }, // Top-left
-            { xpos + w, ypos,     1.0f, 1.0f }, // Bottom-right
-            { xpos + w, ypos + h, 1.0f, 0.0f }  // Top-right
-        };
-
-       // Bind texture and update VBO with new vertices
-        GL_CALL(glBindTexture(GL_TEXTURE_2D, glyph->textureID));
-        GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, r->vbo));
-        GL_CALL(glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices));
-
-        // Draw the quad
-        GL_CALL(glDrawArrays(GL_TRIANGLES, 0, 6));
-
-        // Advance to the next character position
-        *x += glyph->advance * scale; // Advance is in 1/64 pixels, so shift right by 6
+    // 1248 is just an invalid value since this is an unsigned number, -1 doesnt work
+    u32 tex_index = 1248;
+    for (u32 i = 0; i < r->texture_count; i++) {
+	if (r->textures[i] == texture) {
+	    tex_index = i;
+	    break;
+	}
     }
 
-    hb_buffer_destroy(hb_buffer);
-    GL_CALL(glBindVertexArray(0));
+    // r->texture_count < 8 confirms we don't write more than the available
+    // texture slots
+    if (tex_index == 1248 && r->texture_count < 8) {
+	r->textures[r->texture_count] = texture;
+	tex_index = r->texture_count;
+	r->texture_count += 1;
+    }
+
+    // Flush the batch if it is full. We don't like segfaults on this channel.
+    if (r->vert_count == MAX_VERTICES || tex_index == 1248) {
+	rendererEnd(r);
+	r->vert_count = 0;
+	r->indices_count = 0;
+	r->texture_count = 0;
+    }
+
+    // Insert info for each vertex and increment the count
+    r->vertices[r->vert_count].pos = a;
+    r->vertices[r->vert_count].color = a_color;
+    r->vertices[r->vert_count].uv = a_uv;
+    r->vertices[r->vert_count].tex_index = tex_index;
+    r->vert_count++;
+
+    r->vertices[r->vert_count].pos = b;
+    r->vertices[r->vert_count].color = b_color;
+    r->vertices[r->vert_count].uv = b_uv;
+    r->vertices[r->vert_count].tex_index = tex_index;
+    r->vert_count++;
+
+    r->vertices[r->vert_count].pos = c;
+    r->vertices[r->vert_count].color = c_color;
+    r->vertices[r->vert_count].uv = c_uv;
+    r->vertices[r->vert_count].tex_index = tex_index;
+    r->vert_count++;
+
+    r->vertices[r->vert_count].pos = d;
+    r->vertices[r->vert_count].color = d_color;
+    r->vertices[r->vert_count].uv = d_uv;
+    r->vertices[r->vert_count].tex_index = tex_index;
+    r->vert_count++;
+
+    r->indices_count += 6;
 }
 
-void renderQuad(Renderer *r, float x, float y, float w, float h, Color color) {
+void renderGrapheme(Renderer *r, UnicodeChar grapheme, f32 *x, f32 y, f32 scale, Color color) {
+    char *unpacked_grapheme = unpackUTF8(grapheme);
+    GlyphTexture *glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
+
+    if (glyph == NULL) {
+	cache_miss++;
+	LOG_DEBUG("Cache miss on: %s", unpacked_grapheme);
+	// Initialize HarfBuzz buffer
+	hb_buffer_t* hb_buffer = hb_buffer_create();
+	u32 glyph_count;
+	hb_glyph_info_t* glyph_info = shapeText(hb_buffer, r->face, unpacked_grapheme, &glyph_count);
+
+	if (glyph_count == 0) {
+	    hb_buffer_destroy(hb_buffer);
+	    free(unpacked_grapheme);
+	    return;
+	} else {
+	    i32 codepoint = glyph_info[0].codepoint;
+	    string codepoint_key = stringNew("");
+	    codepoint_key = stringFmt(codepoint_key, "%s", unpacked_grapheme);
+
+	    if (FT_Load_Glyph(r->face, codepoint, FT_LOAD_RENDER))
+		printf("Loading glyph failed\n");
+
+	    GlyphTexture *new_glyph = (GlyphTexture *)malloc(sizeof(GlyphTexture));
+	    *new_glyph = addGlyphToAtlas(r, &r->face->glyph->bitmap, r->face->glyph);
+	    codepoint_key = (char *)hashmapPush(r->glyphs, codepoint_key, new_glyph);
+	    glyph = new_glyph;
+	    hb_buffer_destroy(hb_buffer);
+	}
+
+    }
+    free(unpacked_grapheme);
+
+    // Calculate quad position
+    f32 xpos = *x + glyph->bearingX * scale;
+    f32 ypos = y - (glyph->height - glyph->bearingY) * scale;
+    f32 w = glyph->width * scale;
+    f32 h = glyph->height * scale;
+
+    pushQuad (
+	r,
+	vec2(xpos, ypos),
+	vec2(xpos + w, ypos),
+	vec2(xpos + w, ypos + h),
+	vec2(xpos, ypos + h),
+	color, color, color, color,
+	glyph->uv_min,
+	vec2(glyph->uv_max.x, glyph->uv_min.y),
+	glyph->uv_max,
+	vec2(glyph->uv_min.x, glyph->uv_max.y),
+	r->atlas.texture_id
+    );
+
+    // Advance to the next character position
+    *x += glyph->advance * scale; // Advance is in 1/64 pixels, so shift right by 6
+}
+
+void renderQuad(Renderer *r, f32 x, f32 y, f32 w, f32 h, Color color) {
     u32 texture = rendererGetWhiteTexture();
-    GL_CALL(glUseProgram(r->shader_program));
-    // Pass the text color to the shader
-    GL_CALL(glUniform3f(glGetUniformLocation(r->shader_program, "textColor"), color.r, color.g, color.b));
+    pushQuad (
+	r,
+	vec2(x, y),
+	vec2(x + w, y),
+	vec2(x+ w, y+ h),
+	vec2(x, y+ h),
+	color, color, color, color,
+	vec2(0.0, 0.0),
+	vec2(1.0, 0.0),
+	vec2(1.0, 1.0),
+	vec2(0.0, 1.0),
+	texture
+    );
+}
 
-    GL_CALL(glBindVertexArray(r->vao));
-    // Vertex positions for the quad (x, y, tex_x, tex_y)
-    float vertices[6][4] = {
-	{ x,     y + h, 0.0f, 0.0f }, // Top-left
-	{ x,     y,     0.0f, 1.0f }, // Bottom-left
-	{ x + w, y,     1.0f, 1.0f }, // Bottom-right
-
-	{ x,     y + h, 0.0f, 0.0f }, // Top-left
-	{ x + w, y,     1.0f, 1.0f }, // Bottom-right
-	{ x + w, y + h, 1.0f, 0.0f }  // Top-right
-    };
-
-   // Bind texture and update VBO with new vertices
-    GL_CALL(glBindTexture(GL_TEXTURE_2D, texture));
-    GL_CALL(glBindBuffer(GL_ARRAY_BUFFER, r->vbo));
-    GL_CALL(glBufferSubData(GL_ARRAY_BUFFER, 0, sizeof(vertices), vertices));
-
-    // Draw the quad
-    GL_CALL(glDrawArrays(GL_TRIANGLES, 0, 6));
-
+void rendererText(Renderer *r, const char *str, f32 x, f32 y, Color color) {
+    size_t grapheme_size, offset = 0;
+    for (offset = 0; str[offset] != '\0'; offset += grapheme_size) {
+        grapheme_size = grapheme_next_character_break_utf8(str + offset, SIZE_MAX);
+        UnicodeChar grapheme = packUTF8(str + offset, grapheme_size);
+	renderGrapheme(r, grapheme, &x, y, 1.0, color);
+    }
 }
 
 void rendererResizeWindow (Renderer* r, i32 width, i32 height) {
     // Adjust the viewport for opengl
     glViewport(0, 0, width, height);
-    
+
+    // adjust the projection for the renderer
+    r->projection = orthoProj(0, (f32)width, (f32)height, 0, -0.01, 1.0);
     r->screen_width = (f32)width;
     r->screen_height = (f32)height;
+
+    u32 proj_loc = glGetUniformLocation(r->shader_program, "u_proj");
+    glUniformMatrix4fv(proj_loc, 1, GL_FALSE, r->projection.a);
 }
