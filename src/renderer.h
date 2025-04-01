@@ -5,6 +5,7 @@
 #include "putils/unicode.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
+#include "font.h"
 
 #define MAX_QUADS 1024
 #define MAX_VERTICES MAX_QUADS * 4
@@ -58,7 +59,8 @@ typedef struct {
     hashmap *glyphs;
 
     FT_Library ft;
-    FT_Face face;
+    FontCollection *font_collection;
+    size_t current_font_idx;
 
     // Screen size info
     f32 screen_width;

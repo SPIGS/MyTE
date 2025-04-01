@@ -1,9 +1,10 @@
 #include "renderer.h"
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
-#include "freetype/freetype.h"
 #include <harfbuzz/hb.h>
 #include <harfbuzz/hb-ft.h>
+#include "freetype/freetype.h"
+#include "freetype/fttypes.h"
 #include "putils/defines.h"
 #include "putils/log.h"
 #include "putils/phashmap.h"
@@ -14,6 +15,8 @@
 #include <grapheme.h>
 
 #define FONT_PATH "./IosevkaTermNerdFontMono-Regular.ttf"
+#define FALLBACK_FONT_PATH_1 "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc"
+#define FALLBACK_FONT_PATH_2 "/usr/share/fonts/noto/NotoSansRunic-Regular.ttf"
 #define FONT_SIZE 24
 
 #define GL_CALL(x) glClearError();\
@@ -117,24 +120,8 @@ static void setupBuffers(Renderer *r) {
     // FIX: handle errors
 }
 
-static bool loadFont(Renderer *r) {
-    if (FT_Init_FreeType(&r->ft)) {
-	LOG_ERROR("Could not init FreeType", "");
-	return false;
-    }
-
-    if (FT_New_Face(r->ft, FONT_PATH, 0, &r->face)) {
-	LOG_ERROR("Could not load font", "");
-	return false;
-    }
-
-    FT_Set_Pixel_Sizes(r->face, 0, FONT_SIZE);
-    return true;
-}
-
 //~ Helper stuff
 u32 _cached_white = 4096;
-
 u32 rendererGetWhiteTexture(void) {
     if (_cached_white == 4096) {
 	u32 tex;
@@ -212,8 +199,17 @@ Renderer *rendererNew(Color clear_color) {
 
     r->glyphs = hashmapNew();
 
-    // Load font
-    if (!loadFont(r)) return NULL;
+    // Setup fonts
+    if (FT_Init_FreeType(&r->ft)) {
+	LOG_ERROR("Could not init FreeType", "");
+	return false;
+    }
+
+    // Load fonts
+    r->font_collection = fontCollectionNew(4);
+    fontCollectionAddFace(&r->ft, r->font_collection, FONT_PATH, 0, FONT_SIZE);
+    fontCollectionAddFace(&r->ft, r->font_collection, FALLBACK_FONT_PATH_1, 0, FONT_SIZE);
+    fontCollectionAddFace(&r->ft, r->font_collection, FALLBACK_FONT_PATH_2, 0, FONT_SIZE);
 
     return r;
 }
@@ -223,22 +219,19 @@ void rendererDestroy(Renderer* r) {
     glDeleteBuffers(1, &r->vbo);
     glDeleteVertexArrays(1, &r->vao);
     glDeleteProgram(r->shader_program);
-    FT_Done_Face(r->face);
+    fontcollectionDestroy(r->font_collection);
     FT_Done_FreeType(r->ft);
     free(r);
 }
 
-i32 cache_miss = 0;
 void rendererBegin(Renderer* r) {
     glClear(GL_COLOR_BUFFER_BIT);
     r->vert_count = 0;
     r->texture_count = 0;
     r->indices_count = 0;
-    cache_miss = 0;
 }
 
 void rendererEnd(Renderer* r) {
-    LOG_DEBUG("Cache misses: %d", cache_miss);
     for (u32 i = 0; i < r->texture_count; i++) {
 	glActiveTexture(GL_TEXTURE0 + i);
 	glBindTexture(GL_TEXTURE_2D, r->textures[i]);
@@ -249,29 +242,6 @@ void rendererEnd(Renderer* r) {
     glBindBuffer(GL_ARRAY_BUFFER, r->vbo);
     glBufferSubData(GL_ARRAY_BUFFER, 0, r->vert_count * sizeof(Render_Vertex), r->vertices);
     glDrawElements(GL_TRIANGLES, r->indices_count, GL_UNSIGNED_INT, NULL);
-}
-
-// HarfBuzz: Shape text using FreeType font
-static hb_glyph_info_t* shapeText(hb_buffer_t* hb_buffer, FT_Face face, const char* text, unsigned int* glyph_count) {
-    // Create a HarfBuzz font object from the FreeType face
-    hb_font_t* hb_font = hb_ft_font_create(face, NULL);
-
-    // Add UTF-8 text to the buffer
-    hb_buffer_add_utf8(hb_buffer, text, -1, 0, -1);
-
-    // Guess script/language/direction properties
-    hb_buffer_guess_segment_properties(hb_buffer);
-
-    // Shape the text (perform glyph substitution and positioning)
-    hb_shape(hb_font, hb_buffer, NULL, 0);
-
-    // Get shaped glyph information
-    hb_glyph_info_t* glyph_info = hb_buffer_get_glyph_infos(hb_buffer, glyph_count);
-
-    // Cleanup HarfBuzz font
-    hb_font_destroy(hb_font);
-
-    return glyph_info;
 }
 
 static GlyphTexture addGlyphToAtlas(Renderer *r, FT_Bitmap *bitmap, FT_GlyphSlot slot) {
@@ -418,12 +388,28 @@ void renderGrapheme(Renderer *r, UnicodeChar grapheme, f32 *x, f32 y, f32 scale,
     GlyphTexture *glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
 
     if (glyph == NULL) {
-	cache_miss++;
-	LOG_DEBUG("Cache miss on: %s", unpacked_grapheme);
+	FT_Face current_face = r->font_collection->faces[0].face;
+
 	// Initialize HarfBuzz buffer
 	hb_buffer_t* hb_buffer = hb_buffer_create();
 	u32 glyph_count;
-	hb_glyph_info_t* glyph_info = shapeText(hb_buffer, r->face, unpacked_grapheme, &glyph_count);
+	hb_glyph_info_t* glyph_info = shapeText(hb_buffer, current_face, unpacked_grapheme, &glyph_count);
+
+	if (glyph_info->codepoint == 0) {
+	    for (size_t i = 0; i< r->font_collection->count; i++) {
+		if (r->font_collection->faces[i].face == current_face)
+			continue;
+
+		
+		hb_buffer_destroy(hb_buffer);
+		hb_buffer = hb_buffer_create();
+		glyph_info = shapeText(hb_buffer, r->font_collection->faces[i].face, unpacked_grapheme, &glyph_count);
+		if (glyph_info->codepoint != 0) {
+		    current_face = r->font_collection->faces[i].face;
+		    break;
+		}
+	    }
+	}
 
 	if (glyph_count == 0) {
 	    hb_buffer_destroy(hb_buffer);
@@ -434,16 +420,15 @@ void renderGrapheme(Renderer *r, UnicodeChar grapheme, f32 *x, f32 y, f32 scale,
 	    string codepoint_key = stringNew("");
 	    codepoint_key = stringFmt(codepoint_key, "%s", unpacked_grapheme);
 
-	    if (FT_Load_Glyph(r->face, codepoint, FT_LOAD_RENDER))
+	    if (FT_Load_Glyph(current_face, codepoint, FT_LOAD_RENDER))
 		printf("Loading glyph failed\n");
 
 	    GlyphTexture *new_glyph = (GlyphTexture *)malloc(sizeof(GlyphTexture));
-	    *new_glyph = addGlyphToAtlas(r, &r->face->glyph->bitmap, r->face->glyph);
+	    *new_glyph = addGlyphToAtlas(r, &current_face->glyph->bitmap, current_face->glyph);
 	    codepoint_key = (char *)hashmapPush(r->glyphs, codepoint_key, new_glyph);
 	    glyph = new_glyph;
 	    hb_buffer_destroy(hb_buffer);
 	}
-
     }
     free(unpacked_grapheme);
 
