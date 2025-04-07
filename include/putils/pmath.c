@@ -151,6 +151,27 @@ Vector4 vec4Lerp(Vector4 a, Vector4 b, f32 t) {
   };
 }
 
+/* Rect */
+Rect rect(f32 x, f32 y, f32 w, f32 h) {
+  return (Rect) { x, y, w, h };
+}
+
+bool rectContainsPoint(Rect a, Vector2 p) {
+  return a.x <= p.x && a.y <= p.y && a.x + a.w >= p.x && a.y + a.h >= p.y;
+}
+
+bool rectOverlaps(Rect a, Rect b) {
+  bool x = (a.x >= b.x && a.x <= b.x + b.w) || (a.x + a.w >= b.x && a.x + a.w <= b.x + b.w) || (a.x <= b.x && a.x + a.w >= b.x + b.w);
+  bool y = (a.y >= b.y && a.y <= b.y + b.h) || (a.y + a.h >= b.y && a.y + a.h <= b.y + b.h) || (a.y <= b.y && a.y + a.h >= b.y + b.h);
+  return x && y;
+}
+
+bool rectContainedByRect(Rect a, Rect b) {
+    bool x = (a.x >= b.x && a.x <= b.x + b.w) && (a.x + a.w >= b.x && a.x + a.w <= b.x + b.w);
+    bool y = (a.y >= b.y && a.y <= b.y + b.h) && (a.y + a.h >= b.y && a.y + a.h <= b.y + b.h);
+    return x && y;
+}
+
 /* Matrix4 */
 Matrix4 mat4Identity(void) {
   Matrix4 result = {0};

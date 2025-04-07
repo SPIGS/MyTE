@@ -55,6 +55,15 @@ Vector4 vec4Lerp(Vector4 a, Vector4 b, f32 t);
 /*typedef struct { f32 a[3*3]; } Matrix3;*/
 /*static inline Matrix3 mat3Identity();*/
 
+/* Rect */
+typedef struct { f32 x, y, w, h; } Rect;
+#define RectFmt "Rect(%f, %f, %f, %f)"
+#define RectArg(r) (float)(r).x, (float)(r).y, (float)(r).w, (float)(r).h
+Rect rect(f32 x, f32 y, f32 w, f32 h);
+bool rectContainsPoint(Rect a, Vector2 p);
+bool rectOverlaps(Rect a, Rect b);
+bool rectContainedByRect(Rect a, Rect b);
+
 
 
 /* 4x4 Matrix */
