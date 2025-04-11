@@ -3,8 +3,10 @@
 #include <GLFW/glfw3.h>
 #include <harfbuzz/hb.h>
 #include <harfbuzz/hb-ft.h>
+#include "buffer.h"
+#include "editor.h"
 #include "freetype/freetype.h"
-#include "freetype/fttypes.h"
+#include "putils/color.h"
 #include "putils/defines.h"
 #include "putils/log.h"
 #include "putils/phashmap.h"
@@ -211,6 +213,9 @@ Renderer *rendererNew(Color clear_color) {
     fontCollectionAddFace(&r->ft, r->font_collection, FALLBACK_FONT_PATH_1, 0, FONT_SIZE);
     fontCollectionAddFace(&r->ft, r->font_collection, FALLBACK_FONT_PATH_2, 0, FONT_SIZE);
 
+    r->glyph_width = r->font_collection->faces[0].face->max_advance_width >> 6;
+    r->line_height = r->font_collection->faces[0].line_height;
+
     return r;
 }
 
@@ -383,53 +388,56 @@ static void pushQuad (Renderer* r, Vector2 a, Vector2 b, Vector2 c, Vector2 d,
     r->indices_count += 6;
 }
 
+static void cacheGrapheme( Renderer *r, char *unpacked_grapheme) {
+    FT_Face current_face = r->font_collection->faces[0].face;
+
+    // Initialize HarfBuzz buffer
+    hb_buffer_t* hb_buffer = hb_buffer_create();
+    u32 glyph_count;
+    hb_glyph_info_t* glyph_info = shapeText(hb_buffer, current_face, unpacked_grapheme, &glyph_count);
+
+    if (glyph_info->codepoint == 0) {
+	for (size_t i = 0; i< r->font_collection->count; i++) {
+	    if (r->font_collection->faces[i].face == current_face)
+		    continue;
+
+	    hb_buffer_destroy(hb_buffer);
+	    hb_buffer = hb_buffer_create();
+	    glyph_info = shapeText(hb_buffer, r->font_collection->faces[i].face, unpacked_grapheme, &glyph_count);
+	    if (glyph_info->codepoint != 0) {
+		current_face = r->font_collection->faces[i].face;
+		break;
+	    }
+	}
+    }
+
+    if (glyph_count == 0) {
+	hb_buffer_destroy(hb_buffer);
+	free(unpacked_grapheme);
+	return;
+    } else {
+	i32 codepoint = glyph_info[0].codepoint;
+	string codepoint_key = stringNew("");
+	codepoint_key = stringFmt(codepoint_key, "%s", unpacked_grapheme);
+
+	if (FT_Load_Glyph(current_face, codepoint, FT_LOAD_RENDER))
+	    printf("Loading glyph failed\n");
+
+	GlyphTexture *new_glyph = (GlyphTexture *)malloc(sizeof(GlyphTexture));
+	*new_glyph = addGlyphToAtlas(r, &current_face->glyph->bitmap, current_face->glyph);
+	codepoint_key = (char *)hashmapPush(r->glyphs, codepoint_key, new_glyph);
+	hb_buffer_destroy(hb_buffer);
+    }
+}
+
 void renderGrapheme(Renderer *r, UnicodeChar grapheme, f32 *x, f32 y, f32 scale, Color color) {
     char *unpacked_grapheme = unpackUTF8(grapheme);
     GlyphTexture *glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
 
     if (glyph == NULL) {
-	FT_Face current_face = r->font_collection->faces[0].face;
-
-	// Initialize HarfBuzz buffer
-	hb_buffer_t* hb_buffer = hb_buffer_create();
-	u32 glyph_count;
-	hb_glyph_info_t* glyph_info = shapeText(hb_buffer, current_face, unpacked_grapheme, &glyph_count);
-
-	if (glyph_info->codepoint == 0) {
-	    for (size_t i = 0; i< r->font_collection->count; i++) {
-		if (r->font_collection->faces[i].face == current_face)
-			continue;
-
-		
-		hb_buffer_destroy(hb_buffer);
-		hb_buffer = hb_buffer_create();
-		glyph_info = shapeText(hb_buffer, r->font_collection->faces[i].face, unpacked_grapheme, &glyph_count);
-		if (glyph_info->codepoint != 0) {
-		    current_face = r->font_collection->faces[i].face;
-		    break;
-		}
-	    }
-	}
-
-	if (glyph_count == 0) {
-	    hb_buffer_destroy(hb_buffer);
-	    free(unpacked_grapheme);
-	    return;
-	} else {
-	    i32 codepoint = glyph_info[0].codepoint;
-	    string codepoint_key = stringNew("");
-	    codepoint_key = stringFmt(codepoint_key, "%s", unpacked_grapheme);
-
-	    if (FT_Load_Glyph(current_face, codepoint, FT_LOAD_RENDER))
-		printf("Loading glyph failed\n");
-
-	    GlyphTexture *new_glyph = (GlyphTexture *)malloc(sizeof(GlyphTexture));
-	    *new_glyph = addGlyphToAtlas(r, &current_face->glyph->bitmap, current_face->glyph);
-	    codepoint_key = (char *)hashmapPush(r->glyphs, codepoint_key, new_glyph);
-	    glyph = new_glyph;
-	    hb_buffer_destroy(hb_buffer);
-	}
+	cacheGrapheme(r, unpacked_grapheme);
     }
+    glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
     free(unpacked_grapheme);
 
     // Calculate quad position
@@ -473,12 +481,12 @@ void renderQuad(Renderer *r, f32 x, f32 y, f32 w, f32 h, Color color) {
     );
 }
 
-void rendererText(Renderer *r, const char *str, f32 x, f32 y, Color color) {
+void rendererText(Renderer *r, const char *str, f32 *x, f32 y, Color color) {
     size_t grapheme_size, offset = 0;
     for (offset = 0; str[offset] != '\0'; offset += grapheme_size) {
         grapheme_size = grapheme_next_character_break_utf8(str + offset, SIZE_MAX);
         UnicodeChar grapheme = packUTF8(str + offset, grapheme_size);
-	renderGrapheme(r, grapheme, &x, y, 1.0, color);
+	renderGrapheme(r, grapheme, x, y, 1.0, color);
     }
 }
 
@@ -493,4 +501,83 @@ void rendererResizeWindow (Renderer* r, i32 width, i32 height) {
 
     u32 proj_loc = glGetUniformLocation(r->shader_program, "u_proj");
     glUniformMatrix4fv(proj_loc, 1, GL_FALSE, r->projection.a);
+}
+
+static void renderCursor(Renderer *r, Editor *ed, f32 text_offset, f32 frame_height) {
+    size_t cursor_idx = ed->cursor.buffer_idx;
+
+    // Determine the cursor's X position
+    size_t begin_line = getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_idx);
+    f32 cursor_x = 0.0f;
+    for (size_t i = 0; i < (cursor_idx - begin_line); i++) {
+	UnicodeChar grapheme = getBufChar(ed->buf, begin_line + i);
+	char *unpacked_grapheme = unpackUTF8(grapheme);
+	GlyphTexture *glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
+
+	if (glyph == NULL) {
+	    cacheGrapheme(r, unpacked_grapheme);
+	}
+	glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
+	free(unpacked_grapheme);
+
+	cursor_x += (glyph->advance);
+    }
+    cursor_x += text_offset;
+    f32 cursor_y = frame_height - (r->line_height * ed->cursor.disp_row) - (r->line_height * 0.1);
+    renderQuad(r, cursor_x, cursor_y, 3, r->line_height, COLOR_WHITE);
+}
+
+void renderEditor(Renderer *r, Editor *ed) {
+    // Render the background
+    Rect frame = ed->frame;
+    //renderQuad(r, frame.x, frame.y, frame.w, frame.h, COLOR_GRAY);
+
+    // Get info needed to draw the gutter
+    i32 num_lines = (i32)ed->line_count;
+    i32 digits = 1;
+    while (num_lines /= 10)
+	digits++;
+
+    i32 gutter_padding = 3;
+    if (digits >= 3) {
+	gutter_padding = digits + 1;
+    }
+
+    Vector2 gutter_text_pos = vec2(frame.x, frame.y + frame.h - r->line_height);
+
+    // TODO: offset by scroll pos
+    size_t cur_line = ed->cursor.disp_row;
+
+    f32 gutter_width = 0.0;
+    for (size_t i = 1; i <= ed->line_count; i++) {
+	string num = stringNew("");
+	num = stringFmt(num, "%*d", gutter_padding, i);
+	rendererText(r, num, &gutter_text_pos.x, gutter_text_pos.y, cur_line == i ? COLOR_WHITE : COLOR_SILVER);
+	gutter_width = MAX(gutter_text_pos.x, gutter_width);
+	gutter_text_pos.x = frame.x;
+	gutter_text_pos.y -= r->line_height;
+	stringFree(num);
+    }
+
+    // Draw the gutter divider
+    renderQuad(r, frame.x + gutter_width, 0, 1, r->screen_height, COLOR_SILVER);
+
+    // Draw the text
+    f32 text_base_x = frame.x + gutter_width + r->glyph_width;
+    Vector2 text_pos = vec2(text_base_x, frame.y + frame.h - r->line_height);
+    UnicodeChar *graphemes = getBufferString(ed->buf);
+    size_t buf_len = getBufLength(ed->buf);
+
+    // Draw the cursor
+    renderCursor(r, ed, text_base_x, frame.h);
+
+    for (size_t i = 0; i < buf_len; i++) {
+        if (graphemes[i] == 10) { // newline
+            text_pos.y -= r->line_height;
+            text_pos.x = text_base_x;
+            continue;
+        }
+        renderGrapheme(r, graphemes[i], &text_pos.x, text_pos.y, 1.0, COLOR_WHITE);
+    }
+    free(graphemes);
 }

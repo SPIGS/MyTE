@@ -81,12 +81,13 @@ void resizeGap(GapBuffer *buf, size_t required_space) {
     assert(getBufGapSize(buf) >= required_space);
 }
 
-void insertUnicodeCharIntoBuf (GapBuffer *buf, size_t cursor, UnicodeChar uc) {
+void insertUnicodeCharIntoBuf (GapBuffer *buf, size_t cursor, UnicodeChar uc, size_t grapheme_size) {
     assertCursorInvariants(buf, cursor);
     resizeGap(buf, 1);
     shiftGap(buf, cursor);
     buf->data[buf->gap_start] = uc;
     buf->gap_start++;
+    buf->cstring_size += grapheme_size;
 }
 
 //Assumes bytes is a null-terminated string
@@ -95,8 +96,7 @@ size_t insertIntoBuf(GapBuffer *buf, size_t cursor, char *bytes) {
     for (offset = 0; bytes[offset] != '\0'; offset += grapheme_size) {
         grapheme_size = grapheme_next_character_break_utf8(bytes + offset, SIZE_MAX);
         UnicodeChar grapheme = packUTF8(bytes+offset, grapheme_size);
-        insertUnicodeCharIntoBuf(buf, cursor + num_graphemes, grapheme);
-        buf->cstring_size += grapheme_size;
+        insertUnicodeCharIntoBuf(buf, cursor + num_graphemes, grapheme, grapheme_size);
         num_graphemes++;
     }
 
@@ -121,12 +121,15 @@ size_t getPrevGraphemeCursor(GapBuffer *buf, size_t cursor) {
     }
 }
 
-void removeGraphemeBeforeGap(GapBuffer *buf, size_t cursor) {
+UnicodeChar removeGraphemeBeforeGap(GapBuffer *buf, size_t cursor) {
     if (cursor > 0) {
         shiftGap(buf, cursor);
+        UnicodeChar removed_char = buf->data[buf->gap_start];
         buf->gap_start--;
         buf->cstring_size -= getUTF8Size(buf->data[buf->gap_start]);
+        return removed_char;
     }
+    return 0;
 }
 
 UnicodeChar removeGraphemeAfterGap(GapBuffer *buf, size_t cursor) {

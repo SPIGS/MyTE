@@ -2,6 +2,8 @@
 
 Cursor cursorNew(void) {
     return (Cursor) {
-        0
+        0,
+        1,
+        1
     };
 }

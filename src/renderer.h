@@ -1,4 +1,5 @@
 #pragma once
+#include "editor.h"
 #include "putils/color.h"
 #include "putils/pmath.h"
 #include "putils/phashmap.h"
@@ -61,10 +62,13 @@ typedef struct {
     FT_Library ft;
     FontCollection *font_collection;
     size_t current_font_idx;
+    f32 glyph_width;
+    f32 line_height;
 
     // Screen size info
     f32 screen_width;
     f32 screen_height;
+
 } Renderer;
 
 Renderer *rendererNew(Color clear_color);
@@ -74,6 +78,8 @@ void rendererEnd(Renderer* r);
 void rendererResizeWindow (Renderer* r, i32 width, i32 height);
 void renderGrapheme(Renderer *r, UnicodeChar grapheme, f32 *x, f32 y, f32 scale, Color color);
 void renderQuad(Renderer *r, f32 x, f32 y, f32 w, f32 h, Color color);
-void rendererText(Renderer *r, const char *str, f32 x, f32 y, Color color);
+void rendererText(Renderer *r, const char *str, f32 *x, f32 y, Color color);
 
 u32 rendererLoadFont(Renderer *r, const char *path, u32 size_px);
+
+void renderEditor(Renderer *r, Editor *ed);

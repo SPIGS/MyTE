@@ -7,6 +7,7 @@
 typedef struct {
     FT_Face face;
     hb_font_t *hb_font;
+    f32 line_height;
 } FontFace;
 
 typedef struct {

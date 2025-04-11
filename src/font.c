@@ -1,6 +1,7 @@
 #include "font.h"
 #include "freetype/freetype.h"
 #include "putils/log.h"
+#include "putils/pmath.h"
 
 FontCollection *fontCollectionNew(size_t initial_capacity) {
     FontCollection *collection = (FontCollection *)malloc(sizeof(FontCollection));
@@ -42,8 +43,20 @@ void fontCollectionAddFace(FT_Library *ft,FontCollection *collection, const char
 
     hb_font_t *hb_font = hb_ft_font_create(face, NULL);
 
+    // Get line height
+    f32 line_height = 0;
+    FT_GlyphSlot g = face->glyph;
+    for (u8 i = 32; i < 128; i++) {
+        if (FT_Load_Char(face, i, FT_LOAD_RENDER)) {
+            continue;
+        }
+
+        line_height = MAX(line_height, g->bitmap.rows);
+    }
+
     collection->faces[collection->count].face = face;
     collection->faces[collection->count].hb_font = hb_font;
+    collection->faces[collection->count].line_height = line_height;
     collection->count++;
 }
 

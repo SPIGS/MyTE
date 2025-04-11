@@ -9,6 +9,8 @@ Myte.bind("f2", "splat")
 
 Myte.bind("left", "moveCursorLeft")
 Myte.bind("right", "moveCursorRight")
+Myte.bind("up", "moveCursorUp")
+Myte.bind("down", "moveCursorDown")
 Myte.bind("backspace", "deleteGraphemeLeft")
 Myte.bind("delete", "deleteGraphemeRight")
 

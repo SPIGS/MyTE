@@ -50,6 +50,14 @@ COMMAND(deleteGraphemeRight) {
     editorDeleteRight(app->ed);
 }
 
+COMMAND(moveCursorUp) {
+    editorMoveUp(app->ed);
+}
+
+COMMAND(moveCursorDown) {
+    editorMoveDown(app->ed);
+}
+
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     UNUSED(scancode);
     UNUSED(mods);
@@ -72,7 +80,6 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
 
 // NOTE: temporary
 void characterCallback(GLFWwindow *window, unsigned int codepoint) {
-    LOG_DEBUG("%c", codepoint);
     Application *app = glfwGetWindowUserPointer(window);
     char bytes[2] = {codepoint, '\0'};
     editorInsert(app->ed, bytes);
@@ -127,6 +134,8 @@ Application *applicationNew(int argc, char **argv) {
     REGISTER_COMMAND(app->reg, moveCursorRight);
     REGISTER_COMMAND(app->reg, deleteGraphemeLeft);
     REGISTER_COMMAND(app->reg, deleteGraphemeRight);
+    REGISTER_COMMAND(app->reg, moveCursorUp);
+    REGISTER_COMMAND(app->reg, moveCursorDown);
 
     // Setup lua context
     lua_State *L = luaL_newstate();
@@ -145,7 +154,7 @@ Application *applicationNew(int argc, char **argv) {
     app->r = rendererNew(COLOR_BLACK);
 
     // Open an editor
-    app->ed = editorNew();
+    app->ed = editorNew(rect(10, 0, INITIAL_SCREEN_WIDTH -10, INITIAL_SCREEN_HEIGHT));
 
     return app;
 }
@@ -173,25 +182,16 @@ void applicationUpdate(Application *app, f64 delta_time) {
 void applicationRender(Application *app, f64 delta_time) {
     rendererBegin(app->r);
 
-    UnicodeChar *graphemes = getBufferString(app->ed->buf);
-    float x = 10.0f;
-    float y = INITIAL_SCREEN_HEIGHT - 24.0f;
-    for (size_t i = 0; i< getBufLength(app->ed->buf); i++) {
-        if (graphemes[i] == 10) { // newline
-            y -= 24.0f;
-            x = 10.0f;
-            continue;
-        }
-        renderGrapheme(app->r, graphemes[i], &x, y, 1.0, COLOR_MAGENTA);
-    }
-    free(graphemes);
-    
+    renderEditor(app->r, app->ed);
+
+        
     float fps = 1.0f / delta_time;
     string fps_str = stringNew("");
     fps_str = stringFmt(fps_str, "FPS: %f", fps);
     stringFree(fps_str);
 
-    rendererText(app->r, fps_str, 10.0, 10.0, COLOR_RED);
+    f32 fps_x = 10.0;
+    rendererText(app->r, fps_str, &fps_x, 10.0, COLOR_RED);
     renderQuad(app->r, 100.0, 100.0, 100.0, 100.0, COLOR_ORANGE);
     rendererEnd(app->r);
     glfwSwapBuffers(app->window);
