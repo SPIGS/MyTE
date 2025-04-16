@@ -3,6 +3,13 @@
 
 
 f32 lerpF(f32 a, f32 b, f32 t) { return a + (b - a) * t; }
+
+f32 easeOutF (f32 start, f32 end, f32 t) {
+    t = t - 1.0f;
+    f32 eased_t = t * t * t + 1.0f;
+    return start + eased_t * (end - start);
+}
+
 f64 degToRad(f32 deg) {return (f64) (deg * 0.0174532925f); }
 f32 radToDeg(f64 rad) {return (f32) (rad * 57.2957795131); }
 
@@ -50,6 +57,16 @@ Vector2 vec2Lerp(Vector2 a, Vector2 b, f32 t) {
     a.x + (b.x - a.x) * t,
     a.y + (b.y - a.y) * t
   };
+}
+
+Vector2 vec2EaseOut(Vector2 start, Vector2 end, f32 t) {
+  t = t - 1.0f;
+  f32 eased_t = t * t * t + 1.0f;
+
+  return vec2(
+    start.x + eased_t * (end.x - start.x), 
+    start.y + eased_t * (end.y - start.y)
+  );
 }
 
 /* Vector 3 */

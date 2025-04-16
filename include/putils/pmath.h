@@ -8,6 +8,7 @@
 #define CLAMP(a,x,b) (((x)<(a))?(a):((b)<(x))?(b):(x))
 
 f32 lerpF(f32 a, f32 b, f32 t);
+f32 easeOutF (f32 start, f32 end, f32 t);
 f64 degToRad(f32 deg);
 f32 radToDeg(f64 rad);
 
@@ -23,6 +24,7 @@ f32 vec2Mag(Vector2 v);
 Vector2 vec2Norm(Vector2 v);
 f32 vec2Dot(Vector2 a, Vector2 b);
 Vector2 vec2Lerp(Vector2 a, Vector2 b, f32 t);
+Vector2 vec2EaseOut(Vector2 start, Vector2 end, f32 t);
 
 /* Vector 3 */
 typedef struct { f32 x, y, z; } Vector3;

@@ -21,20 +21,7 @@ typedef struct {
 	f32 tex_index;
 } Render_Vertex;
 
-// OpenGL Texture structure for storing glyphs
-typedef struct{
-    Vector2 uv_min, uv_max;
-    i32 width, height;
-    i32 bearingX, bearingY;
-    i32 advance;
-} GlyphTexture;
 
-typedef struct {
-    u32 texture_id;
-    u32 width, height;
-    u32 x,y; // Current position in the atlas
-    u32 rowHeight; // Height of the current row
-} TextureAtlas;
 
 typedef struct {
     u32 vao;
@@ -82,4 +69,4 @@ void rendererText(Renderer *r, const char *str, f32 *x, f32 y, Color color);
 
 u32 rendererLoadFont(Renderer *r, const char *path, u32 size_px);
 
-void renderEditor(Renderer *r, Editor *ed);
+void renderEditor(Renderer *r, Editor *ed, f64 delta_time);

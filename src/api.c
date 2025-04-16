@@ -63,7 +63,6 @@ int lua_bindKey(lua_State *L) {
         }
     }
     key_code = getKeyFromString(buffer);
-    LOG_DEBUG("BUffer: %s", buffer);
     registryPushKeyBind(REGISTRY, key_code, mod_bitmask, command);
     stringFree(buffer);
     LOG_INFO("Binding \'%s\' to \'%s\'.", command, keystroke);

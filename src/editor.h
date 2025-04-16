@@ -17,6 +17,7 @@ typedef enum {
 typedef struct {
     GapBuffer *buf;
     Cursor cursor;
+    f32 cursor_speed;
 
     // Editor statistics
     i32 goal_col;
@@ -27,10 +28,12 @@ typedef struct {
     Vector2 text_pos;
     Vector2 scroll_pos;
     Vector2 target_scroll_pos;
+    f32 line_height;
 } Editor;
 
-Editor *editorNew(Rect frame);
+Editor *editorNew(Rect frame, f32 line_height);
 void editorDestroy(Editor *ed);
+void editorUpdate(Editor *ed, f64 delta_time);
 size_t getBegginingOfCursorLine(Editor *ed);
 
 /* Control cursor movements */

@@ -4,16 +4,15 @@
 #include <lualib.h>
 #include <lauxlib.h>
 #include <stdlib.h>
-#include "buffer.h"
 #include "config.h"
 #include "editor.h"
 #include "putils/color.h"
 #include "putils/defines.h"
 #include "putils/log.h"
+#include "putils/pmath.h"
 #include "putils/pstring.h"
 #include "application.h"
 #include "command.h"
-#include "putils/unicode.h"
 #include "renderer.h"
 
 
@@ -30,6 +29,7 @@
 COMMAND(splat) {
     LOG_DEBUG("Builtin command!", "");
     //editorInsert(app->ed, "ぁ");
+    //editorInsert(app->ed, "ね");
     //editorInsert(app->ed, "À");
     editorInsert(app->ed, "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\n€ƒ„…†‡ˆ‰Š‹ŒŽ˜™š›œžŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ\n·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ\nΓΔΛαβγδηθικλμνξπτυφχψ\nЖЗКНРУЭЯавжзклмнруфчьыэя\nᚠᚡᚢᚣᚤᚥᚦᚧᚨᚩᚪᚫᚬᚭᚮᚯᚰᚱᚲᚳᚴᚵᚶᚷᚸᚹᚺᚻᚼᚽᚾᚿᛀᛁᛂᛃᛄᛅᛆᛇᛈᛉᛊᛋᛌᛍᛎᛏᛐᛑᛒᛓᛔᛕᛖᛗᛘᛙᛚᛛᛜᛝᛞᛟᛠᛡᛢᛣᛤᛥᛦᛧᛨᛩᛪ᛫᛬᛭ᛮᛯᛰ\nԱԲԳԴԵԶԷԸԹԺԻԼԽԾԿՀՁՂՃՄՅՆՇՈՉՊՋՌՍՎՏՐՑՒՓՔՕՖՙ՚՛՜՝՞՟ՠաբգդեզէըթժիլխծկհձղճմյնշոչպջռսվտրցւփքօֆևֈ։֊\nぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろゎわゐゑをんゔゕゖ゛゜ゝゞゟ\n");
 }
@@ -74,6 +74,9 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
         if (key == GLFW_KEY_ENTER) {
             char bytes[2] = {'\n', '\0'};
             editorInsert(app->ed, bytes);
+        } else if (key == GLFW_KEY_TAB) {
+            char bytes[2] = {'\t', '\0'};
+            editorInsert(app->ed, bytes);
         }
     }
 }
@@ -88,6 +91,9 @@ void characterCallback(GLFWwindow *window, unsigned int codepoint) {
 void resizeWindowCallback(GLFWwindow *window, int width, int height) {
     Application *app = glfwGetWindowUserPointer(window);
     rendererResizeWindow(app->r, width, height);
+    // TODO: move this somewhere else
+    
+    app->ed->frame = rect(0, 0, (f32)width, (f32)height);
 }
 
 Application *applicationNew(int argc, char **argv) {
@@ -154,7 +160,7 @@ Application *applicationNew(int argc, char **argv) {
     app->r = rendererNew(COLOR_BLACK);
 
     // Open an editor
-    app->ed = editorNew(rect(10, 0, INITIAL_SCREEN_WIDTH -10, INITIAL_SCREEN_HEIGHT));
+    app->ed = editorNew(rect(10, 0, INITIAL_SCREEN_WIDTH -10, INITIAL_SCREEN_HEIGHT), app->r->line_height);
 
     return app;
 }
@@ -177,14 +183,14 @@ void applicationUpdate(Application *app, f64 delta_time) {
         registryExecuteCommand(app->reg, app, app->reg->lua_cmd_queue);
         stringClear(app->reg->lua_cmd_queue);
     }
+    editorUpdate(app->ed, delta_time);
 }
 
 void applicationRender(Application *app, f64 delta_time) {
     rendererBegin(app->r);
 
-    renderEditor(app->r, app->ed);
+    renderEditor(app->r, app->ed, delta_time);
 
-        
     float fps = 1.0f / delta_time;
     string fps_str = stringNew("");
     fps_str = stringFmt(fps_str, "FPS: %f", fps);

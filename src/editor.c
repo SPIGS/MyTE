@@ -5,18 +5,21 @@
 #include "cursor.h"
 #include <grapheme.h>
 #include "putils/unicode.h"
+#include "putils/log.h"
 
-Editor *editorNew(Rect frame) {
+Editor *editorNew(Rect frame, f32 line_height) {
     Editor *ed = (Editor *)malloc(sizeof(Editor));
     ed->buf = gapBufferNew(INITIAL_BUFFER_SIZE);
     ed->cursor = cursorNew();
+    ed->cursor_speed = CURSOR_SPEED;
 
     ed->goal_col = -1;
     ed->line_count = 1;
 
     ed->frame = frame;
-    ed->scroll_pos = vec2(0,0);
-    ed->target_scroll_pos = vec2(0,0);
+    ed->scroll_pos = vec2(0.0,0.0);
+    ed->target_scroll_pos = vec2(0.0,0.0);
+    ed->line_height = line_height;
     return ed;
 }
 
@@ -25,51 +28,83 @@ void editorDestroy(Editor *ed) {
     free(ed);
 }
 
+void editorUpdate(Editor *ed, f64 delta_time) {
+    cursorUpdate(&ed->cursor, delta_time);
+
+    // Get the offset from the scroll position
+    ed->target_scroll_pos = vec2(ed->scroll_pos.x, ed->scroll_pos.y);
+
+    f32 bottom_scroll_bound = ed->frame.y + (6.0 * ed->line_height);
+    f32 top_scroll_bound = ed->frame.y + ed->frame.h - (6.0 * ed->line_height);
+    f32 bottom_line_y = ed->line_height * ed->line_count;
+
+    // Get the vertical scroll position
+    if (ed->cursor.target_screen_pos.y <= bottom_scroll_bound && ed->scroll_pos.y < (bottom_line_y)) {
+	    ed->target_scroll_pos.y += ed->line_height;
+    } else if (ed->cursor.target_screen_pos.y >= top_scroll_bound && ed->scroll_pos.y > 0.0) {
+	    ed->target_scroll_pos.y -= ed->line_height;
+    }
+    ed->scroll_pos = vec2Lerp(ed->scroll_pos, ed->target_scroll_pos, (f32)delta_time  * 35.0f);
+
+}
+
 size_t getBegginingOfCursorLine(Editor *ed) {
     return getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_idx);
 }
 
 void editorMoveLeft(Editor *ed) {
+    ed->cursor.moved_last_frame = true;
+    if (ed->cursor.buffer_idx == 0) {
+        ed->cursor.prev_buffer_idx = ed->cursor.buffer_idx;
+        return;
+    }
+
+    ed->cursor.prev_buffer_idx = ed->cursor.buffer_idx;
     ed->cursor.buffer_idx = getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx);
 
     // If we moved to the previous line
     if (getBufChar(ed->buf, ed->cursor.buffer_idx) == 10) {
+        ed->cursor.prev_disp_row = ed->cursor.disp_row;
         ed->cursor.disp_row--;
     }
 
     ed->cursor.disp_col = getBufColumn(ed->buf, ed->cursor.buffer_idx) + 1;
     ed->goal_col = ed->cursor.disp_col;
+    ed->cursor.pos_anim_time = 0.0f;
 
-    outputBufferString(ed->buf, ed->cursor.buffer_idx);
-    printf("Num limes: %lu", ed->line_count);
 }
 
 void editorMoveRight(Editor *ed) {
+    ed->cursor.moved_last_frame = true;
     if (ed->cursor.buffer_idx == getBufLength(ed->buf)) {
+        ed->cursor.prev_buffer_idx = ed->cursor.buffer_idx;
         return;
     }
 
+    ed->cursor.prev_buffer_idx = ed->cursor.buffer_idx;
     ed->cursor.buffer_idx = getNextGraphemeCursor(ed->buf, ed->cursor.buffer_idx);
 
     // If we moved to the next line
     if (ed->cursor.buffer_idx == getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_idx)) {
+        ed->cursor.prev_disp_row = ed->cursor.disp_row;
         ed->cursor.disp_row++;
     }
 
     ed->cursor.disp_col = getBufColumn(ed->buf, ed->cursor.buffer_idx) + 1;
     ed->goal_col = ed->cursor.disp_col;
 
-    outputBufferString(ed->buf, ed->cursor.buffer_idx);
-    printf("Num limes: %lu", ed->line_count);
+    ed->cursor.pos_anim_time = 0.0f;
 }
 
 void editorMoveUp(Editor *ed) {
+    ed->cursor.moved_last_frame = true;
     if (ed->goal_col == -1) {
         ed->goal_col = ed->cursor.disp_col;
     }
 
     size_t beg_prev_line = getBeginningOfPrevLineCursor(ed->buf, ed->cursor.buffer_idx);
     size_t beg_line = getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_idx);
+    ed->cursor.prev_buffer_idx = ed->cursor.buffer_idx;
 
     if (beg_line == 0) {
         ed->cursor.buffer_idx = beg_line;
@@ -78,20 +113,22 @@ void editorMoveUp(Editor *ed) {
     } else {
         size_t len_prev_line = getBufLineLength(ed->buf, beg_prev_line);
         ed->cursor.buffer_idx = beg_prev_line + MIN((size_t)ed->goal_col - 1, len_prev_line);
+        ed->cursor.prev_disp_row = ed->cursor.disp_row;
         ed->cursor.disp_row--;
         ed->cursor.disp_col = getBufColumn(ed->buf, ed->cursor.buffer_idx) + 1;
     }
-    outputBufferString(ed->buf, ed->cursor.buffer_idx);
-    printf("Num limes: %lu", ed->line_count);
+    ed->cursor.pos_anim_time = 0.0f;
 }
 
 void editorMoveDown(Editor *ed) {
+    ed->cursor.moved_last_frame = true;
     if (ed->goal_col == -1) {
         ed->goal_col = ed->cursor.disp_col;
     }
 
     size_t beg_next_line = getBeginningOfNextLineCursor(ed->buf, ed->cursor.buffer_idx);
     size_t end_line = getEndOfLineCursor(ed->buf, ed->cursor.buffer_idx);
+    ed->cursor.prev_buffer_idx = ed->cursor.buffer_idx;
 
     if (end_line == getBufLength(ed->buf)) {
         ed->cursor.buffer_idx = beg_next_line;
@@ -100,15 +137,15 @@ void editorMoveDown(Editor *ed) {
     } else {
         size_t len_next_line = getBufLineLength(ed->buf, beg_next_line);
         ed->cursor.buffer_idx = beg_next_line + MIN((size_t)ed->goal_col - 1, len_next_line);
+        ed->cursor.prev_disp_row = ed->cursor.disp_row;
         ed->cursor.disp_row++;
         ed->cursor.disp_col = getBufColumn(ed->buf, ed->cursor.buffer_idx) + 1;
     }
-    outputBufferString(ed->buf, ed->cursor.buffer_idx);
-    printf("Num limes: %lu", ed->line_count);
+    ed->cursor.pos_anim_time = 0.0f;
 }
 
 void editorInsert(Editor *ed, char *bytes) {
-    
+    ed->cursor.moved_last_frame = true;
     size_t grapheme_size, offset = 0;
     for (offset = 0; bytes[offset] != '\0'; offset += grapheme_size) {
         grapheme_size = grapheme_next_character_break_utf8(bytes + offset, SIZE_MAX);
@@ -117,47 +154,40 @@ void editorInsert(Editor *ed, char *bytes) {
         insertUnicodeCharIntoBuf (ed->buf, ed->cursor.buffer_idx, grapheme, grapheme_size);
         if (grapheme == '\n') { // new line
             ed->line_count++;
-            ed->cursor.disp_row++;
-            
         }
-        ed->cursor.disp_col = getBufColumn(ed->buf, ed->cursor.buffer_idx) + 1;
-        ed->goal_col = ed->cursor.disp_col;
-        ed->cursor.buffer_idx ++;
+        editorMoveRight(ed);
     }
+    ed->cursor.pos_anim_time = 0.0f;
 
-    outputBufferString(ed->buf, ed->cursor.buffer_idx);
-    printf("Num limes: %lu\n", ed->line_count);
 }
 
 void editorDeleteLeft(Editor *ed) {
+    ed->cursor.moved_last_frame = true;
     // TODO: simplify this (remove redundant code)
     if (ed->cursor.buffer_idx != 0) {
         if (getBufChar(ed->buf, getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx)) != '\n') {
             removeGraphemeBeforeGap(ed->buf, ed->cursor.buffer_idx);
+            ed->cursor.prev_buffer_idx = ed->cursor.buffer_idx;
             ed->cursor.buffer_idx = getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx);
             ed->cursor.disp_col = getBufColumn(ed->buf, ed->cursor.buffer_idx) + 1;
             ed->goal_col = ed->cursor.disp_col;
         } else {
             removeGraphemeBeforeGap(ed->buf, ed->cursor.buffer_idx);
+            ed->cursor.prev_buffer_idx = ed->cursor.buffer_idx;
             ed->cursor.buffer_idx = getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx);
             ed->cursor.disp_col = getBufColumn(ed->buf, ed->cursor.buffer_idx) + 1;
             ed->goal_col = ed->cursor.disp_col;
+            ed->cursor.prev_disp_row = ed->cursor.disp_row;
             ed->cursor.disp_row --;
             ed->line_count --;
         }
     }
-    
-    outputBufferString(ed->buf, ed->cursor.buffer_idx);
-    printf("Num limes: %lu", ed->line_count);
+    ed->cursor.pos_anim_time = 0.0f;
 }
 
 void editorDeleteRight(Editor *ed) {
-    UnicodeChar removed_char = removeGraphemeAfterGap(ed->buf, ed->cursor.buffer_idx);
-
+    ed->cursor.moved_last_frame = true;
     if (removeGraphemeAfterGap(ed->buf, ed->cursor.buffer_idx) == '\n') {
         ed->line_count = (ed->line_count - 1 < 1) ? 1 : ed->line_count - 1;
     }
-
-    outputBufferString(ed->buf, ed->cursor.buffer_idx);
-    printf("Num limes: %lu", ed->line_count);
 }

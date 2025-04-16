@@ -15,11 +15,13 @@
 #include "putils/unicode.h"
 #include "putils/file.h"
 #include <grapheme.h>
+#include <stddef.h>
 
 #define FONT_PATH "./IosevkaTermNerdFontMono-Regular.ttf"
 #define FALLBACK_FONT_PATH_1 "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc"
 #define FALLBACK_FONT_PATH_2 "/usr/share/fonts/noto/NotoSansRunic-Regular.ttf"
 #define FONT_SIZE 24
+#define TAB_WIDTH 4
 
 #define GL_CALL(x) glClearError();\
     x;\
@@ -249,81 +251,7 @@ void rendererEnd(Renderer* r) {
     glDrawElements(GL_TRIANGLES, r->indices_count, GL_UNSIGNED_INT, NULL);
 }
 
-static GlyphTexture addGlyphToAtlas(Renderer *r, FT_Bitmap *bitmap, FT_GlyphSlot slot) {
-    GlyphTexture glyph;
 
-    // Check if we need to move to a new row
-    if (r->atlas.x + bitmap->width >= r->atlas.width) {
-	r->atlas.x = 0;
-	r->atlas.y += r->atlas.rowHeight;
-	r->atlas.rowHeight = 0;
-    }
-
-    // Check if we need to resize the atlas
-    if (r->atlas.y + bitmap->rows >= r->atlas.height) {
-	// Save old atlas ID
-	GLuint old_texture = r->atlas.texture_id;
-	int old_width = r->atlas.width;
-	int old_height = r->atlas.height;
-	
-	// Double the size of the atlas
-	r->atlas.width *= 2;
-	r->atlas.height *= 2;
-	
-	// Create new texture
-	GL_CALL(glGenTextures(1, &r->atlas.texture_id));
-	GL_CALL(glBindTexture(GL_TEXTURE_2D, r->atlas.texture_id));
-	GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, r->atlas.width, r->atlas.height, 0, GL_RED, GL_UNSIGNED_BYTE, NULL));
-	
-	// Set texture parameters
-	GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-	GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-	GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-	GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-	
-	// Copy old texture data to new texture
-	GLubyte *old_data = (GLubyte *)malloc(old_width * old_height);
-	GL_CALL(glBindTexture(GL_TEXTURE_2D, old_texture));
-	GL_CALL(glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_UNSIGNED_BYTE, old_data));
-	
-	GL_CALL(glBindTexture(GL_TEXTURE_2D, r->atlas.texture_id));
-	GL_CALL(glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, old_width, old_height, GL_RED, GL_UNSIGNED_BYTE, old_data));
-	
-	// Clean up
-	free(old_data);
-	GL_CALL(glDeleteTextures(1, &old_texture));
-	
-	// Update all existing glyph UV coordinates
-	// Note: This would require iterating through the hashmap and updating all UVs
-	// This is left as an exercise or could be implemented as a separate function
-    }
-
-    // Add the glyph bitmap to the atlas
-    GL_CALL(glBindTexture(GL_TEXTURE_2D, r->atlas.texture_id));
-    GL_CALL(glPixelStorei(GL_UNPACK_ALIGNMENT, 1));
-    GL_CALL(glTexSubImage2D(GL_TEXTURE_2D, 0, r->atlas.x, r->atlas.y, 
-			   bitmap->width, bitmap->rows, 
-			   GL_RED, GL_UNSIGNED_BYTE, bitmap->buffer));
-
-    // Calculate UV coordinates
-    glyph.uv_min.x = (f32)r->atlas.x / r->atlas.width;
-    glyph.uv_max.y = (f32)r->atlas.y / r->atlas.height;
-    glyph.uv_max.x = (f32)(r->atlas.x + bitmap->width) / r->atlas.width;
-    glyph.uv_min.y = (f32)(r->atlas.y + bitmap->rows) / r->atlas.height;
-
-    // Store glyph metrics
-    glyph.width = bitmap->width;
-    glyph.height = bitmap->rows;
-    glyph.bearingX = slot->bitmap_left;
-    glyph.bearingY = slot->bitmap_top;
-    glyph.advance = slot->advance.x >> 6;
-
-    // Update atlas current position
-    r->atlas.x += bitmap->width + 1;  // Add 1 pixel padding
-    r->atlas.rowHeight = MAX(r->atlas.rowHeight, bitmap->rows);
-
-    return glyph;
-}
 
 static void pushQuad (Renderer* r, Vector2 a, Vector2 b, Vector2 c, Vector2 d,
 					Color a_color, Color b_color, Color c_color, Color d_color,
@@ -388,54 +316,12 @@ static void pushQuad (Renderer* r, Vector2 a, Vector2 b, Vector2 c, Vector2 d,
     r->indices_count += 6;
 }
 
-static void cacheGrapheme( Renderer *r, char *unpacked_grapheme) {
-    FT_Face current_face = r->font_collection->faces[0].face;
-
-    // Initialize HarfBuzz buffer
-    hb_buffer_t* hb_buffer = hb_buffer_create();
-    u32 glyph_count;
-    hb_glyph_info_t* glyph_info = shapeText(hb_buffer, current_face, unpacked_grapheme, &glyph_count);
-
-    if (glyph_info->codepoint == 0) {
-	for (size_t i = 0; i< r->font_collection->count; i++) {
-	    if (r->font_collection->faces[i].face == current_face)
-		    continue;
-
-	    hb_buffer_destroy(hb_buffer);
-	    hb_buffer = hb_buffer_create();
-	    glyph_info = shapeText(hb_buffer, r->font_collection->faces[i].face, unpacked_grapheme, &glyph_count);
-	    if (glyph_info->codepoint != 0) {
-		current_face = r->font_collection->faces[i].face;
-		break;
-	    }
-	}
-    }
-
-    if (glyph_count == 0) {
-	hb_buffer_destroy(hb_buffer);
-	free(unpacked_grapheme);
-	return;
-    } else {
-	i32 codepoint = glyph_info[0].codepoint;
-	string codepoint_key = stringNew("");
-	codepoint_key = stringFmt(codepoint_key, "%s", unpacked_grapheme);
-
-	if (FT_Load_Glyph(current_face, codepoint, FT_LOAD_RENDER))
-	    printf("Loading glyph failed\n");
-
-	GlyphTexture *new_glyph = (GlyphTexture *)malloc(sizeof(GlyphTexture));
-	*new_glyph = addGlyphToAtlas(r, &current_face->glyph->bitmap, current_face->glyph);
-	codepoint_key = (char *)hashmapPush(r->glyphs, codepoint_key, new_glyph);
-	hb_buffer_destroy(hb_buffer);
-    }
-}
-
 void renderGrapheme(Renderer *r, UnicodeChar grapheme, f32 *x, f32 y, f32 scale, Color color) {
     char *unpacked_grapheme = unpackUTF8(grapheme);
     GlyphTexture *glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
 
     if (glyph == NULL) {
-	cacheGrapheme(r, unpacked_grapheme);
+	cacheGrapheme(r->font_collection, r->glyphs, &r->atlas,unpacked_grapheme);
     }
     glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
     free(unpacked_grapheme);
@@ -503,31 +389,75 @@ void rendererResizeWindow (Renderer* r, i32 width, i32 height) {
     glUniformMatrix4fv(proj_loc, 1, GL_FALSE, r->projection.a);
 }
 
-static void renderCursor(Renderer *r, Editor *ed, f32 text_offset, f32 frame_height) {
-    size_t cursor_idx = ed->cursor.buffer_idx;
+static void renderCursor(Renderer *r, Editor *ed, f32 text_offset, f32 frame_height, f64 delta_time) {
 
-    // Determine the cursor's X position
-    size_t begin_line = getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_idx);
-    f32 cursor_x = 0.0f;
+    Vector2 prev_pos = ed->cursor.prev_screen_pos;
+    Vector2 target_pos = ed->scroll_pos;
+    
+    size_t cursor_idx = ed->cursor.buffer_idx;
+    
+    // Get a new target position
+    target_pos = vec2(0.0, 0.0);
+    size_t begin_line = getBeginningOfLineCursor(ed->buf, cursor_idx);
     for (size_t i = 0; i < (cursor_idx - begin_line); i++) {
 	UnicodeChar grapheme = getBufChar(ed->buf, begin_line + i);
 	char *unpacked_grapheme = unpackUTF8(grapheme);
 	GlyphTexture *glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
 
 	if (glyph == NULL) {
-	    cacheGrapheme(r, unpacked_grapheme);
+	    cacheGrapheme(r->font_collection, r->glyphs, &r->atlas, unpacked_grapheme);
 	}
 	glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
 	free(unpacked_grapheme);
 
-	cursor_x += (glyph->advance);
+	if (grapheme == '\t') {
+	    glyph = (GlyphTexture *)hashmapGet(r->glyphs, " ");
+	    target_pos.x += (TAB_WIDTH * glyph->advance);
+	} else {
+	    target_pos.x += (glyph->advance);
+	}
     }
-    cursor_x += text_offset;
-    f32 cursor_y = frame_height - (r->line_height * ed->cursor.disp_row) - (r->line_height * 0.1);
-    renderQuad(r, cursor_x, cursor_y, 3, r->line_height, COLOR_WHITE);
+    target_pos.x += text_offset;
+    target_pos.y = frame_height - (r->line_height * ed->cursor.disp_row - 1) - (r->line_height * 0.1);
+    target_pos = vec2Add(target_pos, ed->scroll_pos);
+
+    // Lerp the two positions to obtain the updated cursor screen position
+    ed->cursor.pos_anim_time += (f32)delta_time * ed->cursor_speed;
+    Vector2 lerp_pos = ed->cursor.screen_pos;
+    if (ed->cursor.pos_anim_time >= 1.0f) {
+	ed->cursor.pos_anim_time = 1.0f;
+    } else {
+	lerp_pos = vec2EaseOut(prev_pos, target_pos, ed->cursor.pos_anim_time);
+    }
+
+    //Blink the cursor
+    if (ed->cursor.blinkable) {
+        ed->cursor.blink_time += (f32)delta_time;
+        if (ed->cursor.blink_time >= ed->cursor.blink_rate) {
+            ed->cursor.blink_time = 0.0;
+            ed->cursor.target_alpha = ed->cursor.target_alpha == 1.0 ? 0.0 : 1.0;
+        }
+        if (ed->cursor.moved_last_frame) {
+            ed->cursor.alpha = 1.0;
+            ed->cursor.target_alpha = 1.0;
+            ed->cursor.blink_time = 0.0;
+        } else {
+            ed->cursor.alpha = easeOutF(ed->cursor.alpha, ed->cursor.target_alpha, ed->cursor.blink_time);
+        }
+    }
+
+    ed->cursor.moved_last_frame = false;
+
+    Color cursor_color = COLOR_WHITE;
+    cursor_color.a = ed->cursor.alpha;
+
+    ed->cursor.prev_screen_pos = ed->cursor.screen_pos;
+    ed->cursor.screen_pos = lerp_pos;
+    ed->cursor.target_screen_pos = target_pos;
+    renderQuad(r, lerp_pos.x, lerp_pos.y, 3, r->line_height, cursor_color);
 }
 
-void renderEditor(Renderer *r, Editor *ed) {
+void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
     // Render the background
     Rect frame = ed->frame;
     //renderQuad(r, frame.x, frame.y, frame.w, frame.h, COLOR_GRAY);
@@ -544,8 +474,8 @@ void renderEditor(Renderer *r, Editor *ed) {
     }
 
     Vector2 gutter_text_pos = vec2(frame.x, frame.y + frame.h - r->line_height);
+    gutter_text_pos = vec2Add(gutter_text_pos, ed->scroll_pos);
 
-    // TODO: offset by scroll pos
     size_t cur_line = ed->cursor.disp_row;
 
     f32 gutter_width = 0.0;
@@ -565,18 +495,24 @@ void renderEditor(Renderer *r, Editor *ed) {
     // Draw the text
     f32 text_base_x = frame.x + gutter_width + r->glyph_width;
     Vector2 text_pos = vec2(text_base_x, frame.y + frame.h - r->line_height);
+    text_pos = vec2Add(text_pos, ed->scroll_pos);
     UnicodeChar *graphemes = getBufferString(ed->buf);
     size_t buf_len = getBufLength(ed->buf);
 
     // Draw the cursor
-    renderCursor(r, ed, text_base_x, frame.h);
+    renderCursor(r, ed, text_base_x, frame.h, delta_time);
 
     for (size_t i = 0; i < buf_len; i++) {
         if (graphemes[i] == 10) { // newline
             text_pos.y -= r->line_height;
             text_pos.x = text_base_x;
             continue;
-        }
+        } else if (graphemes[i] == '\t') {
+	    for (size_t k = 0; k < TAB_WIDTH; k++) {
+		renderGrapheme(r, 32, &text_pos.x, text_pos.y, 1.0, COLOR_WHITE);
+	    }
+	    continue;
+	}
         renderGrapheme(r, graphemes[i], &text_pos.x, text_pos.y, 1.0, COLOR_WHITE);
     }
     free(graphemes);
