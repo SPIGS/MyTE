@@ -4,22 +4,32 @@
 #include "buffer.h"
 #include "cursor.h"
 #include <grapheme.h>
+#include "putils/pmath.h"
 #include "putils/unicode.h"
 #include "putils/log.h"
 
 Editor *editorNew(Rect frame, f32 line_height) {
     Editor *ed = (Editor *)malloc(sizeof(Editor));
     ed->buf = gapBufferNew(INITIAL_BUFFER_SIZE);
-    ed->cursor = cursorNew();
-    ed->cursor_speed = CURSOR_SPEED;
-
     ed->goal_col = -1;
     ed->line_count = 1;
+
+    ed->gutter = (Gutter) {
+        .size = vec2(0.0, 0.0),
+        .txt_pos = vec2(0.0, 0.0)
+    };
 
     ed->frame = frame;
     ed->scroll_pos = vec2(0.0,0.0);
     ed->target_scroll_pos = vec2(0.0,0.0);
     ed->line_height = line_height;
+
+    Vector2 pos = vec2(0, 0);
+    pos.x = (frame.x + (frame.w / 2.0));
+    pos.y = (frame.x + (frame.h / 2.0));
+
+    ed->cursor = cursorNew(pos);
+    ed->cursor_speed = CURSOR_SPEED;
     return ed;
 }
 
@@ -40,12 +50,22 @@ void editorUpdate(Editor *ed, f64 delta_time) {
 
     // Get the vertical scroll position
     if (ed->cursor.target_screen_pos.y <= bottom_scroll_bound && ed->scroll_pos.y < (bottom_line_y)) {
-	    ed->target_scroll_pos.y += ed->line_height;
+        ed->target_scroll_pos.y += ed->line_height;
     } else if (ed->cursor.target_screen_pos.y >= top_scroll_bound && ed->scroll_pos.y > 0.0) {
-	    ed->target_scroll_pos.y -= ed->line_height;
+        ed->target_scroll_pos.y -= ed->line_height;
     }
-    ed->scroll_pos = vec2Lerp(ed->scroll_pos, ed->target_scroll_pos, (f32)delta_time  * 35.0f);
 
+    // Get the horizontal scroll position
+    // NOTE: this is for some padding so that the text doesn't sit on top of the divider line
+    f32 glyph_width_padding = 12.0;
+    if (ed->cursor.target_screen_pos.x > (ed->frame.x + ed->frame.w - 3.0)) {
+        ed->target_scroll_pos.x -= (ed->cursor.target_screen_pos.x - (ed->frame.x + ed->frame.w) + 3.0);
+    } else if (ed->cursor.target_screen_pos.x < (ed->frame.x + ed->gutter.size.x + glyph_width_padding) && ed->scroll_pos.x < 0) {
+        ed->target_scroll_pos.x += (ed->frame.x + ed->gutter.size.x + glyph_width_padding) - ed->cursor.target_screen_pos.x;
+    }
+
+    // Get the horizontal scroll position
+    ed->scroll_pos = vec2Lerp(ed->scroll_pos, ed->target_scroll_pos, (f32)delta_time  * 35.0f);
 }
 
 size_t getBegginingOfCursorLine(Editor *ed) {
@@ -191,3 +211,5 @@ void editorDeleteRight(Editor *ed) {
         ed->line_count = (ed->line_count - 1 < 1) ? 1 : ed->line_count - 1;
     }
 }
+
+void editorDeleteWordRight(Editor *ed);

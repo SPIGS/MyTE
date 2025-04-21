@@ -3,8 +3,25 @@
 #include "putils/log.h"
 #include "putils/pmath.h"
 #include "putils/pstring.h"
+#include "putils/unicode.h"
 #include <GL/glew.h>
+#include <grapheme.h>
 
+#define GL_CALL(x) glClearError();\
+    x;\
+    glLogCall()
+
+static void glClearError(void) {
+    while(glGetError() != GL_NO_ERROR);
+}
+
+static void glLogCall(void) {
+    GLenum error = 0;
+    while((error = glGetError())) {
+	LOG_ERROR("OpenGL error %#08x", error);
+	printf("OpenGL error %#08x", error);
+    }
+}
 
 FontCollection *fontCollectionNew(size_t initial_capacity) {
     FontCollection *collection = (FontCollection *)malloc(sizeof(FontCollection));
@@ -67,7 +84,7 @@ void fontCollectionAddFace(FT_Library *ft,FontCollection *collection, const char
     collection->count++;
 }
 
-hb_glyph_info_t* shapeText(hb_buffer_t* hb_buffer, FT_Face face, const char* text, unsigned int* glyph_count) {
+static hb_glyph_info_t* shapeText(hb_buffer_t* hb_buffer, FT_Face face, const char* text, unsigned int* glyph_count) {
     // Create a HarfBuzz font object from the FreeType face
     hb_font_t* hb_font = hb_ft_font_create(face, NULL);
 
@@ -89,65 +106,49 @@ hb_glyph_info_t* shapeText(hb_buffer_t* hb_buffer, FT_Face face, const char* tex
     return glyph_info;
 }
 
-#define GL_CALL(x) glClearError();\
-    x;\
-    glLogCall()
-
-static void glClearError(void) {
-    while(glGetError() != GL_NO_ERROR);
-}
-
-static void glLogCall(void) {
-    GLenum error = 0;
-    while((error = glGetError())) {
-	LOG_ERROR("OpenGL error %#08x", error);
-	printf("OpenGL error %#08x", error);
-    }
-}
-
-GlyphTexture addGlyphToAtlas(TextureAtlas *atlas, FT_Bitmap *bitmap, FT_GlyphSlot slot) {
+static GlyphTexture addGlyphToAtlas(TextureAtlas *atlas, FT_Bitmap *bitmap, FT_GlyphSlot slot) {
     GlyphTexture glyph;
 
     // Check if we need to move to a new row
     if (atlas->x + bitmap->width >= atlas->width) {
-	atlas->x = 0;
-	atlas->y += atlas->rowHeight;
-	atlas->rowHeight = 0;
+        atlas->x = 0;
+        atlas->y += atlas->rowHeight;
+        atlas->rowHeight = 0;
     }
 
     // Check if we need to resize the atlas
     if (atlas->y + bitmap->rows >= atlas->height) {
-	// Save old atlas ID
-	GLuint old_texture = atlas->texture_id;
-	int old_width = atlas->width;
-	int old_height = atlas->height;
-	
-	// Double the size of the atlas
-	atlas->width *= 2;
-	atlas->height *= 2;
-	
-	// Create new texture
-	GL_CALL(glGenTextures(1, &atlas->texture_id));
-	GL_CALL(glBindTexture(GL_TEXTURE_2D, atlas->texture_id));
-	GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, atlas->width, atlas->height, 0, GL_RED, GL_UNSIGNED_BYTE, NULL));
-	
-	// Set texture parameters
-	GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-	GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-	GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
-	GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
-	
-	// Copy old texture data to new texture
-	GLubyte *old_data = (GLubyte *)malloc(old_width * old_height);
-	GL_CALL(glBindTexture(GL_TEXTURE_2D, old_texture));
-	GL_CALL(glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_UNSIGNED_BYTE, old_data));
-	
-	GL_CALL(glBindTexture(GL_TEXTURE_2D, atlas->texture_id));
-	GL_CALL(glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, old_width, old_height, GL_RED, GL_UNSIGNED_BYTE, old_data));
-	
-	// Clean up
-	free(old_data);
-	GL_CALL(glDeleteTextures(1, &old_texture));
+        // Save old atlas ID
+        GLuint old_texture = atlas->texture_id;
+        int old_width = atlas->width;
+        int old_height = atlas->height;
+
+        // Double the size of the atlas
+        atlas->width *= 2;
+        atlas->height *= 2;
+
+        // Create new texture
+        GL_CALL(glGenTextures(1, &atlas->texture_id));
+        GL_CALL(glBindTexture(GL_TEXTURE_2D, atlas->texture_id));
+        GL_CALL(glTexImage2D(GL_TEXTURE_2D, 0, GL_RED, atlas->width, atlas->height, 0, GL_RED, GL_UNSIGNED_BYTE, NULL));
+
+        // Set texture parameters
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
+        GL_CALL(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
+
+        // Copy old texture data to new texture
+        GLubyte *old_data = (GLubyte *)malloc(old_width * old_height);
+        GL_CALL(glBindTexture(GL_TEXTURE_2D, old_texture));
+        GL_CALL(glGetTexImage(GL_TEXTURE_2D, 0, GL_RED, GL_UNSIGNED_BYTE, old_data));
+
+        GL_CALL(glBindTexture(GL_TEXTURE_2D, atlas->texture_id));
+        GL_CALL(glTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, old_width, old_height, GL_RED, GL_UNSIGNED_BYTE, old_data));
+
+        // Clean up
+        free(old_data);
+        GL_CALL(glDeleteTextures(1, &old_texture));
     }
 
     // Add the glyph bitmap to the atlas
@@ -186,18 +187,18 @@ void cacheGrapheme(FontCollection *collection, hashmap *glyph_map, TextureAtlas 
     hb_glyph_info_t* glyph_info = shapeText(hb_buffer, current_face, unpacked_grapheme, &glyph_count);
 
     if (glyph_info->codepoint == 0) {
-    for (size_t i = 0; i< collection->count; i++) {
-	    if (collection->faces[i].face == current_face)
-		    continue;
+        for (size_t i = 0; i< collection->count; i++) {
+            if (collection->faces[i].face == current_face)
+                continue;
 
-	    hb_buffer_destroy(hb_buffer);
-	    hb_buffer = hb_buffer_create();
-	    glyph_info = shapeText(hb_buffer, collection->faces[i].face, unpacked_grapheme, &glyph_count);
-	    if (glyph_info->codepoint != 0) {
-            current_face = collection->faces[i].face;
-            break;
-	    }
-	}
+            hb_buffer_destroy(hb_buffer);
+            hb_buffer = hb_buffer_create();
+            glyph_info = shapeText(hb_buffer, collection->faces[i].face, unpacked_grapheme, &glyph_count);
+            if (glyph_info->codepoint != 0) {
+                current_face = collection->faces[i].face;
+                break;
+            }
+        }
     }
 
     if (glyph_count == 0) {
@@ -218,4 +219,46 @@ void cacheGrapheme(FontCollection *collection, hashmap *glyph_map, TextureAtlas 
         hb_buffer_destroy(hb_buffer);
     }
 
+}
+
+f32 getSizeOfText(FontCollection *collection, hashmap *glyph_map, TextureAtlas *atlas, char *text, f32 scale) {
+    
+    // f32 size = 0.0;
+    // for (size_t i = 0; i < length; i++) {
+    //     UnicodeChar grapheme = text[i];
+    //     char *unpacked_grapheme = unpackUTF8(grapheme);
+    //     GlyphTexture *glyph = (GlyphTexture *)hashmapGet(glyph_map, unpacked_grapheme);
+    //
+    //     if (glyph == NULL) {
+    //         cacheGrapheme(collection, glyph_map, atlas, unpacked_grapheme);
+    //     }
+    //     glyph = (GlyphTexture *)hashmapGet(glyph_map, unpacked_grapheme);
+    //     free(unpacked_grapheme);
+    //
+    //     size += (glyph->width + glyph->advance) * scale;
+    // }
+    // return size;
+
+    f32 size = 0.0;
+    size_t grapheme_size, offset = 0;
+    for (offset = 0; text[offset] != '\0'; offset += grapheme_size) {
+        grapheme_size = grapheme_next_character_break_utf8(text + offset, SIZE_MAX);
+        UnicodeChar grapheme = packUTF8(text + offset, grapheme_size);
+        char *unpacked_grapheme = unpackUTF8(grapheme);
+        GlyphTexture *glyph = (GlyphTexture *)hashmapGet(glyph_map, unpacked_grapheme);
+
+        if (glyph == NULL) {
+            cacheGrapheme(collection, glyph_map, atlas, unpacked_grapheme);
+        }
+        glyph = (GlyphTexture *)hashmapGet(glyph_map, unpacked_grapheme);
+        free(unpacked_grapheme);
+
+        if (grapheme == '\t') {
+            glyph = (GlyphTexture *)hashmapGet(glyph_map, " ");
+            size += (TAB_WIDTH * glyph->advance) * scale;
+        } else {
+            size += (glyph->advance) * scale;
+        }
+    }
+    return size;
 }

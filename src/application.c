@@ -160,7 +160,7 @@ Application *applicationNew(int argc, char **argv) {
     app->r = rendererNew(COLOR_BLACK);
 
     // Open an editor
-    app->ed = editorNew(rect(10, 0, INITIAL_SCREEN_WIDTH -10, INITIAL_SCREEN_HEIGHT), app->r->line_height);
+    app->ed = editorNew(rect(0, 0, INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT), app->r->line_height);
 
     return app;
 }

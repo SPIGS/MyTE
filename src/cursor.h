@@ -27,7 +27,7 @@ typedef struct {
     size_t prev_disp_row;
 } Cursor;
 
-Cursor cursorNew(void);
+Cursor cursorNew(Vector2 pos);
 void cursorUpdate(Cursor *c, f64 delta_time);
 
 

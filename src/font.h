@@ -1,3 +1,4 @@
+#include "putils/unicode.h"
 #include <ft2build.h>
 #include FT_FREETYPE_H
 #include <harfbuzz/hb.h>
@@ -6,6 +7,7 @@
 #include "putils/phashmap.h"
 #include "putils/pmath.h"
 
+#define TAB_WIDTH 4
 typedef struct {
     FT_Face face;
     hb_font_t *hb_font;
@@ -38,6 +40,5 @@ FontCollection *fontCollectionNew(size_t initial_capacity);
 void fontcollectionDestroy(FontCollection *collection);
 void fontCollectionAddFace(FT_Library *ft,FontCollection *collection, const char *font_path, i32 face_idx, u32 font_size);
 
-hb_glyph_info_t* shapeText(hb_buffer_t* hb_buffer, FT_Face face, const char* text, unsigned int* glyph_count);
 void cacheGrapheme(FontCollection *collection, hashmap *glyph_map, TextureAtlas *atlas, char *unpacked_grapheme);
-GlyphTexture addGlyphToAtlas(TextureAtlas *atlas, FT_Bitmap *bitmap, FT_GlyphSlot slot);
+f32 getSizeOfText(FontCollection *collection, hashmap *glyph_map, TextureAtlas *atlas, char *text, f32 scale);

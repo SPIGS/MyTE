@@ -3,14 +3,13 @@
 
 #define BLINK_RATE 0.5
 
-Cursor cursorNew(void) {
+Cursor cursorNew(Vector2 pos) {
     return (Cursor) {
         .buffer_idx = 0,
         .prev_buffer_idx = 0,
-
-        .screen_pos = vec2(0.0, 0.0),
-        .prev_screen_pos = vec2(0.0, 0.0),
-        .target_screen_pos = vec2(0.0, 0.0),
+        .screen_pos = vec2(pos.x, pos.y),
+        .prev_screen_pos = vec2(pos.x, pos.y),
+        .target_screen_pos = vec2(pos.x, pos.y),
         .pos_anim_time = 0.0f,
         .disp_col = 1,
         .disp_row = 1,

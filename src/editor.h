@@ -15,6 +15,11 @@ typedef enum {
 } ScrollMode;
 
 typedef struct {
+    Vector2 size;
+    Vector2 txt_pos;
+} Gutter;
+
+typedef struct {
     GapBuffer *buf;
     Cursor cursor;
     f32 cursor_speed;
@@ -24,6 +29,7 @@ typedef struct {
     size_t line_count;
 
     // Render info
+    Gutter gutter;
     Rect frame;
     Vector2 text_pos;
     Vector2 scroll_pos;
@@ -49,4 +55,6 @@ void editorMoveDown(Editor *ed);
 void editorInsert(Editor *ed, char *bytes);
 void editorDeleteLeft(Editor *ed);
 void editorDeleteRight(Editor *ed);
+void editorDeleteWordLeft(Editor *ed);
+void editorDeleteWordRight(Editor *ed);
 

@@ -21,7 +21,6 @@
 #define FALLBACK_FONT_PATH_1 "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc"
 #define FALLBACK_FONT_PATH_2 "/usr/share/fonts/noto/NotoSansRunic-Regular.ttf"
 #define FONT_SIZE 24
-#define TAB_WIDTH 4
 
 #define GL_CALL(x) glClearError();\
     x;\
@@ -473,27 +472,22 @@ void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
 	gutter_padding = digits + 1;
     }
 
-    Vector2 gutter_text_pos = vec2(frame.x, frame.y + frame.h - r->line_height);
-    gutter_text_pos = vec2Add(gutter_text_pos, ed->scroll_pos);
+    ed->gutter.txt_pos = vec2(frame.x, frame.y + frame.h - r->line_height);
+    Vector2 gutter_scroll_offset = vec2(0.0, ed->scroll_pos.y);
+    ed->gutter.txt_pos = vec2Add(ed->gutter.txt_pos, gutter_scroll_offset);
 
     size_t cur_line = ed->cursor.disp_row;
 
-    f32 gutter_width = 0.0;
-    for (size_t i = 1; i <= ed->line_count; i++) {
-	string num = stringNew("");
-	num = stringFmt(num, "%*d", gutter_padding, i);
-	rendererText(r, num, &gutter_text_pos.x, gutter_text_pos.y, cur_line == i ? COLOR_WHITE : COLOR_SILVER);
-	gutter_width = MAX(gutter_text_pos.x, gutter_width);
-	gutter_text_pos.x = frame.x;
-	gutter_text_pos.y -= r->line_height;
-	stringFree(num);
-    }
-
-    // Draw the gutter divider
-    renderQuad(r, frame.x + gutter_width, 0, 1, r->screen_height, COLOR_SILVER);
+    // Get the gutter width 
+    // TODO: move this to editor update, we need it to change the horizontal scroll
+    ed->gutter.size.x = 0.0;
+    string num = stringNew("");
+    num = stringFmt(num, "%*d", gutter_padding, ed->line_count);
+    ed->gutter.size.x = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, num, 1.0);
+    ed->gutter.size.x += r->glyph_width;
 
     // Draw the text
-    f32 text_base_x = frame.x + gutter_width + r->glyph_width;
+    f32 text_base_x = frame.x + ed->gutter.size.x + r->glyph_width;
     Vector2 text_pos = vec2(text_base_x, frame.y + frame.h - r->line_height);
     text_pos = vec2Add(text_pos, ed->scroll_pos);
     UnicodeChar *graphemes = getBufferString(ed->buf);
@@ -505,7 +499,7 @@ void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
     for (size_t i = 0; i < buf_len; i++) {
         if (graphemes[i] == 10) { // newline
             text_pos.y -= r->line_height;
-            text_pos.x = text_base_x;
+            text_pos.x = text_base_x + ed->scroll_pos.x;
             continue;
         } else if (graphemes[i] == '\t') {
 	    for (size_t k = 0; k < TAB_WIDTH; k++) {
@@ -516,4 +510,18 @@ void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
         renderGrapheme(r, graphemes[i], &text_pos.x, text_pos.y, 1.0, COLOR_WHITE);
     }
     free(graphemes);
+
+    // Draw the gutter
+    renderQuad(r, frame.x, 0, ed->gutter.size.x, r->screen_height, COLOR_BLACK);
+    for (size_t i = 1; i <= ed->line_count; i++) {
+	string num = stringNew("");
+	num = stringFmt(num, "%*d", gutter_padding, i);
+	rendererText(r, num, &ed->gutter.txt_pos.x, ed->gutter.txt_pos.y, cur_line == i ? COLOR_WHITE : COLOR_SILVER);
+	ed->gutter.txt_pos.x = frame.x;
+	ed->gutter.txt_pos.y -= r->line_height;
+	stringFree(num);
+    }
+
+    // Draw the gutter divider
+    renderQuad(r, frame.x + ed->gutter.size.x, 0, 1, r->screen_height, COLOR_SILVER);
 }
