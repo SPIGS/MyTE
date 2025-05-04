@@ -27,3 +27,18 @@ char *unpackUTF8(UnicodeChar packed) {
     out[4] = '\0';
     return out;
 }
+
+bool isspaceUTF8(UnicodeChar uc) {
+    return (uc == '\n') || (uc == ' ') || (uc == '\r') || (uc == '\t') || (uc == '\v') || (uc == '\f');
+}
+
+// Only handles punctuation characters found in ASCII right now
+bool ispunctUTF8(UnicodeChar uc) {
+    return (uc >= 33 && uc <= 47) || (uc >= 58 && uc <= 64) || (uc >= 91 && uc <= 96) || (uc >= 123 && uc <= 126);
+}
+
+// Only handles alphanumeric characters found in ASCII right now, everything outside of the ASCII
+// range returns true
+bool isalnumUTF8(UnicodeChar uc) {
+    return (uc >=48 && uc <= 57) || (uc >= 65 && uc <= 70) || (uc >= 71 && uc <= 90) || (uc >= 97 && uc <= 120) || (uc >= 103 && uc <= 122) || ( uc >= 161);
+}

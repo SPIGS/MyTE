@@ -58,6 +58,22 @@ COMMAND(moveCursorDown) {
     editorMoveDown(app->ed);
 }
 
+COMMAND(moveCursorEndOfNextWord) {
+    editorMoveEndOfNextWord(app->ed);
+}
+
+COMMAND(moveCursorBegOfPrevWord) {
+    editorMoveBegOfPrevWord(app->ed);
+}
+
+COMMAND(deleteWordLeft) {
+    editorDeleteWordLeft(app->ed);
+}
+
+COMMAND(deleteWordRight) {
+    editorDeleteWordRight(app->ed);
+}
+
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     UNUSED(scancode);
     UNUSED(mods);
@@ -142,6 +158,10 @@ Application *applicationNew(int argc, char **argv) {
     REGISTER_COMMAND(app->reg, deleteGraphemeRight);
     REGISTER_COMMAND(app->reg, moveCursorUp);
     REGISTER_COMMAND(app->reg, moveCursorDown);
+    REGISTER_COMMAND(app->reg, moveCursorEndOfNextWord);
+    REGISTER_COMMAND(app->reg, moveCursorBegOfPrevWord);
+    REGISTER_COMMAND(app->reg, deleteWordLeft);
+    REGISTER_COMMAND(app->reg, deleteWordRight);
 
     // Setup lua context
     lua_State *L = luaL_newstate();

@@ -13,6 +13,10 @@ Myte.bind("up", "moveCursorUp")
 Myte.bind("down", "moveCursorDown")
 Myte.bind("backspace", "deleteGraphemeLeft")
 Myte.bind("delete", "deleteGraphemeRight")
+Myte.bind("ctrl + right", "moveCursorEndOfNextWord")
+Myte.bind("ctrl + left", "moveCursorBegOfPrevWord")
+Myte.bind("ctrl + backspace", "deleteWordLeft")
+Myte.bind("ctrl + delete", "deleteWordRight")
 
 Myte.a = 69
 Myte.b = 4.20

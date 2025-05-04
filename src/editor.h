@@ -48,7 +48,8 @@ void editorMoveLeft(Editor *ed);
 void editorMoveRight(Editor *ed);
 void editorMoveUp(Editor *ed);
 void editorMoveDown(Editor *ed);
-
+void editorMoveEndOfNextWord (Editor *ed);
+void editorMoveBegOfPrevWord(Editor *ed);
 
 /* Buffer manipulation */
 

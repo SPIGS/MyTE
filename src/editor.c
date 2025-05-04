@@ -73,6 +73,7 @@ size_t getBegginingOfCursorLine(Editor *ed) {
 }
 
 void editorMoveLeft(Editor *ed) {
+    LOG_DEBUG("Moved left", "");
     ed->cursor.moved_last_frame = true;
     if (ed->cursor.buffer_idx == 0) {
         ed->cursor.prev_buffer_idx = ed->cursor.buffer_idx;
@@ -164,6 +165,60 @@ void editorMoveDown(Editor *ed) {
     ed->cursor.pos_anim_time = 0.0f;
 }
 
+void editorMoveEndOfNextWord (Editor *ed) {
+    size_t prev_pos = ed->cursor.buffer_idx;
+    editorMoveRight(ed);
+    UnicodeChar c = getBufChar(ed->buf, ed->cursor.buffer_idx);
+    size_t buf_len = getBufLength(ed->buf);
+    // skip spaces
+    if (isspaceUTF8(c)) {
+        while(isspaceUTF8(c) && c != '\n' && ed->cursor.buffer_idx != buf_len) {
+            editorMoveRight(ed);
+            c = getBufChar(ed->buf, ed->cursor.buffer_idx);
+        }
+    }
+
+    if (ispunctUTF8(c) && c != '_') {
+        while (ispunctUTF8(c) && c != '_' && ed->cursor.buffer_idx != buf_len) {
+            editorMoveRight(ed);
+            c = getBufChar(ed->buf, ed->cursor.buffer_idx);
+        }
+    } else if (isalnumUTF8(c) || c == '_') {
+        while ((isalnumUTF8(c) || c == '_') && ed->cursor.buffer_idx != buf_len) {
+            editorMoveRight(ed);
+            c = getBufChar(ed->buf, ed->cursor.buffer_idx);
+        }
+    }
+    ed->cursor.prev_buffer_idx = prev_pos;
+}
+
+void editorMoveBegOfPrevWord(Editor *ed) {
+    size_t prev_pos = ed->cursor.buffer_idx;
+    editorMoveLeft(ed);
+    UnicodeChar c = getBufChar(ed->buf, getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx));
+
+    // skip spaces
+    if (isspaceUTF8(c)) {
+        while (isspaceUTF8(c) && c != '\n' && ed->cursor.buffer_idx != 0) {
+            editorMoveLeft(ed);
+            c = getBufChar(ed->buf, getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx));
+        } 
+    }
+
+    if (ispunctUTF8(c) && c != '_') {
+        while (ispunctUTF8(c) && c != '_' && ed->cursor.buffer_idx != 0) {
+            editorMoveLeft(ed);
+            c = getBufChar(ed->buf, getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx));
+        }
+    } else if (isalnumUTF8(c) || c == '_'){
+        while ((isalnumUTF8(c) || c == '_') && ed->cursor.buffer_idx != 0) {
+            editorMoveLeft(ed);
+            c = getBufChar(ed->buf, getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx));
+        }
+    }
+    ed->cursor.prev_buffer_idx = prev_pos;
+}
+
 void editorInsert(Editor *ed, char *bytes) {
     ed->cursor.moved_last_frame = true;
     size_t grapheme_size, offset = 0;
@@ -212,4 +267,52 @@ void editorDeleteRight(Editor *ed) {
     }
 }
 
-void editorDeleteWordRight(Editor *ed);
+void editorDeleteWordLeft(Editor *ed) {
+    editorDeleteLeft(ed);
+    char c = getBufChar(ed->buf, getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx));
+    
+    // skip spaces
+    if (isspaceUTF8(c)) {
+        while (isspaceUTF8(c) && c != '\n' && ed->cursor.buffer_idx != 0) {
+            editorDeleteLeft(ed);
+            c = getBufChar(ed->buf, getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx));
+        } 
+    }
+
+    if (ispunctUTF8(c) && c != '_') {
+        while (ispunctUTF8(c) && c != '_' && ed->cursor.buffer_idx != 0) {
+            editorDeleteLeft(ed);
+            c = getBufChar(ed->buf, getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx));
+        }
+    } else if (isalnumUTF8(c) || c == '_'){
+        while ((isalnumUTF8(c) || c == '_') && ed->cursor.buffer_idx != 0) {
+            editorDeleteLeft(ed);
+            c = getBufChar(ed->buf, getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx));
+        }
+    }
+}
+
+void editorDeleteWordRight(Editor *ed) {
+    char c = getBufChar(ed->buf, ed->cursor.buffer_idx);
+    
+    // We don't want to skip here - if there are spaces we want to delete those
+    // and let the user choose to delete more.
+    if (c == '\n') {
+        editorDeleteRight(ed);
+    } else if (isspaceUTF8(c) && c != '\n') {
+        while (isspaceUTF8(c) && c != '\n') {
+            editorDeleteRight(ed);
+            c = getBufChar(ed->buf, ed->cursor.buffer_idx);
+        } 
+    } else if (ispunctUTF8(c) && c != '_') {
+        while (ispunctUTF8(c) && c != '_') {
+            editorDeleteRight(ed);
+            c = getBufChar(ed->buf, ed->cursor.buffer_idx);
+        }
+    } else if (isalnumUTF8(c) || c == '_'){
+        while (isalnumUTF8(c) || c == '_') {
+            editorDeleteRight(ed);
+            c = getBufChar(ed->buf, ed->cursor.buffer_idx);
+        }
+    }
+}
