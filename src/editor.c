@@ -30,6 +30,8 @@ Editor *editorNew(Rect frame, f32 line_height) {
 
     ed->cursor = cursorNew(pos);
     ed->cursor_speed = CURSOR_SPEED;
+    ed->scroll_speed = SCROLL_SPEED;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     return ed;
 }
 
@@ -40,28 +42,30 @@ void editorDestroy(Editor *ed) {
 
 void editorUpdate(Editor *ed, f64 delta_time) {
     cursorUpdate(&ed->cursor, delta_time);
+    
+    if (ed->scroll_mode != SCROLL_MODE_MOUSE) {
+        // Get the offset from the scroll position
+        ed->target_scroll_pos = vec2(ed->scroll_pos.x, ed->scroll_pos.y);
 
-    // Get the offset from the scroll position
-    ed->target_scroll_pos = vec2(ed->scroll_pos.x, ed->scroll_pos.y);
+        f32 bottom_scroll_bound = ed->frame.y + (6.0 * ed->line_height);
+        f32 top_scroll_bound = ed->frame.y + ed->frame.h - (6.0 * ed->line_height);
+        f32 bottom_line_y = ed->line_height * ed->line_count;
 
-    f32 bottom_scroll_bound = ed->frame.y + (6.0 * ed->line_height);
-    f32 top_scroll_bound = ed->frame.y + ed->frame.h - (6.0 * ed->line_height);
-    f32 bottom_line_y = ed->line_height * ed->line_count;
+        // Get the vertical scroll position
+        if (ed->cursor.target_screen_pos.y <= bottom_scroll_bound && ed->scroll_pos.y < (bottom_line_y)) {
+            ed->target_scroll_pos.y += ed->line_height;
+        } else if (ed->cursor.target_screen_pos.y >= top_scroll_bound && ed->scroll_pos.y > 0.0) {
+            ed->target_scroll_pos.y -= ed->line_height;
+        }
 
-    // Get the vertical scroll position
-    if (ed->cursor.target_screen_pos.y <= bottom_scroll_bound && ed->scroll_pos.y < (bottom_line_y)) {
-        ed->target_scroll_pos.y += ed->line_height;
-    } else if (ed->cursor.target_screen_pos.y >= top_scroll_bound && ed->scroll_pos.y > 0.0) {
-        ed->target_scroll_pos.y -= ed->line_height;
-    }
-
-    // Get the horizontal scroll position
-    // NOTE: this is for some padding so that the text doesn't sit on top of the divider line
-    f32 glyph_width_padding = 12.0;
-    if (ed->cursor.target_screen_pos.x > (ed->frame.x + ed->frame.w - 3.0)) {
-        ed->target_scroll_pos.x -= (ed->cursor.target_screen_pos.x - (ed->frame.x + ed->frame.w) + 3.0);
-    } else if (ed->cursor.target_screen_pos.x < (ed->frame.x + ed->gutter.size.x + glyph_width_padding) && ed->scroll_pos.x < 0) {
-        ed->target_scroll_pos.x += (ed->frame.x + ed->gutter.size.x + glyph_width_padding) - ed->cursor.target_screen_pos.x;
+        // Get the horizontal scroll position
+        // NOTE: this is for some padding so that the text doesn't sit on top of the divider line
+        f32 glyph_width_padding = 12.0;
+        if (ed->cursor.target_screen_pos.x > (ed->frame.x + ed->frame.w - 3.0)) {
+            ed->target_scroll_pos.x -= (ed->cursor.target_screen_pos.x - (ed->frame.x + ed->frame.w) + 3.0);
+        } else if (ed->cursor.target_screen_pos.x < (ed->frame.x + ed->gutter.size.x + glyph_width_padding) && ed->scroll_pos.x < 0) {
+            ed->target_scroll_pos.x += (ed->frame.x + ed->gutter.size.x + glyph_width_padding) - ed->cursor.target_screen_pos.x;
+        }
     }
 
     // Get the horizontal scroll position
@@ -73,8 +77,8 @@ size_t getBegginingOfCursorLine(Editor *ed) {
 }
 
 void editorMoveLeft(Editor *ed) {
-    LOG_DEBUG("Moved left", "");
     ed->cursor.moved_last_frame = true;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     if (ed->cursor.buffer_idx == 0) {
         ed->cursor.prev_buffer_idx = ed->cursor.buffer_idx;
         return;
@@ -97,6 +101,7 @@ void editorMoveLeft(Editor *ed) {
 
 void editorMoveRight(Editor *ed) {
     ed->cursor.moved_last_frame = true;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     if (ed->cursor.buffer_idx == getBufLength(ed->buf)) {
         ed->cursor.prev_buffer_idx = ed->cursor.buffer_idx;
         return;
@@ -119,6 +124,7 @@ void editorMoveRight(Editor *ed) {
 
 void editorMoveUp(Editor *ed) {
     ed->cursor.moved_last_frame = true;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     if (ed->goal_col == -1) {
         ed->goal_col = ed->cursor.disp_col;
     }
@@ -143,6 +149,7 @@ void editorMoveUp(Editor *ed) {
 
 void editorMoveDown(Editor *ed) {
     ed->cursor.moved_last_frame = true;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     if (ed->goal_col == -1) {
         ed->goal_col = ed->cursor.disp_col;
     }
@@ -167,6 +174,7 @@ void editorMoveDown(Editor *ed) {
 
 void editorMoveEndOfNextWord (Editor *ed) {
     size_t prev_pos = ed->cursor.buffer_idx;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     editorMoveRight(ed);
     UnicodeChar c = getBufChar(ed->buf, ed->cursor.buffer_idx);
     size_t buf_len = getBufLength(ed->buf);
@@ -194,6 +202,7 @@ void editorMoveEndOfNextWord (Editor *ed) {
 
 void editorMoveBegOfPrevWord(Editor *ed) {
     size_t prev_pos = ed->cursor.buffer_idx;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     editorMoveLeft(ed);
     UnicodeChar c = getBufChar(ed->buf, getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx));
 
@@ -221,6 +230,7 @@ void editorMoveBegOfPrevWord(Editor *ed) {
 
 void editorInsert(Editor *ed, char *bytes) {
     ed->cursor.moved_last_frame = true;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     size_t grapheme_size, offset = 0;
     for (offset = 0; bytes[offset] != '\0'; offset += grapheme_size) {
         grapheme_size = grapheme_next_character_break_utf8(bytes + offset, SIZE_MAX);
@@ -238,6 +248,7 @@ void editorInsert(Editor *ed, char *bytes) {
 
 void editorDeleteLeft(Editor *ed) {
     ed->cursor.moved_last_frame = true;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     // TODO: simplify this (remove redundant code)
     if (ed->cursor.buffer_idx != 0) {
         if (getBufChar(ed->buf, getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx)) != '\n') {
@@ -262,12 +273,14 @@ void editorDeleteLeft(Editor *ed) {
 
 void editorDeleteRight(Editor *ed) {
     ed->cursor.moved_last_frame = true;
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     if (removeGraphemeAfterGap(ed->buf, ed->cursor.buffer_idx) == '\n') {
         ed->line_count = (ed->line_count - 1 < 1) ? 1 : ed->line_count - 1;
     }
 }
 
 void editorDeleteWordLeft(Editor *ed) {
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     editorDeleteLeft(ed);
     char c = getBufChar(ed->buf, getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx));
     
@@ -293,6 +306,7 @@ void editorDeleteWordLeft(Editor *ed) {
 }
 
 void editorDeleteWordRight(Editor *ed) {
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
     char c = getBufChar(ed->buf, ed->cursor.buffer_idx);
     
     // We don't want to skip here - if there are spaces we want to delete those
@@ -314,5 +328,17 @@ void editorDeleteWordRight(Editor *ed) {
             editorDeleteRight(ed);
             c = getBufChar(ed->buf, ed->cursor.buffer_idx);
         }
+    }
+}
+
+void editorScrollWithMouseWheel(Editor *ed, f32 yoffset) {
+    ed->scroll_mode = SCROLL_MODE_MOUSE;
+    ed->target_scroll_pos.y += (-1.0 * yoffset) * (ed->line_height * ed->scroll_speed);
+
+    // clamp the max scroll
+    if (ed->target_scroll_pos.y > (ed->line_height * (ed->line_count - 1.0))) {
+        ed->target_scroll_pos.y = (ed->line_height * (ed->line_count - 1.0));
+    } else if (ed->target_scroll_pos.y < 0) {
+        ed->target_scroll_pos.y = 0;
     }
 }

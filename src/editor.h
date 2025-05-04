@@ -7,6 +7,7 @@
 #include "putils/unicode.h"
 
 #define CURSOR_SPEED 3.5
+#define SCROLL_SPEED 3.0
 
 // Signifies what is controlling scroll
 typedef enum {
@@ -23,6 +24,8 @@ typedef struct {
     GapBuffer *buf;
     Cursor cursor;
     f32 cursor_speed;
+    f32 scroll_speed;
+    ScrollMode scroll_mode;
 
     // Editor statistics
     i32 goal_col;
@@ -59,3 +62,5 @@ void editorDeleteRight(Editor *ed);
 void editorDeleteWordLeft(Editor *ed);
 void editorDeleteWordRight(Editor *ed);
 
+/* Other */
+void editorScrollWithMouseWheel(Editor *ed, f32 yoffset);

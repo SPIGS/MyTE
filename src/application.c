@@ -14,10 +14,10 @@
 #include "application.h"
 #include "command.h"
 #include "renderer.h"
+#include "context.h"
 
 
-
-// The command name must be prefixed with "_" or the macro won't work
+// the command name must be prefixed with "_" or the macro won't work
 #define REGISTER_COMMAND(reg, command) \
     registryPushCommand(reg, #command, CMD_TYPE_BUILTIN, _##command);
 
@@ -112,6 +112,12 @@ void resizeWindowCallback(GLFWwindow *window, int width, int height) {
     app->ed->frame = rect(0, 0, (f32)width, (f32)height);
 }
 
+void scrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
+    UNUSED(xoffset);
+    Application *app = glfwGetWindowUserPointer(window);
+    editorScrollWithMouseWheel(app->ed, yoffset);
+}
+
 Application *applicationNew(int argc, char **argv) {
     glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
 
@@ -136,6 +142,7 @@ Application *applicationNew(int argc, char **argv) {
     glfwSetWindowUserPointer(app->window, app);
     glfwSetKeyCallback(app->window, keyCallback);
     glfwSetCharCallback(app->window, characterCallback);
+    glfwSetScrollCallback(app->window, scrollCallback);
     glfwSetFramebufferSizeCallback(app->window, resizeWindowCallback);
     
     if (glewInit() != GLEW_OK) {
@@ -203,6 +210,9 @@ void applicationUpdate(Application *app, f64 delta_time) {
         registryExecuteCommand(app->reg, app, app->reg->lua_cmd_queue);
         stringClear(app->reg->lua_cmd_queue);
     }
+
+    AppContext ctx = {0};
+    ctx.glyph_cache = app->r->glyphs;
     editorUpdate(app->ed, delta_time);
 }
 
