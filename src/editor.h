@@ -5,7 +5,6 @@
 #include "cursor.h"
 #include "putils/defines.h"
 #include "putils/pmath.h"
-#include "putils/unicode.h"
 
 #define CURSOR_SPEED 3.5
 #define SCROLL_SPEED 3.0

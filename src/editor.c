@@ -7,7 +7,6 @@
 #include "putils/pmath.h"
 #include "putils/unicode.h"
 #include "putils/pstring.h"
-#include "putils/log.h"
 
 Editor *editorNew(Rect frame, f32 line_height) {
     Editor *ed = (Editor *)malloc(sizeof(Editor));

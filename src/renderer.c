@@ -394,12 +394,26 @@ static void renderCursor(Renderer *r, Cursor cursor) {
     renderQuad(r, cursor.screen_pos.x, cursor.screen_pos.y, 3, r->line_height, cursor_color);
 }
 
+static void renderGutter(Renderer *r, Gutter gutter, size_t cur_line, size_t line_count, f32 ed_frame_x) {
+    // Draw the gutter
+    renderQuad(r, ed_frame_x, 0, gutter.size.x, r->screen_height, COLOR_BLACK);
+    for (size_t i = 1; i <= line_count; i++) {
+	string num = stringNew("");
+	num = stringFmt(num, "%*d", gutter.padding, i);
+	rendererText(r, num, &gutter.txt_pos.x, gutter.txt_pos.y, cur_line == i ? COLOR_WHITE : COLOR_SILVER);
+	gutter.txt_pos.x = ed_frame_x;
+	gutter.txt_pos.y -= r->line_height;
+	stringFree(num);
+    }
+
+    // Draw the gutter divider
+    renderQuad(r, ed_frame_x + gutter.size.x, 0, 1, r->screen_height, COLOR_SILVER);
+}
+
 void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
     // Render the background
     Rect frame = ed->frame;
     //renderQuad(r, frame.x, frame.y, frame.w, frame.h, COLOR_GRAY);
-
-    size_t cur_line = ed->cursor.disp_row;
 
     // Draw the text
     f32 text_base_x = frame.x + ed->gutter.size.x + r->glyph_width;
@@ -427,18 +441,6 @@ void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
     }
     free(graphemes);
 
-    // Draw the gutter
-    renderQuad(r, frame.x, 0, ed->gutter.size.x, r->screen_height, COLOR_BLACK);
-    for (size_t i = 1; i <= ed->line_count; i++) {
-	string num = stringNew("");
-	num = stringFmt(num, "%*d", ed->gutter.padding, i);
-	rendererText(r, num, &ed->gutter.txt_pos.x, ed->gutter.txt_pos.y, cur_line == i ? COLOR_WHITE : COLOR_SILVER);
-	ed->gutter.txt_pos.x = frame.x;
-	ed->gutter.txt_pos.y -= r->line_height;
-	stringFree(num);
-    }
-
-    // Draw the gutter divider
-    renderQuad(r, frame.x + ed->gutter.size.x, 0, 1, r->screen_height, COLOR_SILVER);
+    renderGutter(r, ed->gutter, ed->cursor.disp_row, ed->line_count, ed->frame.x);
 }
 
