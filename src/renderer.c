@@ -388,164 +388,10 @@ void rendererResizeWindow (Renderer* r, i32 width, i32 height) {
     glUniformMatrix4fv(proj_loc, 1, GL_FALSE, r->projection.a);
 }
 
-static void renderCursorNew(Renderer *r, Editor *ed, Vector2 text_pos, f64 delta_time) {
-    Vector2 prev_pos = ed->cursor.prev_screen_pos;
-    Vector2 target_pos = ed->scroll_pos;
-    size_t cursor_idx = ed->cursor.buffer_idx;
-    
-    // Get the new target position
-    target_pos = text_pos;
-    
-    //First, get the horizontal offset from the beginning of the line
-    size_t begin_line = getBeginningOfLineCursor(ed->buf, cursor_idx);
-    for (size_t i = 0; i < (cursor_idx - begin_line); i++) {
-	UnicodeChar grapheme = getBufChar(ed->buf, begin_line + i);
-	char *unpacked_grapheme = unpackUTF8(grapheme);
-	GlyphTexture *glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
-
-	if (glyph == NULL) {
-	    cacheGrapheme(r->font_collection, r->glyphs, &r->atlas, unpacked_grapheme);
-	}
-	glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);;
-	free(unpacked_grapheme);
-
-	if (grapheme == '\t') {
-	    glyph = (GlyphTexture *)hashmapGet(r->glyphs, " ");
-	    target_pos.x += (TAB_WIDTH * glyph->advance);
-	} else {
-	    target_pos.x += (glyph->advance);
-	}
-    }
-
-    // Get the vertical offset based on the current line number
-    target_pos.y = target_pos.y - (r->line_height * (ed->cursor.disp_row - 1));
-
-    // Offset the target_pos by the scroll_pos
-    //target_pos = vec2Add(target_pos, ed->scroll_pos);
-    
-    // Lerp the two positions to obtain the updated cursor screen position
-    ed->cursor.pos_anim_time += (f32)delta_time * ed->cursor_speed;
-    Vector2 lerp_pos = ed->cursor.screen_pos;
-    if (ed->cursor.pos_anim_time >= 1.0f) {
-	ed->cursor.pos_anim_time = 1.0f;
-    } else {
-	lerp_pos = vec2EaseOut(prev_pos, target_pos, ed->cursor.pos_anim_time);
-    }
-
-    //Blink the cursor
-    if (ed->cursor.blinkable) {
-        ed->cursor.blink_time += (f32)delta_time;
-        if (ed->cursor.blink_time >= ed->cursor.blink_rate) {
-            ed->cursor.blink_time = 0.0;
-            ed->cursor.target_alpha = ed->cursor.target_alpha == 1.0 ? 0.0 : 1.0;
-        }
-        if (ed->cursor.moved_last_frame) {
-            ed->cursor.alpha = 1.0;
-            ed->cursor.target_alpha = 1.0;
-            ed->cursor.blink_time = 0.0;
-        } else {
-            ed->cursor.alpha = easeOutF(ed->cursor.alpha, ed->cursor.target_alpha, ed->cursor.blink_time);
-        }
-    }
-
-    ed->cursor.moved_last_frame = false;
-
+static void renderCursor(Renderer *r, Cursor cursor) {
     Color cursor_color = COLOR_WHITE;
-    cursor_color.a = ed->cursor.alpha;
-
-    ed->cursor.prev_screen_pos = ed->cursor.screen_pos;
-    
-    LOG_DEBUG("traget: %f, %f", Vec2Arg(target_pos));
-    LOG_DEBUG("scroll: %f, %f", Vec2Arg(ed->scroll_pos));
-    LOG_DEBUG("offset: %f, %f", Vec2Arg(vec2Sub(target_pos, vec2Sub(target_pos, ed->scroll_pos))));
-
-    ed->cursor.screen_pos = lerp_pos;
-
-    if (ed->scroll_mode == SCROLL_MODE_MOUSE)
-	lerp_pos = target_pos;
-
-    LOG_DEBUG("display: %f, %f", Vec2Arg(lerp_pos));
-    ed->cursor.target_screen_pos = target_pos;
-    renderQuad(r, lerp_pos.x, lerp_pos.y, 3, r->line_height, cursor_color);
-}
-
-static void renderCursor(Renderer *r, Editor *ed, f32 text_offset, f32 frame_height, f64 delta_time) {
-
-    Vector2 prev_pos = ed->cursor.prev_screen_pos;
-
-    Vector2 target_pos = ed->scroll_pos;
-    
-    size_t cursor_idx = ed->cursor.buffer_idx;
-    
-    // Get a new target position
-    target_pos = vec2(0.0, 0.0);
-    size_t begin_line = getBeginningOfLineCursor(ed->buf, cursor_idx);
-    for (size_t i = 0; i < (cursor_idx - begin_line); i++) {
-	UnicodeChar grapheme = getBufChar(ed->buf, begin_line + i);
-	char *unpacked_grapheme = unpackUTF8(grapheme);
-	GlyphTexture *glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
-
-	if (glyph == NULL) {
-	    cacheGrapheme(r->font_collection, r->glyphs, &r->atlas, unpacked_grapheme);
-	}
-	glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);;
-	free(unpacked_grapheme);
-
-	if (grapheme == '\t') {
-	    glyph = (GlyphTexture *)hashmapGet(r->glyphs, " ");
-	    target_pos.x += (TAB_WIDTH * glyph->advance);
-	} else {
-	    target_pos.x += (glyph->advance);
-	}
-    }
-    target_pos.x += text_offset;
-    target_pos.y = frame_height - (r->line_height * ed->cursor.disp_row - 1) - (r->line_height * 0.1);
-    target_pos = vec2Add(target_pos, ed->scroll_pos);
-
-    // Lerp the two positions to obtain the updated cursor screen position
-    ed->cursor.pos_anim_time += (f32)delta_time * ed->cursor_speed;
-    Vector2 lerp_pos = ed->cursor.screen_pos;
-    if (ed->cursor.pos_anim_time >= 1.0f) {
-	ed->cursor.pos_anim_time = 1.0f;
-    } else {
-	lerp_pos = vec2EaseOut(prev_pos, target_pos, ed->cursor.pos_anim_time);
-    }
-
-    //Blink the cursor
-    if (ed->cursor.blinkable) {
-        ed->cursor.blink_time += (f32)delta_time;
-        if (ed->cursor.blink_time >= ed->cursor.blink_rate) {
-            ed->cursor.blink_time = 0.0;
-            ed->cursor.target_alpha = ed->cursor.target_alpha == 1.0 ? 0.0 : 1.0;
-        }
-        if (ed->cursor.moved_last_frame) {
-            ed->cursor.alpha = 1.0;
-            ed->cursor.target_alpha = 1.0;
-            ed->cursor.blink_time = 0.0;
-        } else {
-            ed->cursor.alpha = easeOutF(ed->cursor.alpha, ed->cursor.target_alpha, ed->cursor.blink_time);
-        }
-    }
-
-    ed->cursor.moved_last_frame = false;
-
-    Color cursor_color = COLOR_WHITE;
-    cursor_color.a = ed->cursor.alpha;
-
-    ed->cursor.prev_screen_pos = ed->cursor.screen_pos;
-    
-    LOG_DEBUG("traget: %f, %f", Vec2Arg(target_pos));
-    LOG_DEBUG("scroll: %f, %f", Vec2Arg(ed->scroll_pos));
-    LOG_DEBUG("offset: %f, %f", Vec2Arg(vec2Sub(target_pos, vec2Sub(target_pos, ed->scroll_pos))));
-
-    ed->cursor.screen_pos = lerp_pos;
-
-    if (ed->scroll_mode == SCROLL_MODE_MOUSE)
-	lerp_pos = vec2Add(lerp_pos, ed->scroll_pos);
-
-    LOG_DEBUG("display: %f, %f", Vec2Arg(lerp_pos));
-    ed->cursor.target_screen_pos = target_pos;
-    renderQuad(r, lerp_pos.x, lerp_pos.y, 3, r->line_height, cursor_color);
+    cursor_color.a = cursor.alpha;
+    renderQuad(r, cursor.screen_pos.x, cursor.screen_pos.y, 3, r->line_height, cursor_color);
 }
 
 void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
@@ -553,41 +399,18 @@ void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
     Rect frame = ed->frame;
     //renderQuad(r, frame.x, frame.y, frame.w, frame.h, COLOR_GRAY);
 
-    // Get info needed to draw the gutter
-    i32 num_lines = (i32)ed->line_count;
-    i32 digits = 1;
-    while (num_lines /= 10)
-	digits++;
-
-    i32 gutter_padding = 3;
-    if (digits >= 3) {
-	gutter_padding = digits + 1;
-    }
-
-    ed->gutter.txt_pos = vec2(frame.x, frame.y + frame.h - r->line_height);
-    Vector2 gutter_scroll_offset = vec2(0.0, ed->scroll_pos.y);
-    ed->gutter.txt_pos = vec2Add(ed->gutter.txt_pos, gutter_scroll_offset);
-
     size_t cur_line = ed->cursor.disp_row;
-
-    // Get the gutter width 
-    // TODO: move this to editor update, we need it to change the horizontal scroll
-    ed->gutter.size.x = 0.0;
-    string num = stringNew("");
-    num = stringFmt(num, "%*d", gutter_padding, ed->line_count);
-    ed->gutter.size.x = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, num, 1.0);
-    ed->gutter.size.x += r->glyph_width;
 
     // Draw the text
     f32 text_base_x = frame.x + ed->gutter.size.x + r->glyph_width;
     Vector2 text_pos = vec2(text_base_x, frame.y + frame.h - r->line_height);
     text_pos = vec2Add(text_pos, ed->scroll_pos);
-    renderQuad(r, text_pos.x, text_pos.y, 5, 5, COLOR_RED);
+
     UnicodeChar *graphemes = getBufferString(ed->buf);
     size_t buf_len = getBufLength(ed->buf);
 
     // Draw the cursor
-    renderCursorNew(r, ed, text_pos, delta_time);
+    renderCursor(r, ed->cursor);
 
     for (size_t i = 0; i < buf_len; i++) {
         if (graphemes[i] == 10) { // newline
@@ -608,7 +431,7 @@ void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
     renderQuad(r, frame.x, 0, ed->gutter.size.x, r->screen_height, COLOR_BLACK);
     for (size_t i = 1; i <= ed->line_count; i++) {
 	string num = stringNew("");
-	num = stringFmt(num, "%*d", gutter_padding, i);
+	num = stringFmt(num, "%*d", ed->gutter.padding, i);
 	rendererText(r, num, &ed->gutter.txt_pos.x, ed->gutter.txt_pos.y, cur_line == i ? COLOR_WHITE : COLOR_SILVER);
 	ed->gutter.txt_pos.x = frame.x;
 	ed->gutter.txt_pos.y -= r->line_height;
@@ -618,3 +441,4 @@ void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
     // Draw the gutter divider
     renderQuad(r, frame.x + ed->gutter.size.x, 0, 1, r->screen_height, COLOR_SILVER);
 }
+

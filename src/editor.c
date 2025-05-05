@@ -6,6 +6,7 @@
 #include <grapheme.h>
 #include "putils/pmath.h"
 #include "putils/unicode.h"
+#include "putils/pstring.h"
 #include "putils/log.h"
 
 Editor *editorNew(Rect frame, f32 line_height) {
@@ -40,12 +41,68 @@ void editorDestroy(Editor *ed) {
     free(ed);
 }
 
-void editorUpdate(Editor *ed, f64 delta_time) {
-    cursorUpdate(&ed->cursor, delta_time);
+static void calculateGutterWidth(Editor *ed, AppContext *ctx) {
+    // Get info needed to draw the gutter
+    i32 num_lines = (i32)ed->line_count;
+    i32 digits = 1;
+    while (num_lines /= 10)
+	    digits++;
+
+    ed->gutter.padding = 3;
+    if (digits >= 3) {
+	    ed->gutter.padding = digits + 1;
+    }
+
+    ed->gutter.txt_pos = vec2(ed->frame.x, ed->frame.y + ed->frame.h - ed->line_height);
+    Vector2 gutter_scroll_offset = vec2(0.0, ed->scroll_pos.y);
+    ed->gutter.txt_pos = vec2Add(ed->gutter.txt_pos, gutter_scroll_offset);
+
+    // Get the gutter width 
+    ed->gutter.size.x = 0.0;
+    string num = stringNew("");
+    num = stringFmt(num, "%*d", ed->gutter.padding, ed->line_count);
+    ed->gutter.size.x = getSizeOfText(ctx->font_collection, ctx->glyph_cache, ctx->atlas, num, 1.0);
+    ed->gutter.size.x += ctx->glyph_width;
+    stringFree(num);
+}
+
+void editorUpdate(Editor *ed, AppContext *ctx, f64 delta_time) {
+    // Initial cursor position
+    calculateGutterWidth(ed, ctx);
+    Vector2 adj_cursor_pos = vec2(ed->text_pos.x + ed->gutter.size.x + ctx->glyph_width, ed->text_pos.y - ed->line_height - (ed->line_height * 0.1));
     
-    if (ed->scroll_mode != SCROLL_MODE_MOUSE) {
-        // Get the offset from the scroll position
-        ed->target_scroll_pos = vec2(ed->scroll_pos.x, ed->scroll_pos.y);
+    // Vertical/horizontal adjustment from column/row offset
+    //First, get the horizontal offset from the beginning of the line
+    size_t cursor_idx = ed->cursor.buffer_idx;
+    size_t begin_line = getBeginningOfLineCursor(ed->buf, cursor_idx);
+    for (size_t i = 0; i < (cursor_idx - begin_line); i++) {
+        UnicodeChar grapheme = getBufChar(ed->buf, begin_line + i);
+        char *unpacked_grapheme = unpackUTF8(grapheme);
+        GlyphTexture *glyph = (GlyphTexture *)hashmapGet(ctx->glyph_cache, unpacked_grapheme);
+
+        if (glyph == NULL) {
+            cacheGrapheme(ctx->font_collection, ctx->glyph_cache, ctx->atlas, unpacked_grapheme);
+        }
+        glyph = (GlyphTexture *)hashmapGet(ctx->glyph_cache, unpacked_grapheme);
+        free(unpacked_grapheme);
+
+        if (grapheme == '\t') {
+            glyph = (GlyphTexture *)hashmapGet(ctx->glyph_cache, " ");
+            adj_cursor_pos.x += (TAB_WIDTH * glyph->advance);
+        } else {
+            adj_cursor_pos.x += (glyph->advance);
+        }
+    } 
+
+    // Vertical offset
+    adj_cursor_pos.y -= ed->line_height * (ed->cursor.disp_row - 1);
+
+    // Update the cursor
+    adj_cursor_pos = vec2Add(adj_cursor_pos, ed->scroll_pos);
+    cursorUpdate(&ed->cursor, adj_cursor_pos, delta_time);
+
+    if ( ed->scroll_mode != SCROLL_MODE_MOUSE) {
+        ed->target_scroll_pos = ed->scroll_pos;
 
         f32 bottom_scroll_bound = ed->frame.y + (6.0 * ed->line_height);
         f32 top_scroll_bound = ed->frame.y + ed->frame.h - (6.0 * ed->line_height);
@@ -70,6 +127,9 @@ void editorUpdate(Editor *ed, f64 delta_time) {
 
     // Get the horizontal scroll position
     ed->scroll_pos = vec2Lerp(ed->scroll_pos, ed->target_scroll_pos, (f32)delta_time  * 35.0f);
+
+    ed->frame = rect(0, 0, ctx->screen_width, ctx->screen_height);
+    ed->text_pos = vec2(ed->text_pos.x, ctx->screen_height);
 }
 
 size_t getBegginingOfCursorLine(Editor *ed) {

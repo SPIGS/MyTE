@@ -1,6 +1,7 @@
 #pragma once
 
 #include "buffer.h"
+#include "context.h"
 #include "cursor.h"
 #include "putils/defines.h"
 #include "putils/pmath.h"
@@ -18,6 +19,7 @@ typedef enum {
 typedef struct {
     Vector2 size;
     Vector2 txt_pos;
+    i32 padding;
 } Gutter;
 
 typedef struct {
@@ -42,7 +44,7 @@ typedef struct {
 
 Editor *editorNew(Rect frame, f32 line_height);
 void editorDestroy(Editor *ed);
-void editorUpdate(Editor *ed, f64 delta_time);
+void editorUpdate(Editor *ed, AppContext *ctx, f64 delta_time);
 size_t getBegginingOfCursorLine(Editor *ed);
 
 /* Control cursor movements */

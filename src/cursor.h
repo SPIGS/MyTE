@@ -28,6 +28,6 @@ typedef struct {
 } Cursor;
 
 Cursor cursorNew(Vector2 pos);
-void cursorUpdate(Cursor *c, f64 delta_time);
+void cursorUpdate(Cursor *c, Vector2 adj_cursor_pos, f64 delta_time);
 
 

@@ -211,14 +211,22 @@ void applicationUpdate(Application *app, f64 delta_time) {
         stringClear(app->reg->lua_cmd_queue);
     }
 
+    // Build the context
     AppContext ctx = {0};
     ctx.glyph_cache = app->r->glyphs;
-    editorUpdate(app->ed, delta_time);
+    ctx.font_collection = app->r->font_collection;
+    ctx.atlas = &app->r->atlas;
+    ctx.screen_width = app->r->screen_width;
+    ctx.screen_height = app->r->screen_height;
+    ctx.glyph_width = app->r->glyph_width;
+
+    editorUpdate(app->ed, &ctx, delta_time);
 }
 
 void applicationRender(Application *app, f64 delta_time) {
     rendererBegin(app->r);
 
+    //renderEditor(app->r, app->ed, delta_time);
     renderEditor(app->r, app->ed, delta_time);
 
     float fps = 1.0f / delta_time;
@@ -228,7 +236,6 @@ void applicationRender(Application *app, f64 delta_time) {
 
     f32 fps_x = 10.0;
     rendererText(app->r, fps_str, &fps_x, 10.0, COLOR_RED);
-    renderQuad(app->r, 100.0, 100.0, 100.0, 100.0, COLOR_ORANGE);
     rendererEnd(app->r);
     glfwSwapBuffers(app->window);
 }

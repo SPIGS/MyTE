@@ -5,8 +5,6 @@
 #include "putils/phashmap.h"
 #include "putils/unicode.h"
 #include <ft2build.h>
-#include FT_FREETYPE_H
-#include "font.h"
 
 #define MAX_QUADS 1024
 #define MAX_VERTICES MAX_QUADS * 4
