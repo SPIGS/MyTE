@@ -109,11 +109,10 @@ void resizeWindowCallback(GLFWwindow *window, int width, int height) {
     rendererResizeWindow(app->r, width, height);
     // TODO: move this somewhere else
     
-    app->ed->frame = rect(0, 0, (f32)width, (f32)height);
+    app->ed->frame = rect(0, app->r->line_height, (f32)width, (f32)height - app->r->line_height);
 }
 
 void scrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
-    UNUSED(xoffset);
     Application *app = glfwGetWindowUserPointer(window);
     editorScrollWithMouseWheel(app->ed, yoffset);
 }
@@ -187,7 +186,10 @@ Application *applicationNew(int argc, char **argv) {
     app->r = rendererNew(COLOR_BLACK);
 
     // Open an editor
-    app->ed = editorNew(rect(0, 0, INITIAL_SCREEN_WIDTH, INITIAL_SCREEN_HEIGHT), app->r->line_height);
+    f32 status_line_height = app->r->line_height + 5.0;
+    f32 h = INITIAL_SCREEN_HEIGHT - status_line_height;
+    f32 y = status_line_height;
+    app->ed = editorNew(rect(0, y, INITIAL_SCREEN_WIDTH, h), app->r->line_height);
 
     return app;
 }
@@ -226,16 +228,10 @@ void applicationUpdate(Application *app, f64 delta_time) {
 void applicationRender(Application *app, f64 delta_time) {
     rendererBegin(app->r);
 
-    //renderEditor(app->r, app->ed, delta_time);
     renderEditor(app->r, app->ed, delta_time);
+    renderStatusLine(app->r, app->ed, delta_time);
+    renderFPS(app->r, delta_time);
 
-    float fps = 1.0f / delta_time;
-    string fps_str = stringNew("");
-    fps_str = stringFmt(fps_str, "FPS: %f", fps);
-    stringFree(fps_str);
-
-    f32 fps_x = 10.0;
-    rendererText(app->r, fps_str, &fps_x, 10.0, COLOR_RED);
     rendererEnd(app->r);
     glfwSwapBuffers(app->window);
 }

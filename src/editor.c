@@ -4,6 +4,7 @@
 #include "buffer.h"
 #include "cursor.h"
 #include <grapheme.h>
+#include "putils/log.h"
 #include "putils/pmath.h"
 #include "putils/unicode.h"
 #include "putils/pstring.h"
@@ -51,8 +52,9 @@ static void calculateGutterWidth(Editor *ed, AppContext *ctx) {
     if (digits >= 3) {
 	    ed->gutter.padding = digits + 1;
     }
-
-    ed->gutter.txt_pos = vec2(ed->frame.x, ed->frame.y + ed->frame.h - ed->line_height);
+    
+    f32 gutter_text_x_offset = ctx->glyph_width;
+    ed->gutter.txt_pos = vec2(ed->frame.x + gutter_text_x_offset, ed->frame.y + ed->frame.h - ed->line_height);
     Vector2 gutter_scroll_offset = vec2(0.0, ed->scroll_pos.y);
     ed->gutter.txt_pos = vec2Add(ed->gutter.txt_pos, gutter_scroll_offset);
 
@@ -61,7 +63,7 @@ static void calculateGutterWidth(Editor *ed, AppContext *ctx) {
     string num = stringNew("");
     num = stringFmt(num, "%*d", ed->gutter.padding, ed->line_count);
     ed->gutter.size.x = getSizeOfText(ctx->font_collection, ctx->glyph_cache, ctx->atlas, num, 1.0);
-    ed->gutter.size.x += ctx->glyph_width;
+    ed->gutter.size.x += gutter_text_x_offset * 3;
     stringFree(num);
 }
 
@@ -127,7 +129,10 @@ void editorUpdate(Editor *ed, AppContext *ctx, f64 delta_time) {
     // Get the horizontal scroll position
     ed->scroll_pos = vec2Lerp(ed->scroll_pos, ed->target_scroll_pos, (f32)delta_time  * 35.0f);
 
-    ed->frame = rect(0, 0, ctx->screen_width, ctx->screen_height);
+    f32 status_line_height = ed->line_height + 5.0;
+    f32 h = ctx->screen_height - status_line_height;
+    f32 y = status_line_height;
+    ed->frame = rect(0, y, ctx->screen_width, h);
     ed->text_pos = vec2(ed->text_pos.x, ctx->screen_height);
 }
 

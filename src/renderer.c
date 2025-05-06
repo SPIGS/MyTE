@@ -4,6 +4,7 @@
 #include <harfbuzz/hb.h>
 #include <harfbuzz/hb-ft.h>
 #include "buffer.h"
+#include "context.h"
 #include "editor.h"
 #include "freetype/freetype.h"
 #include "putils/color.h"
@@ -394,20 +395,21 @@ static void renderCursor(Renderer *r, Cursor cursor) {
     renderQuad(r, cursor.screen_pos.x, cursor.screen_pos.y, 3, r->line_height, cursor_color);
 }
 
-static void renderGutter(Renderer *r, Gutter gutter, size_t cur_line, size_t line_count, f32 ed_frame_x) {
+static void renderGutter(Renderer *r, Gutter gutter, size_t cur_line, size_t line_count, Rect ed_frame) {
     // Draw the gutter
-    renderQuad(r, ed_frame_x, 0, gutter.size.x, r->screen_height, COLOR_BLACK);
+    renderQuad(r, ed_frame.x, ed_frame.y, gutter.size.x, r->screen_height, COLOR_BLACK);
+    f32 base_x = gutter.txt_pos.x;
     for (size_t i = 1; i <= line_count; i++) {
 	string num = stringNew("");
 	num = stringFmt(num, "%*d", gutter.padding, i);
 	rendererText(r, num, &gutter.txt_pos.x, gutter.txt_pos.y, cur_line == i ? COLOR_WHITE : COLOR_SILVER);
-	gutter.txt_pos.x = ed_frame_x;
+	gutter.txt_pos.x = base_x;
 	gutter.txt_pos.y -= r->line_height;
 	stringFree(num);
     }
 
     // Draw the gutter divider
-    renderQuad(r, ed_frame_x + gutter.size.x, 0, 1, r->screen_height, COLOR_SILVER);
+    renderQuad(r, ed_frame.x + gutter.size.x, ed_frame.y, 1, ed_frame.h, COLOR_SILVER);
 }
 
 void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
@@ -441,6 +443,59 @@ void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
     }
     free(graphemes);
 
-    renderGutter(r, ed->gutter, ed->cursor.disp_row, ed->line_count, ed->frame.x);
+    renderGutter(r, ed->gutter, ed->cursor.disp_row, ed->line_count, ed->frame);
 }
 
+void renderStatusLine(Renderer *r, Editor *e, f64 delta_time) {
+    renderQuad(r, 0, 0, r->screen_width, r->line_height + 5.0, COLOR_SILVER);
+    f32 txt_padding = r->glyph_width * 3.0;
+
+    // File name
+    Vector2 fn_txt_pos = vec2(txt_padding, 5.0);
+    rendererText(r, "(null)", &fn_txt_pos.x, fn_txt_pos.y, COLOR_BLACK);
+
+    //percentage/bot/top
+    f32 per = (e->scroll_pos.y / (((e->line_count + 2) * r->line_height) - r->screen_height)) * 100.0;
+    f32 per_txt_w = txt_padding;
+    if ((e->line_count * r->line_height) < r->screen_height) {
+	per_txt_w = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, "All", 1.0);
+	f32 txt_x = r->screen_width - per_txt_w - txt_padding;
+	rendererText(r, "All", &txt_x, 5.0, COLOR_BLACK);
+    } else {
+	if (per < 1.0) {
+	    per_txt_w = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, "Top", 1.0);
+	    f32 txt_x = r->screen_width - per_txt_w - txt_padding;
+	    rendererText(r, "Top", &txt_x, 5.0, COLOR_BLACK);
+	} else if (per >= 100.0) {
+	    per_txt_w = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, "Bot", 1.0);
+	    f32 txt_x = r->screen_width - per_txt_w - txt_padding;
+	    rendererText(r, "Bot", &txt_x, 5.0, COLOR_BLACK);
+	} else {
+	    string per_txt = stringNew("");
+	    per_txt = stringFmt(per_txt, "%d%c", (i32)per, '%');
+	    per_txt_w = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, per_txt, 1.0);
+	    f32 txt_x = r->screen_width - per_txt_w - txt_padding;
+	    rendererText(r, per_txt, &txt_x, 5.0, COLOR_BLACK);
+	    stringFree(per_txt);
+	}
+    }
+
+    //row/col
+    string row_col_txt = stringNew("");
+    row_col_txt = stringFmt(row_col_txt, "%lu,%lu", e->cursor.disp_row, e->cursor.disp_col);
+    f32 rc_txt_w = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, row_col_txt, 1.0);
+    f32 txt_x = r->screen_width - per_txt_w - rc_txt_w - (txt_padding * 2.0);
+    rendererText(r, row_col_txt, &txt_x, 5.0, COLOR_BLACK);
+    stringFree(row_col_txt);
+
+}
+
+void renderFPS(Renderer *r, f64 delta_time) {
+    float fps = 1.0f / delta_time;
+    string fps_str = stringNew("");
+    fps_str = stringFmt(fps_str, "FPS: %d", (i32)fps);
+    f32 fps_x = r->screen_width - getSizeOfText(r->font_collection, r->glyphs, &r->atlas, fps_str, 1.0) - (r->glyph_width * 3.0);
+    f32 fps_y = (r->line_height) + 10.0;
+    rendererText(r, fps_str, &fps_x, fps_y, COLOR_RED);
+    stringFree(fps_str);
+}
