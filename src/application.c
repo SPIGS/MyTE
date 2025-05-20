@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include "config.h"
 #include "editor.h"
+#include "modal.h"
 #include "putils/color.h"
 #include "putils/defines.h"
 #include "putils/log.h"
@@ -35,43 +36,64 @@ COMMAND(splat) {
 }
 
 COMMAND(moveCursorLeft) {
-    editorMoveLeft(app->ed);
+    if (app->modal == NULL)
+        editorMoveLeft(app->ed);
 }
 
 COMMAND(moveCursorRight) {
-    editorMoveRight(app->ed);
+    if (app->modal == NULL)
+        editorMoveRight(app->ed);
 }
 
 COMMAND(deleteGraphemeLeft) {
-    editorDeleteLeft(app->ed);
+    if (app->modal == NULL)
+        editorDeleteLeft(app->ed);
 }
 
 COMMAND(deleteGraphemeRight) {
-    editorDeleteRight(app->ed);
+    if (app->modal == NULL)
+        editorDeleteRight(app->ed);
 }
 
 COMMAND(moveCursorUp) {
-    editorMoveUp(app->ed);
+    if (app->modal == NULL)
+        editorMoveUp(app->ed);
 }
 
 COMMAND(moveCursorDown) {
-    editorMoveDown(app->ed);
+    if (app->modal == NULL)
+        editorMoveDown(app->ed);
 }
 
 COMMAND(moveCursorEndOfNextWord) {
-    editorMoveEndOfNextWord(app->ed);
+    if (app->modal == NULL)
+        editorMoveEndOfNextWord(app->ed);
 }
 
 COMMAND(moveCursorBegOfPrevWord) {
-    editorMoveBegOfPrevWord(app->ed);
+    if (app->modal == NULL)
+        editorMoveBegOfPrevWord(app->ed);
 }
 
 COMMAND(deleteWordLeft) {
-    editorDeleteWordLeft(app->ed);
+    if (app->modal == NULL)
+        editorDeleteWordLeft(app->ed);
 }
 
 COMMAND(deleteWordRight) {
-    editorDeleteWordRight(app->ed);
+    if (app->modal == NULL)
+        editorDeleteWordRight(app->ed);
+}
+
+COMMAND (showModal) {
+    if (app->modal) {
+        LOG_DEBUG("Destroying modal...", "");
+        ModalDestroy(app->modal);
+        app->modal = NULL;
+    } else {
+        LOG_DEBUG("Showing modal...", "");
+        app->modal = modalOptionInit("The quick brown fox jumps over the lazy dog");
+    }
 }
 
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
@@ -87,12 +109,36 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
             }
         }
 
-        if (key == GLFW_KEY_ENTER) {
-            char bytes[2] = {'\n', '\0'};
-            editorInsert(app->ed, bytes);
-        } else if (key == GLFW_KEY_TAB) {
-            char bytes[2] = {'\t', '\0'};
-            editorInsert(app->ed, bytes);
+        if (app->modal == NULL) {
+            if (key == GLFW_KEY_ENTER) {
+                char bytes[2] = {'\n', '\0'};
+                editorInsert(app->ed, bytes);
+            } else if (key == GLFW_KEY_TAB) {
+                char bytes[2] = {'\t', '\0'};
+                editorInsert(app->ed, bytes);
+            }
+        } else {
+            // Modal control keys
+            // Just hardecode them for now
+            switch (key) {
+                case GLFW_KEY_LEFT:
+                    LOG_WARN("Move cursor/selection left in modal.", "");
+                break;
+                case GLFW_KEY_RIGHT:
+                    LOG_WARN("Move cursor/selection right in modal.", "");
+                break;
+                case GLFW_KEY_TAB:
+                    modalCycleFocus(app->modal);
+                break;
+                case GLFW_KEY_ESCAPE:
+                    LOG_DEBUG("Destroying modal...", "");
+                    ModalDestroy(app->modal);
+                    app->modal = NULL;
+                break;
+                case GLFW_KEY_ENTER:
+                   modalSubmit(app->modal);
+                break;
+            }
         }
     }
 }
@@ -100,8 +146,10 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
 // NOTE: temporary
 void characterCallback(GLFWwindow *window, unsigned int codepoint) {
     Application *app = glfwGetWindowUserPointer(window);
-    char bytes[2] = {codepoint, '\0'};
-    editorInsert(app->ed, bytes);
+    if (app->modal == NULL) {
+        char bytes[2] = {codepoint, '\0'};
+        editorInsert(app->ed, bytes);
+    }
 }
 
 void resizeWindowCallback(GLFWwindow *window, int width, int height) {
@@ -168,6 +216,7 @@ Application *applicationNew(int argc, char **argv) {
     REGISTER_COMMAND(app->reg, moveCursorBegOfPrevWord);
     REGISTER_COMMAND(app->reg, deleteWordLeft);
     REGISTER_COMMAND(app->reg, deleteWordRight);
+    REGISTER_COMMAND(app->reg, showModal);
 
     // Setup lua context
     lua_State *L = luaL_newstate();
@@ -191,6 +240,8 @@ Application *applicationNew(int argc, char **argv) {
     f32 y = status_line_height;
     app->ed = editorNew(rect(0, y, INITIAL_SCREEN_WIDTH, h), app->r->line_height);
 
+    app->modal = NULL;
+
     return app;
 }
 
@@ -200,6 +251,11 @@ void applicationDestroy(Application *app) {
     lua_close(app->L);
     configDestroy(app->conf);
     editorDestroy(app->ed);
+
+    if (app->modal) {
+        ModalDestroy(app->modal);
+    }
+
     glfwTerminate();
 }
 
@@ -222,6 +278,14 @@ void applicationUpdate(Application *app, f64 delta_time) {
     ctx.screen_height = app->r->screen_height;
     ctx.glyph_width = app->r->glyph_width;
 
+    if (app->modal) {
+        if (app->modal->submitted) {
+            LOG_WARN("Submitted modal: %d", app->modal->selection);
+            ModalDestroy(app->modal);
+            app->modal = NULL;
+        }
+    }
+
     editorUpdate(app->ed, &ctx, delta_time);
 }
 
@@ -230,6 +294,11 @@ void applicationRender(Application *app, f64 delta_time) {
 
     renderEditor(app->r, app->ed, delta_time);
     renderStatusLine(app->r, app->ed, delta_time);
+
+    if (app->modal) {
+        renderModal(app->r, app->modal);
+    }
+
     renderFPS(app->r, delta_time);
 
     rendererEnd(app->r);

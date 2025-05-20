@@ -7,6 +7,7 @@
 #include "context.h"
 #include "editor.h"
 #include "freetype/freetype.h"
+#include "modal.h"
 #include "putils/color.h"
 #include "putils/defines.h"
 #include "putils/log.h"
@@ -498,4 +499,52 @@ void renderFPS(Renderer *r, f64 delta_time) {
     f32 fps_y = (r->line_height) + 10.0;
     rendererText(r, fps_str, &fps_x, fps_y, COLOR_RED);
     stringFree(fps_str);
+}
+
+void renderModal(Renderer *r, Modal *modal) {
+
+    //Determine size of modal
+    f32 w_txt = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, modal->prompt, 1.0);
+    f32 w = w_txt + (r->glyph_width * 3.0);
+    f32 h = (r->line_height * 5.0);
+
+    // Determine position of modal (center it horizontally and vertically)
+    f32 x = (r->screen_width /2.0) - (w / 2.0);
+    f32 y = (r->screen_height /2.0) - (h / 2.0);
+
+    // Draw the box
+    renderQuad(r, x, y, w, h, COLOR_SILVER);
+    renderQuad(r, x + 1.0, y + 1.0, w - 2.0, h - 2.0, COLOR_BLACK);
+
+    // Draw prompt text
+    f32 x_txt = x + (w / 2.0) - (w_txt / 2.0);
+    f32 y_txt = y + h - (r->line_height * 1.5);
+    rendererText(r, modal->prompt, &x_txt, y_txt, COLOR_WHITE);
+
+    if (modal->type == MODAL_TYPE_OPTION) {
+	// Get the horizontal midpoint of the modal = 
+	f32 h_mid = x + (w / 2.0);
+	f32 v_mid = y + (h / 2.0);
+
+	// yes text
+	f32 w_yes_txt = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, "Yes", 1.0);
+	f32 yes_sel_box = w_yes_txt;
+	f32 yes_x = x + (w * 0.1);
+	f32 yes_y = v_mid - r->line_height;
+	f32 yes_box_y = yes_y - (r->line_height * 0.1);
+
+	// yes text
+	f32 w_no_txt = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, "No", 1.0);
+	f32 no_sel_box = w_yes_txt;
+	f32 no_x = (x + w) - w_no_txt - (w * 0.1);
+	f32 no_y = v_mid - r->line_height;
+	f32 no_box_y = no_y - (r->line_height * 0.1);
+
+	//Draw the buttons
+	renderQuad(r, no_x, no_box_y, no_sel_box, r->line_height, modal->selection ? COLOR_BLACK : COLOR_WHITE);
+	rendererText(r, "No", &no_x, no_y, modal->selection ? COLOR_SILVER : COLOR_BLACK);
+
+	renderQuad(r, yes_x, yes_box_y, yes_sel_box, r->line_height, modal->selection ? COLOR_WHITE : COLOR_BLACK);
+	rendererText(r, "Yes", &yes_x, yes_y, modal->selection ? COLOR_BLACK : COLOR_SILVER);
+    }
 }

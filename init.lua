@@ -17,6 +17,7 @@ Myte.bind("ctrl + right", "moveCursorEndOfNextWord")
 Myte.bind("ctrl + left", "moveCursorBegOfPrevWord")
 Myte.bind("ctrl + backspace", "deleteWordLeft")
 Myte.bind("ctrl + delete", "deleteWordRight")
+Myte.bind("ctrl + p", "showModal")
 
 Myte.a = 69
 Myte.b = 4.20
