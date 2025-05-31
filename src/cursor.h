@@ -29,5 +29,6 @@ typedef struct {
 
 Cursor cursorNew(Vector2 pos);
 void cursorUpdate(Cursor *c, Vector2 adj_cursor_pos, f64 delta_time);
+void setCursorPosition(Cursor *c, Vector2 new_pos);
 
 

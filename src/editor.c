@@ -33,6 +33,8 @@ Editor *editorNew(Rect frame, f32 line_height) {
     ed->cursor_speed = CURSOR_SPEED;
     ed->scroll_speed = SCROLL_SPEED;
     ed->scroll_mode = SCROLL_MODE_CURSOR;
+
+    ed->focused = true;
     return ed;
 }
 

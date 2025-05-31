@@ -1,6 +1,9 @@
 #pragma once
 #include "buffer.h"
+#include "context.h"
+#include "putils/pmath.h"
 #include "putils/pstring.h"
+#include "cursor.h"
 
 typedef enum {
     MODAL_TYPE_OPTION,
@@ -14,13 +17,21 @@ typedef struct {
         bool selection;
         GapBuffer *buf;
     };
+    Cursor cursor;
     bool submitted;
+
+    // render info
+    Rect frame;
+    Vector2 title_pos;
+    Vector2 text_pos;
+    Rect input_box;
 } Modal;
 
-Modal *modalTextInit(const char *prompt);
+Modal *modalTextInit(const char *prompt, Vector2 cursor_pos);
 Modal *modalOptionInit(const char *prompt);
 
-void ModalDestroy(Modal *modal);
+void modalUpdate(Modal *modal, AppContext *ctx, f64 delta_time);
+void modalDestroy(Modal *modal);
 
 void modalSubmit(Modal *modal);
 void modalCycleFocus(Modal *modal);
@@ -32,7 +43,7 @@ void modalCycleFocus(Modal *modal);
 // void modalMoveCursorEnd(Modal *modal);
 //
 // // Text modal specific
-// void textmodalInsert(Modal *modal);
+void textmodalInsert(Modal *modal, char *bytes);
 // void textmodalDeleteLeft(Modal *modal);
 // void textmodalDeleteRight(Modal *modal);
 

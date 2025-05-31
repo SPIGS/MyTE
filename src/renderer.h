@@ -71,4 +71,4 @@ u32 rendererLoadFont(Renderer *r, const char *path, u32 size_px);
 void renderEditor(Renderer *r, Editor *ed, f64 delta_time);
 void renderStatusLine(Renderer *r, Editor *e, f64 delta_time);
 void renderFPS(Renderer *r, f64 delta_time);
-void renderModal(Renderer *r, Modal *modal);
+void renderModal(Renderer *r, Modal *modal, f64 delta_time);

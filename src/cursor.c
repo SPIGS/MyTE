@@ -23,7 +23,7 @@ Cursor cursorNew(Vector2 pos) {
     };
 }
 
-void resetAnimTime(Cursor *c) {
+static void resetAnimTime(Cursor *c) {
     c->pos_anim_time = 0.0f;
     //c->size_anim_time = 0.0f;
 }
@@ -31,6 +31,13 @@ void resetAnimTime(Cursor *c) {
 void setCursorTargetScreenPos(Cursor *c, Vector2 new_target) {
     c->target_screen_pos = new_target;
     c->prev_screen_pos = c->screen_pos;
+}
+
+void setCursorPosition(Cursor *c, Vector2 new_pos) {
+    c->screen_pos = new_pos;
+    c->prev_screen_pos = new_pos;
+    c->moved_last_frame = true;
+    resetAnimTime(c);
 }
 
 // void setCursorTargetWidth(Cursor *c, f32 new_target) {

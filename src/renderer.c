@@ -5,6 +5,7 @@
 #include <harfbuzz/hb-ft.h>
 #include "buffer.h"
 #include "context.h"
+#include "cursor.h"
 #include "editor.h"
 #include "freetype/freetype.h"
 #include "modal.h"
@@ -427,7 +428,9 @@ void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
     size_t buf_len = getBufLength(ed->buf);
 
     // Draw the cursor
-    renderCursor(r, ed->cursor);
+    if (ed->focused) {
+	renderCursor(r, ed->cursor);
+    }
 
     for (size_t i = 0; i < buf_len; i++) {
         if (graphemes[i] == 10) { // newline
@@ -501,7 +504,7 @@ void renderFPS(Renderer *r, f64 delta_time) {
     stringFree(fps_str);
 }
 
-void renderModal(Renderer *r, Modal *modal) {
+void renderModal(Renderer *r, Modal *modal, f64 delta_time) {
 
     //Determine size of modal
     f32 w_txt = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, modal->prompt, 1.0);
@@ -521,11 +524,11 @@ void renderModal(Renderer *r, Modal *modal) {
     f32 y_txt = y + h - (r->line_height * 1.5);
     rendererText(r, modal->prompt, &x_txt, y_txt, COLOR_WHITE);
 
-    if (modal->type == MODAL_TYPE_OPTION) {
-	// Get the horizontal midpoint of the modal = 
-	f32 h_mid = x + (w / 2.0);
-	f32 v_mid = y + (h / 2.0);
+    // Get the horizontal midpoint of the modal = 
+    f32 h_mid = x + (w / 2.0);
+    f32 v_mid = y + (h / 2.0);
 
+    if (modal->type == MODAL_TYPE_OPTION) {
 	// yes text
 	f32 w_yes_txt = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, "Yes", 1.0);
 	f32 yes_sel_box = w_yes_txt;
@@ -546,5 +549,21 @@ void renderModal(Renderer *r, Modal *modal) {
 
 	renderQuad(r, yes_x, yes_box_y, yes_sel_box, r->line_height, modal->selection ? COLOR_WHITE : COLOR_BLACK);
 	rendererText(r, "Yes", &yes_x, yes_y, modal->selection ? COLOR_BLACK : COLOR_SILVER);
+    } else {
+	// Textbox
+	f32 w_box = w * 0.75;
+	f32 h_box = r->line_height;
+	f32 box_x = x + (w * (0.25 / 2.0));
+	f32 box_y = v_mid - h_box;
+
+	//Draw the Box
+	renderQuad(r, box_x, box_y, w_box, h_box, COLOR_GRAY);
+
+	// Animate the cursor
+	Vector2 adj_cursor_pos = vec2(box_x, box_y);
+	cursorUpdate(&modal->cursor, adj_cursor_pos, delta_time);
+
+	//Draw the cursor
+	renderCursor(r, modal->cursor);
     }
 }

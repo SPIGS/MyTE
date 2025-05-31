@@ -4,7 +4,9 @@
 #include <lualib.h>
 #include <lauxlib.h>
 #include <stdlib.h>
+#include "buffer.h"
 #include "config.h"
+#include "cursor.h"
 #include "editor.h"
 #include "modal.h"
 #include "putils/color.h"
@@ -14,6 +16,7 @@
 #include "putils/pstring.h"
 #include "application.h"
 #include "command.h"
+#include "putils/unicode.h"
 #include "renderer.h"
 #include "context.h"
 
@@ -30,9 +33,9 @@
 COMMAND(splat) {
     LOG_DEBUG("Builtin command!", "");
     //editorInsert(app->ed, "ぁ");
-    //editorInsert(app->ed, "ね");
+    editorInsert(app->ed, "ね");
     //editorInsert(app->ed, "À");
-    editorInsert(app->ed, "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\n€ƒ„…†‡ˆ‰Š‹ŒŽ˜™š›œžŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ\n·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ\nΓΔΛαβγδηθικλμνξπτυφχψ\nЖЗКНРУЭЯавжзклмнруфчьыэя\nᚠᚡᚢᚣᚤᚥᚦᚧᚨᚩᚪᚫᚬᚭᚮᚯᚰᚱᚲᚳᚴᚵᚶᚷᚸᚹᚺᚻᚼᚽᚾᚿᛀᛁᛂᛃᛄᛅᛆᛇᛈᛉᛊᛋᛌᛍᛎᛏᛐᛑᛒᛓᛔᛕᛖᛗᛘᛙᛚᛛᛜᛝᛞᛟᛠᛡᛢᛣᛤᛥᛦᛧᛨᛩᛪ᛫᛬᛭ᛮᛯᛰ\nԱԲԳԴԵԶԷԸԹԺԻԼԽԾԿՀՁՂՃՄՅՆՇՈՉՊՋՌՍՎՏՐՑՒՓՔՕՖՙ՚՛՜՝՞՟ՠաբգդեզէըթժիլխծկհձղճմյնշոչպջռսվտրցւփքօֆևֈ։֊\nぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろゎわゐゑをんゔゕゖ゛゜ゝゞゟ\n");
+    //editorInsert(app->ed, "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\n€ƒ„…†‡ˆ‰Š‹ŒŽ˜™š›œžŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ\n·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ\nΓΔΛαβγδηθικλμνξπτυφχψ\nЖЗКНРУЭЯавжзклмнруфчьыэя\nᚠᚡᚢᚣᚤᚥᚦᚧᚨᚩᚪᚫᚬᚭᚮᚯᚰᚱᚲᚳᚴᚵᚶᚷᚸᚹᚺᚻᚼᚽᚾᚿᛀᛁᛂᛃᛄᛅᛆᛇᛈᛉᛊᛋᛌᛍᛎᛏᛐᛑᛒᛓᛔᛕᛖᛗᛘᛙᛚᛛᛜᛝᛞᛟᛠᛡᛢᛣᛤᛥᛦᛧᛨᛩᛪ᛫᛬᛭ᛮᛯᛰ\nԱԲԳԴԵԶԷԸԹԺԻԼԽԾԿՀՁՂՃՄՅՆՇՈՉՊՋՌՍՎՏՐՑՒՓՔՕՖՙ՚՛՜՝՞՟ՠաբգդեզէըթժիլխծկհձղճմյնշոչպջռսվտրցւփքօֆևֈ։֊\nぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろゎわゐゑをんゔゕゖ゛゜ゝゞゟ\n");
 }
 
 COMMAND(moveCursorLeft) {
@@ -88,11 +91,17 @@ COMMAND(deleteWordRight) {
 COMMAND (showModal) {
     if (app->modal) {
         LOG_DEBUG("Destroying modal...", "");
-        ModalDestroy(app->modal);
+        modalDestroy(app->modal);
+        app->ed->focused = true;
+        setCursorPosition(&app->ed->cursor, app->modal->cursor.screen_pos);
+        app->ed->cursor.pos_anim_time = 0.0f;
+        app->ed->cursor.moved_last_frame = true;
         app->modal = NULL;
     } else {
         LOG_DEBUG("Showing modal...", "");
-        app->modal = modalOptionInit("The quick brown fox jumps over the lazy dog");
+        app->modal = modalTextInit("The quick brown fox jumps over the lazy dog", app->ed->cursor.screen_pos);
+
+        app->ed->focused = false;
     }
 }
 
@@ -132,7 +141,7 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
                 break;
                 case GLFW_KEY_ESCAPE:
                     LOG_DEBUG("Destroying modal...", "");
-                    ModalDestroy(app->modal);
+                    modalDestroy(app->modal);
                     app->modal = NULL;
                 break;
                 case GLFW_KEY_ENTER:
@@ -253,7 +262,7 @@ void applicationDestroy(Application *app) {
     editorDestroy(app->ed);
 
     if (app->modal) {
-        ModalDestroy(app->modal);
+        modalDestroy(app->modal);
     }
 
     glfwTerminate();
@@ -280,9 +289,17 @@ void applicationUpdate(Application *app, f64 delta_time) {
 
     if (app->modal) {
         if (app->modal->submitted) {
-            LOG_WARN("Submitted modal: %d", app->modal->selection);
-            ModalDestroy(app->modal);
+            if (app->modal->type == MODAL_TYPE_OPTION) {
+                LOG_WARN("Submitted modal: %d", app->modal->selection);
+            } else {
+                string buf_string = unpackUTF8String(getBufferString(app->modal->buf), getBufLength(app->modal->buf));
+                LOG_WARN("Submitted modal: %s", buf_string);
+                stringFree(buf_string);
+                setCursorPosition(&app->ed->cursor, app->modal->cursor.screen_pos);
+            }
+            modalDestroy(app->modal);
             app->modal = NULL;
+            app->ed->focused = true;
         }
     }
 
@@ -296,7 +313,7 @@ void applicationRender(Application *app, f64 delta_time) {
     renderStatusLine(app->r, app->ed, delta_time);
 
     if (app->modal) {
-        renderModal(app->r, app->modal);
+        renderModal(app->r, app->modal, delta_time);
     }
 
     renderFPS(app->r, delta_time);
