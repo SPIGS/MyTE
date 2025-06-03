@@ -554,14 +554,45 @@ void renderModal(Renderer *r, Modal *modal, f64 delta_time) {
 	f32 w_box = w * 0.75;
 	f32 h_box = r->line_height;
 	f32 box_x = x + (w * (0.25 / 2.0));
-	f32 box_y = v_mid - h_box;
+	f32 box_y = (v_mid - h_box);
 
 	//Draw the Box
 	renderQuad(r, box_x, box_y, w_box, h_box, COLOR_GRAY);
 
 	// Animate the cursor
 	Vector2 adj_cursor_pos = vec2(box_x, box_y);
+
+	size_t cursor_idx = modal->cursor.buffer_idx;
+	size_t begin_line = getBeginningOfLineCursor(modal->buf, cursor_idx);
+	for (size_t i = 0; i < (cursor_idx - begin_line); i++) {
+	    UnicodeChar grapheme = getBufChar(modal->buf, begin_line + i);
+	    char *unpacked_grapheme = unpackUTF8(grapheme);
+	    GlyphTexture *glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
+
+	    if (glyph == NULL) {
+		cacheGrapheme(r->font_collection, r->glyphs, &r->atlas, unpacked_grapheme);
+	    }
+	    glyph = (GlyphTexture *)hashmapGet(r->glyphs, unpacked_grapheme);
+	    free(unpacked_grapheme);
+
+	    if (grapheme == '\t') {
+		glyph = (GlyphTexture *)hashmapGet(r->glyphs, " ");
+		adj_cursor_pos.x += (TAB_WIDTH * glyph->advance);
+	    } else {
+		adj_cursor_pos.x += (glyph->advance);
+	    }
+	} 
+
 	cursorUpdate(&modal->cursor, adj_cursor_pos, delta_time);
+
+	//Draw the text
+	UnicodeChar *graphemes = getBufferString(modal->buf);
+        size_t buf_len = getBufLength(modal->buf);
+	Vector2 text_pos = vec2(box_x, box_y + (r->line_height * 0.1));
+	for (size_t i = 0; i < buf_len; i++) {
+	    renderGrapheme(r, graphemes[i], &text_pos.x, text_pos.y, 1.0, COLOR_WHITE);
+	}
+	free(graphemes);
 
 	//Draw the cursor
 	renderCursor(r, modal->cursor);

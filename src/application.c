@@ -29,6 +29,15 @@
 #define COMMAND(command) \
     void _##command(Application *app)
 
+static void closeModal(Application *app) {
+    LOG_DEBUG("Destroying modal...", "");
+    modalDestroy(app->modal);
+    app->ed->focused = true;
+    setCursorPosition(&app->ed->cursor, app->modal->cursor.screen_pos);
+    app->ed->cursor.pos_anim_time = 0.0f;
+    app->ed->cursor.moved_last_frame = true;
+    app->modal = NULL;
+}
 
 COMMAND(splat) {
     LOG_DEBUG("Builtin command!", "");
@@ -90,17 +99,10 @@ COMMAND(deleteWordRight) {
 
 COMMAND (showModal) {
     if (app->modal) {
-        LOG_DEBUG("Destroying modal...", "");
-        modalDestroy(app->modal);
-        app->ed->focused = true;
-        setCursorPosition(&app->ed->cursor, app->modal->cursor.screen_pos);
-        app->ed->cursor.pos_anim_time = 0.0f;
-        app->ed->cursor.moved_last_frame = true;
-        app->modal = NULL;
+        closeModal(app);
     } else {
         LOG_DEBUG("Showing modal...", "");
         app->modal = modalTextInit("The quick brown fox jumps over the lazy dog", app->ed->cursor.screen_pos);
-
         app->ed->focused = false;
     }
 }
@@ -140,12 +142,13 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
                     modalCycleFocus(app->modal);
                 break;
                 case GLFW_KEY_ESCAPE:
-                    LOG_DEBUG("Destroying modal...", "");
-                    modalDestroy(app->modal);
-                    app->modal = NULL;
+                    closeModal(app);
                 break;
                 case GLFW_KEY_ENTER:
                    modalSubmit(app->modal);
+                break;
+                case GLFW_KEY_BACKSPACE:
+                   modalDeleteLeft(app->modal);
                 break;
             }
         }
@@ -158,6 +161,9 @@ void characterCallback(GLFWwindow *window, unsigned int codepoint) {
     if (app->modal == NULL) {
         char bytes[2] = {codepoint, '\0'};
         editorInsert(app->ed, bytes);
+    } else if (app->modal->type == MODAL_TYPE_TEXT){
+        char bytes[2] = {codepoint, '\0'};
+        modalInsert(app->modal, bytes);
     }
 }
 
@@ -292,14 +298,11 @@ void applicationUpdate(Application *app, f64 delta_time) {
             if (app->modal->type == MODAL_TYPE_OPTION) {
                 LOG_WARN("Submitted modal: %d", app->modal->selection);
             } else {
-                string buf_string = unpackUTF8String(getBufferString(app->modal->buf), getBufLength(app->modal->buf));
-                LOG_WARN("Submitted modal: %s", buf_string);
-                stringFree(buf_string);
+                LOG_WARN("Submitted modal:");
+                outputBufferString(app->modal->buf, app->modal->cursor.buffer_idx);
                 setCursorPosition(&app->ed->cursor, app->modal->cursor.screen_pos);
             }
-            modalDestroy(app->modal);
-            app->modal = NULL;
-            app->ed->focused = true;
+            closeModal(app);
         }
     }
 

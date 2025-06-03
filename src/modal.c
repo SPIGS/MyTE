@@ -61,13 +61,45 @@ void modalCycleFocus(Modal *modal) {
     }
 }
 
-void textmodalInsert(Modal *modal, char *bytes) {
+void modalMoveCursorRight(Modal *modal) {
+    modal->cursor.moved_last_frame = true;
+    if (modal->cursor.buffer_idx == getBufLength(modal->buf)) {
+        modal->cursor.prev_buffer_idx = modal->cursor.buffer_idx;
+        return;
+    }
+    modal->cursor.prev_buffer_idx = modal->cursor.buffer_idx;
+    modal->cursor.buffer_idx = getNextGraphemeCursor(modal->buf, modal->cursor.buffer_idx);
+    modal->cursor.pos_anim_time = 0.0f;
+}
+
+void modalInsert(Modal *modal, char *bytes) {
     assert(modal->type == MODAL_TYPE_TEXT);
+    modal->cursor.moved_last_frame = true;
     size_t grapheme_size, offset = 0;
     for (offset = 0; bytes[offset] != '\0'; offset += grapheme_size) {
         grapheme_size = grapheme_next_character_break_utf8(bytes + offset, SIZE_MAX);
         UnicodeChar grapheme = packUTF8(bytes+offset, grapheme_size);
 
         insertUnicodeCharIntoBuf (modal->buf, modal->cursor.buffer_idx, grapheme, grapheme_size);
+        modalMoveCursorRight(modal);
     }
+    modal->cursor.pos_anim_time = 0.0f;
+
+}
+
+void modalDeleteLeft(Modal *modal) {
+    modal->cursor.moved_last_frame = true;
+    // TODO: simplify this (remove redundant code)
+    if (modal->cursor.buffer_idx != 0) {
+        if (getBufChar(modal->buf, getPrevGraphemeCursor(modal->buf, modal->cursor.buffer_idx)) != '\n') {
+            removeGraphemeBeforeGap(modal->buf, modal->cursor.buffer_idx);
+            modal->cursor.prev_buffer_idx = modal->cursor.buffer_idx;
+            modal->cursor.buffer_idx = getPrevGraphemeCursor(modal->buf, modal->cursor.buffer_idx);
+        } else {
+            removeGraphemeBeforeGap(modal->buf, modal->cursor.buffer_idx);
+            modal->cursor.prev_buffer_idx = modal->cursor.buffer_idx;
+            modal->cursor.buffer_idx = getPrevGraphemeCursor(modal->buf, modal->cursor.buffer_idx);
+        }
+    }
+    modal->cursor.pos_anim_time = 0.0f;
 }

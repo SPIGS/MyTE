@@ -38,13 +38,13 @@ void modalCycleFocus(Modal *modal);
 
 // // General modal movement
 // void modalMoveCursorLeft(Modal *modal);
-// void modalMoveCursorRight(Modal *modal);
+void modalMoveCursorRight(Modal *modal);
 // void modalMoveCursorBeginning(Modal *modal);
 // void modalMoveCursorEnd(Modal *modal);
 //
 // // Text modal specific
-void textmodalInsert(Modal *modal, char *bytes);
-// void textmodalDeleteLeft(Modal *modal);
+void modalInsert(Modal *modal, char *bytes);
+void modalDeleteLeft(Modal *modal);
 // void textmodalDeleteRight(Modal *modal);
 
 
