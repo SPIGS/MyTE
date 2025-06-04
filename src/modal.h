@@ -36,15 +36,18 @@ void modalDestroy(Modal *modal);
 void modalSubmit(Modal *modal);
 void modalCycleFocus(Modal *modal);
 
-// // General modal movement
-// void modalMoveCursorLeft(Modal *modal);
-void modalMoveCursorRight(Modal *modal);
-// void modalMoveCursorBeginning(Modal *modal);
-// void modalMoveCursorEnd(Modal *modal);
-//
-// // Text modal specific
+// Text modal specific
 void modalInsert(Modal *modal, char *bytes);
 void modalDeleteLeft(Modal *modal);
-// void textmodalDeleteRight(Modal *modal);
+void modalDeleteRight(Modal *modal);
+void modalDeleteWordLeft(Modal *modal);
+void modalDeleteWordRight(Modal *modal);
+
+void modalMoveCursorLeft(Modal *modal);
+void modalMoveCursorRight(Modal *modal);
+void modalMoveCursorBeginning(Modal *modal);
+void modalMoveCursorEnd(Modal *modal);
+void modalMoveBegOfPrevWord(Modal *modal);
+void modalMoveCursorEndOfNextWord(Modal *modal);
 
 

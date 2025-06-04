@@ -103,6 +103,7 @@ COMMAND (showModal) {
     } else {
         LOG_DEBUG("Showing modal...", "");
         app->modal = modalTextInit("The quick brown fox jumps over the lazy dog", app->ed->cursor.screen_pos);
+        //app->modal = modalOptionInit("Hello world!");
         app->ed->focused = false;
     }
 }
@@ -133,10 +134,24 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
             // Just hardecode them for now
             switch (key) {
                 case GLFW_KEY_LEFT:
-                    LOG_WARN("Move cursor/selection left in modal.", "");
+                    if (mods & GLFW_MOD_CONTROL) {
+                        modalMoveBegOfPrevWord(app->modal);
+                    } else {
+                        modalMoveCursorLeft(app->modal);
+                    }
                 break;
                 case GLFW_KEY_RIGHT:
-                    LOG_WARN("Move cursor/selection right in modal.", "");
+                    if (mods & GLFW_MOD_CONTROL) {
+                        modalMoveCursorEndOfNextWord(app->modal);
+                    } else {
+                        modalMoveCursorRight(app->modal);
+                    }
+                break;
+                case GLFW_KEY_UP:
+                    modalMoveCursorBeginning(app->modal);
+                break;
+                case GLFW_KEY_DOWN:
+                    modalMoveCursorEnd(app->modal);
                 break;
                 case GLFW_KEY_TAB:
                     modalCycleFocus(app->modal);
@@ -145,10 +160,21 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
                     closeModal(app);
                 break;
                 case GLFW_KEY_ENTER:
-                   modalSubmit(app->modal);
+                    modalSubmit(app->modal);
                 break;
                 case GLFW_KEY_BACKSPACE:
-                   modalDeleteLeft(app->modal);
+                    if (mods & GLFW_MOD_CONTROL) {
+                        modalDeleteWordLeft(app->modal);
+                    } else {
+                        modalDeleteLeft(app->modal);
+                    }
+                break;
+                case GLFW_KEY_DELETE:
+                    if (mods & GLFW_MOD_CONTROL) {
+                        modalDeleteWordRight(app->modal);
+                    } else {
+                        modalDeleteRight(app->modal);
+                    }
                 break;
             }
         }
