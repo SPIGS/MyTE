@@ -5,6 +5,7 @@
 #include "putils/pmath.h"
 #include "putils/phashmap.h"
 #include "putils/unicode.h"
+#include "context.h"
 #include <ft2build.h>
 
 #define MAX_QUADS 1024
@@ -68,7 +69,7 @@ void rendererText(Renderer *r, const char *str, f32 *x, f32 y, Color color);
 
 u32 rendererLoadFont(Renderer *r, const char *path, u32 size_px);
 
-void renderEditor(Renderer *r, Editor *ed, f64 delta_time);
+void renderEditor(Renderer *r, Editor *ed, Focus focus, f64 delta_time);
 void renderStatusLine(Renderer *r, Editor *e, f64 delta_time);
 void renderFPS(Renderer *r, f64 delta_time);
 void renderModal(Renderer *r, Modal *modal, f64 delta_time);

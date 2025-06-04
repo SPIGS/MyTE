@@ -7,6 +7,8 @@
 #include "editor.h"
 #include "renderer.h"
 #include "modal.h"
+#include "context.h"
+
 
 typedef struct _Application{
     GLFWwindow *window;
@@ -16,6 +18,7 @@ typedef struct _Application{
     CommandRegistry *reg;
     Editor *ed;
     Modal *modal;
+    Focus focus;
 } Application;
 
 Application *applicationNew(int argc, char **argv);

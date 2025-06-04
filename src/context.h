@@ -2,6 +2,12 @@
 #include "putils/phashmap.h"
 #include "font.h"
 
+typedef enum {
+    FOCUS_EDITOR,
+    FOCUS_COMMAND_MODAL,
+    FOCUS_SAVE_MODAL,
+} Focus;
+
 // Stuff that will need to be passed around a lot
 typedef struct {
     hashmap *glyph_cache;

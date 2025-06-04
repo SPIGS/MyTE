@@ -414,7 +414,7 @@ static void renderGutter(Renderer *r, Gutter gutter, size_t cur_line, size_t lin
     renderQuad(r, ed_frame.x + gutter.size.x, ed_frame.y, 1, ed_frame.h, COLOR_SILVER);
 }
 
-void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
+void renderEditor(Renderer *r, Editor *ed, Focus focus, f64 delta_time) {
     // Render the background
     Rect frame = ed->frame;
     //renderQuad(r, frame.x, frame.y, frame.w, frame.h, COLOR_GRAY);
@@ -428,7 +428,7 @@ void renderEditor(Renderer *r, Editor *ed, f64 delta_time) {
     size_t buf_len = getBufLength(ed->buf);
 
     // Draw the cursor
-    if (ed->focused) {
+    if (focus == FOCUS_EDITOR) {
 	renderCursor(r, ed->cursor);
     }
 

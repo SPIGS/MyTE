@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include "buffer.h"
 #include "config.h"
+#include "context.h"
 #include "cursor.h"
 #include "editor.h"
 #include "modal.h"
@@ -18,7 +19,6 @@
 #include "command.h"
 #include "putils/unicode.h"
 #include "renderer.h"
-#include "context.h"
 
 
 // the command name must be prefixed with "_" or the macro won't work
@@ -32,7 +32,7 @@
 static void closeModal(Application *app) {
     LOG_DEBUG("Destroying modal...", "");
     modalDestroy(app->modal);
-    app->ed->focused = true;
+    app->focus = FOCUS_EDITOR;
     setCursorPosition(&app->ed->cursor, app->modal->cursor.screen_pos);
     app->ed->cursor.pos_anim_time = 0.0f;
     app->ed->cursor.moved_last_frame = true;
@@ -42,9 +42,9 @@ static void closeModal(Application *app) {
 COMMAND(splat) {
     LOG_DEBUG("Builtin command!", "");
     //editorInsert(app->ed, "ぁ");
-    editorInsert(app->ed, "ね");
+    //editorInsert(app->ed, "ね");
     //editorInsert(app->ed, "À");
-    //editorInsert(app->ed, "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\n€ƒ„…†‡ˆ‰Š‹ŒŽ˜™š›œžŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ\n·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ\nΓΔΛαβγδηθικλμνξπτυφχψ\nЖЗКНРУЭЯавжзклмнруфчьыэя\nᚠᚡᚢᚣᚤᚥᚦᚧᚨᚩᚪᚫᚬᚭᚮᚯᚰᚱᚲᚳᚴᚵᚶᚷᚸᚹᚺᚻᚼᚽᚾᚿᛀᛁᛂᛃᛄᛅᛆᛇᛈᛉᛊᛋᛌᛍᛎᛏᛐᛑᛒᛓᛔᛕᛖᛗᛘᛙᛚᛛᛜᛝᛞᛟᛠᛡᛢᛣᛤᛥᛦᛧᛨᛩᛪ᛫᛬᛭ᛮᛯᛰ\nԱԲԳԴԵԶԷԸԹԺԻԼԽԾԿՀՁՂՃՄՅՆՇՈՉՊՋՌՍՎՏՐՑՒՓՔՕՖՙ՚՛՜՝՞՟ՠաբգդեզէըթժիլխծկհձղճմյնշոչպջռսվտրցւփքօֆևֈ։֊\nぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろゎわゐゑをんゔゕゖ゛゜ゝゞゟ\n");
+    editorInsert(app->ed, "!\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~\n€ƒ„…†‡ˆ‰Š‹ŒŽ˜™š›œžŸ¡¢£¤¥¦§¨©ª«¬®¯°±²³´µ\n·¸¹º»¼½¾¿ÀÁÂÃÄÅÆÇÈÉÊËÌÍÎÏÐÑÒÓÔÕÖ×ØÙÚÛÜÝÞßàáâãäåæçèéêëìíîïðñòóôõö÷øùúûüýþÿ\nΓΔΛαβγδηθικλμνξπτυφχψ\nЖЗКНРУЭЯавжзклмнруфчьыэя\nᚠᚡᚢᚣᚤᚥᚦᚧᚨᚩᚪᚫᚬᚭᚮᚯᚰᚱᚲᚳᚴᚵᚶᚷᚸᚹᚺᚻᚼᚽᚾᚿᛀᛁᛂᛃᛄᛅᛆᛇᛈᛉᛊᛋᛌᛍᛎᛏᛐᛑᛒᛓᛔᛕᛖᛗᛘᛙᛚᛛᛜᛝᛞᛟᛠᛡᛢᛣᛤᛥᛦᛧᛨᛩᛪ᛫᛬᛭ᛮᛯᛰ\nԱԲԳԴԵԶԷԸԹԺԻԼԽԾԿՀՁՂՃՄՅՆՇՈՉՊՋՌՍՎՏՐՑՒՓՔՕՖՙ՚՛՜՝՞՟ՠաբգդեզէըթժիլխծկհձղճմյնշոչպջռսվտրցւփքօֆևֈ։֊\nぁあぃいぅうぇえぉおかがきぎくぐけげこごさざしじすずせぜそぞただちぢっつづてでとどなにぬねのはばぱひびぴふぶぷへべぺほぼぽまみむめもゃやゅゆょよらりるれろゎわゐゑをんゔゕゖ゛゜ゝゞゟ\n");
 }
 
 COMMAND(moveCursorLeft) {
@@ -97,14 +97,13 @@ COMMAND(deleteWordRight) {
         editorDeleteWordRight(app->ed);
 }
 
-COMMAND (showModal) {
+COMMAND (openCommandModal) {
     if (app->modal) {
         closeModal(app);
     } else {
-        LOG_DEBUG("Showing modal...", "");
-        app->modal = modalTextInit("The quick brown fox jumps over the lazy dog", app->ed->cursor.screen_pos);
+        app->modal = modalTextInit("        Enter Command:        ", app->ed->cursor.screen_pos);
         //app->modal = modalOptionInit("Hello world!");
-        app->ed->focused = false;
+        app->focus = FOCUS_COMMAND_MODAL;
     }
 }
 
@@ -121,7 +120,7 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
             }
         }
 
-        if (app->modal == NULL) {
+        if (app->focus == FOCUS_EDITOR) {
             if (key == GLFW_KEY_ENTER) {
                 char bytes[2] = {'\n', '\0'};
                 editorInsert(app->ed, bytes);
@@ -184,7 +183,7 @@ void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods
 // NOTE: temporary
 void characterCallback(GLFWwindow *window, unsigned int codepoint) {
     Application *app = glfwGetWindowUserPointer(window);
-    if (app->modal == NULL) {
+    if (app->focus == FOCUS_EDITOR) {
         char bytes[2] = {codepoint, '\0'};
         editorInsert(app->ed, bytes);
     } else if (app->modal->type == MODAL_TYPE_TEXT){
@@ -257,7 +256,7 @@ Application *applicationNew(int argc, char **argv) {
     REGISTER_COMMAND(app->reg, moveCursorBegOfPrevWord);
     REGISTER_COMMAND(app->reg, deleteWordLeft);
     REGISTER_COMMAND(app->reg, deleteWordRight);
-    REGISTER_COMMAND(app->reg, showModal);
+    REGISTER_COMMAND(app->reg, openCommandModal);
 
     // Setup lua context
     lua_State *L = luaL_newstate();
@@ -282,6 +281,7 @@ Application *applicationNew(int argc, char **argv) {
     app->ed = editorNew(rect(0, y, INITIAL_SCREEN_WIDTH, h), app->r->line_height);
 
     app->modal = NULL;
+    app->focus = FOCUS_EDITOR;
 
     return app;
 }
@@ -304,8 +304,8 @@ void applicationUpdate(Application *app, f64 delta_time) {
     glfwPollEvents();
 
     // Read the command queue
-    if (stringLength(app->reg->lua_cmd_queue) > 0) {
-        LOG_DEBUG("APplicatin read command %s from queue!", app->reg->lua_cmd_queue);
+    if (stringLength(app->reg->lua_cmd_queue) > 0) { 
+        LOG_DEBUG("APplicatin read command %s from queue!", app->reg->lua_cmd_queue); 
         registryExecuteCommand(app->reg, app, app->reg->lua_cmd_queue);
         stringClear(app->reg->lua_cmd_queue);
     }
@@ -321,13 +321,18 @@ void applicationUpdate(Application *app, f64 delta_time) {
 
     if (app->modal) {
         if (app->modal->submitted) {
-            if (app->modal->type == MODAL_TYPE_OPTION) {
-                LOG_WARN("Submitted modal: %d", app->modal->selection);
-            } else {
-                LOG_WARN("Submitted modal:");
-                outputBufferString(app->modal->buf, app->modal->cursor.buffer_idx);
+            if (app->focus == FOCUS_COMMAND_MODAL) {
+                LOG_WARN("Submitted command");
+                string cmd = stringNew(unpackUTF8String(getBufferString(app->modal->buf), getBufLength(app->modal->buf)));
+                registryExecuteCommand(app->reg, app, cmd);
                 setCursorPosition(&app->ed->cursor, app->modal->cursor.screen_pos);
+                stringFree(cmd);
             }
+
+            // if (app->modal->type == MODAL_TYPE_OPTION) {
+            //     LOG_WARN("Submitted modal: %d", app->modal->selection);
+            // }
+
             closeModal(app);
         }
     }
@@ -338,7 +343,7 @@ void applicationUpdate(Application *app, f64 delta_time) {
 void applicationRender(Application *app, f64 delta_time) {
     rendererBegin(app->r);
 
-    renderEditor(app->r, app->ed, delta_time);
+    renderEditor(app->r, app->ed, app->focus, delta_time);
     renderStatusLine(app->r, app->ed, delta_time);
 
     if (app->modal) {

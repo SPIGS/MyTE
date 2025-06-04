@@ -39,8 +39,6 @@ typedef struct {
     Vector2 scroll_pos;
     Vector2 target_scroll_pos;
     f32 line_height;
-
-    bool focused;
 } Editor;
 
 Editor *editorNew(Rect frame, f32 line_height);
