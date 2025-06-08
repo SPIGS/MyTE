@@ -31,6 +31,8 @@ typedef struct {
     // Editor statistics
     i32 goal_col;
     size_t line_count;
+    bool unsaved;
+    string path;
 
     // Render info
     Gutter gutter;
@@ -45,6 +47,11 @@ Editor *editorNew(Rect frame, f32 line_height);
 void editorDestroy(Editor *ed);
 void editorUpdate(Editor *ed, AppContext *ctx, f64 delta_time);
 size_t getBegginingOfCursorLine(Editor *ed);
+
+/* File handling */
+void editorSetPath(Editor *ed, const char *path);
+void editorLoadFile(Editor *ed, const char *path);
+void editorSaveFile(Editor *ed);
 
 /* Control cursor movements */
 

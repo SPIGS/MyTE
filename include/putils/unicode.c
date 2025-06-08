@@ -33,7 +33,7 @@ string unpackUTF8String(UnicodeChar *packed_str, size_t len) {
     string byte_str = stringNew("");
     for (size_t i = 0; i < len; i++) {
         char* utf_bytes = unpackUTF8(packed_str[i]);
-        stringCatStr(byte_str, utf_bytes);
+        byte_str = stringCatStr(byte_str, utf_bytes);
         free(utf_bytes);
     }
     return byte_str;

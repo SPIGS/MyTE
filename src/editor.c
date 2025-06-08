@@ -1,13 +1,16 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include "editor.h"
 #include "buffer.h"
 #include "cursor.h"
 #include <grapheme.h>
+#include <string.h>
 #include "putils/log.h"
 #include "putils/pmath.h"
 #include "putils/unicode.h"
 #include "putils/pstring.h"
+#include "putils/file.h"
 
 Editor *editorNew(Rect frame, f32 line_height) {
     Editor *ed = (Editor *)malloc(sizeof(Editor));
@@ -34,11 +37,18 @@ Editor *editorNew(Rect frame, f32 line_height) {
     ed->scroll_speed = SCROLL_SPEED;
     ed->scroll_mode = SCROLL_MODE_CURSOR;
 
+    ed->unsaved = false;
+    ed->path = NULL;
+
     return ed;
 }
 
 void editorDestroy(Editor *ed) {
     gapBufferDestroy(ed->buf);
+
+    if (ed->path)
+        stringFree(ed->path);
+
     free(ed);
 }
 
@@ -47,11 +57,11 @@ static void calculateGutterWidth(Editor *ed, AppContext *ctx) {
     i32 num_lines = (i32)ed->line_count;
     i32 digits = 1;
     while (num_lines /= 10)
-	    digits++;
+        digits++;
 
     ed->gutter.padding = 3;
     if (digits >= 3) {
-	    ed->gutter.padding = digits + 1;
+        ed->gutter.padding = digits + 1;
     }
     
     f32 gutter_text_x_offset = ctx->glyph_width;
@@ -137,6 +147,47 @@ void editorUpdate(Editor *ed, AppContext *ctx, f64 delta_time) {
     ed->text_pos = vec2(ed->text_pos.x, ctx->screen_height);
 }
 
+void editorSetPath(Editor *ed, const char *path) {
+    if (ed->path)
+        stringFree(ed->path);
+
+    ed->path = stringNew(path);
+}
+
+void editorLoadFile(Editor *ed, const char *path) {
+    // Load file
+    LOG_DEBUG("Loading file %s", path);
+    char *bytes = readFile(path);
+    editorInsert(ed, bytes);
+    free(bytes);
+
+    // Set the file path for the editor
+    editorSetPath(ed, path);
+
+    // Move cursor to beginning of file
+    ed->cursor.buffer_idx = 0;
+    ed->cursor.prev_buffer_idx = 0;
+    ed->cursor.disp_row = 1;
+    ed->cursor.prev_disp_row = 1;
+    ed->cursor.disp_col = 1;
+    ed->goal_col = -1;
+
+    // Don't prompt for save
+    ed->unsaved = false;
+}
+
+void editorSaveFile(Editor *ed) {
+    assert(ed->path);
+    LOG_DEBUG("Writing file %s", ed->path);
+    UnicodeChar *u = getBufferString(ed->buf);
+    size_t len = getBufLength(ed->buf);
+    string bytes = unpackUTF8String(u, len);
+    writeFile(ed->path, bytes);
+    stringFree(bytes);
+    free(u);
+    ed->unsaved = false;
+}
+
 size_t getBegginingOfCursorLine(Editor *ed) {
     return getBeginningOfLineCursor(ed->buf, ed->cursor.buffer_idx);
 }
@@ -161,7 +212,6 @@ void editorMoveLeft(Editor *ed) {
     ed->cursor.disp_col = getBufColumn(ed->buf, ed->cursor.buffer_idx) + 1;
     ed->goal_col = ed->cursor.disp_col;
     ed->cursor.pos_anim_time = 0.0f;
-
 }
 
 void editorMoveRight(Editor *ed) {
@@ -308,7 +358,7 @@ void editorInsert(Editor *ed, char *bytes) {
         editorMoveRight(ed);
     }
     ed->cursor.pos_anim_time = 0.0f;
-
+    ed->unsaved = true;
 }
 
 void editorDeleteLeft(Editor *ed) {
@@ -332,6 +382,7 @@ void editorDeleteLeft(Editor *ed) {
             ed->cursor.disp_row --;
             ed->line_count --;
         }
+        ed->unsaved = true;
     }
     ed->cursor.pos_anim_time = 0.0f;
 }
@@ -339,8 +390,13 @@ void editorDeleteLeft(Editor *ed) {
 void editorDeleteRight(Editor *ed) {
     ed->cursor.moved_last_frame = true;
     ed->scroll_mode = SCROLL_MODE_CURSOR;
-    if (removeGraphemeAfterGap(ed->buf, ed->cursor.buffer_idx) == '\n') {
+    UnicodeChar g = removeGraphemeAfterGap(ed->buf, ed->cursor.buffer_idx);
+    if (g == '\n') {
         ed->line_count = (ed->line_count - 1 < 1) ? 1 : ed->line_count - 1;
+    }
+
+    if (g != 0) {
+        ed->unsaved = true;
     }
 }
 

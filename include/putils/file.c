@@ -8,7 +8,7 @@
 
 // TODO: handle errors more gracefully
 char *readFile(const char *file_path) {
-  FILE *f = fopen(file_path, "r");
+    FILE *f = fopen(file_path, "r");
     if (f == NULL) {
         LOG_ERROR("Could not open file \'%s\'", file_path);
         exit(1);
@@ -35,35 +35,35 @@ char *readFile(const char *file_path) {
     read_buf[size] = '\0';
     fclose(f);
     return read_buf;
-
 }
 
-bool filePathExists(const char *path) {
-  return access(path, F_OK) == 0;
-}
-
-bool isDir(const char *path) {
-  struct stat s;
-  bool result = false;
-  if (stat(path, &s) == 0) {
-    if (s.st_mode & S_ISDIR(s.st_mode)) {
-      result = true;
+void writeFile(const char *path, const char *bytes) {
+    FILE *f = fopen(path, "w");
+    if (f == NULL) {
+        LOG_ERROR("Could not open file with write access: \'%s\'", path);
+        return;
     }
-  }
-  return result;
-}
 
-bool isFile(const char *path) {
-  struct stat s;
-  bool result = false;
-  if (stat(path, &s) == 0) {
-    if (s.st_mode & S_ISREG(s.st_mode)) {
-      result = true;
+    if (fputs(bytes, f) == EOF) {
+        LOG_ERROR("Couldn't write to file: \'%s\'", path);
+        fclose(f);
+        return;
     }
-  }
-  return result;
+    fclose(f);
 }
 
-/*void fileRename(const char *path, const char* new_name) {*/
-/**/
-/*}*/
+i32 checkPath(const char *path) {
+    struct stat s;
+    if (stat(path, &s) == 0) {
+        if (s.st_mode & __S_IFREG) {
+            return 0; // It's a file
+        } else if (s.st_mode & __S_IFDIR) {
+            return 1; // It's a directory
+        }
+    }
+    return -1; // Error (e.g. file not found)
+}
+
+char *getFileNameFromPath(const char *file_path) {
+
+}

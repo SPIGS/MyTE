@@ -12,6 +12,7 @@
 #include "modal.h"
 #include "putils/color.h"
 #include "putils/defines.h"
+#include "putils/file.h"
 #include "putils/log.h"
 #include "putils/pmath.h"
 #include "putils/pstring.h"
@@ -104,6 +105,19 @@ COMMAND (openCommandModal) {
         app->modal = modalTextInit("        Enter Command:        ", app->ed->cursor.screen_pos);
         //app->modal = modalOptionInit("Hello world!");
         app->focus = FOCUS_COMMAND_MODAL;
+    }
+}
+
+COMMAND (save) {
+    // If this is a blank file
+    if (app->ed->path == NULL) {
+        // Prompt for file name
+        app->modal = modalTextInit("        Enter File Name:        ", app->ed->cursor.screen_pos);
+        app->focus = FOCUS_SAVE_MODAL;
+    } else {
+        if (app->ed->unsaved) {
+            editorSaveFile(app->ed);
+        }
     }
 }
 
@@ -257,6 +271,7 @@ Application *applicationNew(int argc, char **argv) {
     REGISTER_COMMAND(app->reg, deleteWordLeft);
     REGISTER_COMMAND(app->reg, deleteWordRight);
     REGISTER_COMMAND(app->reg, openCommandModal);
+    REGISTER_COMMAND(app->reg, save);
 
     // Setup lua context
     lua_State *L = luaL_newstate();
@@ -282,6 +297,14 @@ Application *applicationNew(int argc, char **argv) {
 
     app->modal = NULL;
     app->focus = FOCUS_EDITOR;
+
+    // Check if we were passed a file
+    LOG_DEBUG("argc: %d", argc);
+    if (argc == 2) {
+        if (checkPath(argv[1]) == 0) {
+            editorLoadFile(app->ed, argv[1]);
+        }
+    }
 
     return app;
 }
@@ -321,15 +344,28 @@ void applicationUpdate(Application *app, f64 delta_time) {
 
     if (app->modal) {
         if (app->modal->submitted) {
-            if (app->focus == FOCUS_COMMAND_MODAL) {
-                LOG_WARN("Submitted command");
-                string cmd = stringNew(unpackUTF8String(getBufferString(app->modal->buf), getBufLength(app->modal->buf)));
-                registryExecuteCommand(app->reg, app, cmd);
+            if (app->modal->type == MODAL_TYPE_TEXT) {
+
+                LOG_DEBUG("Submitted Text modal", "");
+                UnicodeChar *unicode = getBufferString(app->modal->buf);
+                string submission = stringNew(unpackUTF8String(unicode, getBufLength(app->modal->buf)));
+
+                if (app->focus == FOCUS_COMMAND_MODAL) {
+                    LOG_DEBUG("Submitted command: '%s'", submission);
+                    registryExecuteCommand(app->reg, app, submission);
+                } else if (app->focus == FOCUS_SAVE_MODAL) {
+                    editorSetPath(app->ed, submission);
+                    editorSaveFile(app->ed);
+                    app->focus = FOCUS_EDITOR;
+                    LOG_WARN("Saved file: '%s'", submission);
+                }
+
                 setCursorPosition(&app->ed->cursor, app->modal->cursor.screen_pos);
-                stringFree(cmd);
+                stringFree(submission);
+                free(unicode);
             }
 
-            // if (app->modal->type == MODAL_TYPE_OPTION) {
+            // else if (app->modal->type == MODAL_TYPE_OPTION) {
             //     LOG_WARN("Submitted modal: %d", app->modal->selection);
             // }
 

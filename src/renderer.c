@@ -456,7 +456,19 @@ void renderStatusLine(Renderer *r, Editor *e, f64 delta_time) {
 
     // File name
     Vector2 fn_txt_pos = vec2(txt_padding, 5.0);
-    rendererText(r, "(null)", &fn_txt_pos.x, fn_txt_pos.y, COLOR_BLACK);
+    
+    string filename;
+    if (e->path) {
+	filename = stringDup(e->path);
+    } else {
+	filename = stringNew("(null)");
+    }
+
+    if (e->unsaved) {
+	filename = stringCatStr(filename, " [+]");
+    }
+    rendererText(r, filename, &fn_txt_pos.x, fn_txt_pos.y, COLOR_BLACK);
+    stringFree(filename);
 
     //percentage/bot/top
     f32 per = (e->scroll_pos.y / (((e->line_count + 2) * r->line_height) - r->screen_height)) * 100.0;
