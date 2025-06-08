@@ -121,6 +121,11 @@ COMMAND (save) {
     }
 }
 
+COMMAND(saveAs) {
+    app->modal = modalTextInit("        Enter File Name:        ", app->ed->cursor.screen_pos);
+    app->focus = FOCUS_SAVE_MODAL;
+}
+
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     UNUSED(scancode);
     UNUSED(mods);
@@ -272,6 +277,7 @@ Application *applicationNew(int argc, char **argv) {
     REGISTER_COMMAND(app->reg, deleteWordRight);
     REGISTER_COMMAND(app->reg, openCommandModal);
     REGISTER_COMMAND(app->reg, save);
+    REGISTER_COMMAND(app->reg, saveAs);
 
     // Setup lua context
     lua_State *L = luaL_newstate();
@@ -299,11 +305,8 @@ Application *applicationNew(int argc, char **argv) {
     app->focus = FOCUS_EDITOR;
 
     // Check if we were passed a file
-    LOG_DEBUG("argc: %d", argc);
     if (argc == 2) {
-        if (checkPath(argv[1]) == 0) {
-            editorLoadFile(app->ed, argv[1]);
-        }
+        editorLoadFile(app->ed, argv[1]);
     }
 
     return app;

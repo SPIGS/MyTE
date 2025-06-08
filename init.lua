@@ -4,7 +4,6 @@ end
 
 Myte.register("Test")
 Myte.bind("f1", "Test")
--- Myte.executeCommand("Test")
 Myte.bind("f2", "splat")
 
 Myte.bind("left", "moveCursorLeft")
@@ -19,6 +18,7 @@ Myte.bind("ctrl + backspace", "deleteWordLeft")
 Myte.bind("ctrl + delete", "deleteWordRight")
 Myte.bind("ctrl + p", "openCommandModal")
 Myte.bind("ctrl + s", "save")
+Myte.bind("ctrl + shift + s", "saveAs")
 
 Myte.a = 69
 Myte.b = 4.20

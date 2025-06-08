@@ -9,32 +9,26 @@
 // TODO: handle errors more gracefully
 char *readFile(const char *file_path) {
     FILE *f = fopen(file_path, "r");
-    if (f == NULL) {
-        LOG_ERROR("Could not open file \'%s\'", file_path);
-        exit(1);
+    if (!f) {
+        return NULL;
     }
-    size_t capacity = 1024;
-    char *read_buf = malloc(capacity);
-    if (read_buf == NULL) {
-        LOG_ERROR("Could allocate space for buffer to read file.", "");
+
+    fseek(f, 0, SEEK_END);
+    size_t size = ftell(f);
+    fseek(f, 0, SEEK_SET);
+
+    char *buf = (char *)malloc(size + 1);
+    if (!buf) {
         fclose(f);
-        exit(1);
+        return NULL;
     }
-    
-    size_t nread;
-    size_t size = 0;
-    char *temp = NULL;
-    while ((nread = fread(read_buf + size, 1, 1024, f)) > 0) {
-        size += nread;
-        if (size > capacity) {
-            capacity *= 2;
-            temp = realloc(read_buf, capacity);
-            read_buf = temp;
-        }
-    }
-    read_buf[size] = '\0';
+
+    size_t bytes_read = fread(buf, 1, size, f);
+    buf[bytes_read] = '\0';
+
+
     fclose(f);
-    return read_buf;
+    return buf;
 }
 
 void writeFile(const char *path, const char *bytes) {
@@ -52,6 +46,7 @@ void writeFile(const char *path, const char *bytes) {
     fclose(f);
 }
 
+// Returns 0 if it is a file, 1 if it is a directory and -1 if there was an error (or doesn't exist)
 i32 checkPath(const char *path) {
     struct stat s;
     if (stat(path, &s) == 0) {
@@ -64,6 +59,3 @@ i32 checkPath(const char *path) {
     return -1; // Error (e.g. file not found)
 }
 
-char *getFileNameFromPath(const char *file_path) {
-
-}

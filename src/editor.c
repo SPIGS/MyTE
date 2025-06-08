@@ -155,25 +155,31 @@ void editorSetPath(Editor *ed, const char *path) {
 }
 
 void editorLoadFile(Editor *ed, const char *path) {
-    // Load file
-    LOG_DEBUG("Loading file %s", path);
-    char *bytes = readFile(path);
-    editorInsert(ed, bytes);
-    free(bytes);
+    i32 check = checkPath(path);
+    if (check == 0) {
+        // Load file
+        LOG_DEBUG("Loading file %s", path);
+        char *bytes = readFile(path);
+        editorInsert(ed, bytes);
+        free(bytes);
 
-    // Set the file path for the editor
-    editorSetPath(ed, path);
+        // Set the file path for the editor
+        editorSetPath(ed, path);
 
-    // Move cursor to beginning of file
-    ed->cursor.buffer_idx = 0;
-    ed->cursor.prev_buffer_idx = 0;
-    ed->cursor.disp_row = 1;
-    ed->cursor.prev_disp_row = 1;
-    ed->cursor.disp_col = 1;
-    ed->goal_col = -1;
+        // Move cursor to beginning of file
+        ed->cursor.buffer_idx = 0;
+        ed->cursor.prev_buffer_idx = 0;
+        ed->cursor.disp_row = 1;
+        ed->cursor.prev_disp_row = 1;
+        ed->cursor.disp_col = 1;
+        ed->goal_col = -1;
 
-    // Don't prompt for save
-    ed->unsaved = false;
+        // Don't prompt for save
+        ed->unsaved = false;
+    } else if (check == -1) {
+        LOG_DEBUG("File not found: \'%s\', loading a blank buffer", path);
+        editorSetPath(ed, path);
+    }
 }
 
 void editorSaveFile(Editor *ed) {
