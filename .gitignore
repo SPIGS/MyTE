@@ -2,4 +2,5 @@
 *.o
 /build
 .cache/
+myte.dSYM
 myte

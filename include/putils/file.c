@@ -6,6 +6,15 @@
 #include <stdio.h>
 #include <putils/log.h>
 
+// Define macros for platform differences
+#if defined(__linux__)
+    #define IFFILE __S_IFREG
+    #define IFDIR __S_IFDIR
+#elif defined(__APPLE__)
+    #define IFFILE S_IFREG
+    #define IFDIR S_IFDIR
+#endif
+
 // TODO: handle errors more gracefully
 char *readFile(const char *file_path) {
     FILE *f = fopen(file_path, "r");
@@ -50,9 +59,9 @@ void writeFile(const char *path, const char *bytes) {
 i32 checkPath(const char *path) {
     struct stat s;
     if (stat(path, &s) == 0) {
-        if (s.st_mode & __S_IFREG) {
-            return 0; // It's a file
-        } else if (s.st_mode & __S_IFDIR) {
+        if (s.st_mode & IFFILE) {
+                return 0; // It's a file
+        } else if (s.st_mode & IFDIR) {
             return 1; // It's a directory
         }
     }

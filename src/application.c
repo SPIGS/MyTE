@@ -225,7 +225,9 @@ void scrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
 }
 
 Application *applicationNew(int argc, char **argv) {
+    #if defined(__linux__)
     glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
+    #endif
 
     if (!glfwInit()) {
         LOG_ERROR("Failed to init GLFW", "");
