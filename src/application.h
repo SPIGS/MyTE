@@ -14,6 +14,7 @@ typedef struct _Application{
     GLFWwindow *window;
     Renderer *r;
     lua_State *L;
+    AppContext ctx;
     Config *conf;
     CommandRegistry *reg;
     Editor *ed;

@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include "editor.h"
 #include "buffer.h"
+#include "context.h"
 #include "cursor.h"
 #include <grapheme.h>
 #include <string.h>
@@ -358,10 +359,11 @@ void editorInsert(Editor *ed, char *bytes) {
         UnicodeChar grapheme = packUTF8(bytes+offset, grapheme_size);
 
         insertUnicodeCharIntoBuf (ed->buf, ed->cursor.buffer_idx, grapheme, grapheme_size);
+        editorMoveRight(ed);
+
         if (grapheme == '\n') { // new line
             ed->line_count++;
         }
-        editorMoveRight(ed);
     }
     ed->cursor.pos_anim_time = 0.0f;
     ed->unsaved = true;
@@ -468,4 +470,55 @@ void editorScrollWithMouseWheel(Editor *ed, f32 yoffset) {
     } else if (ed->target_scroll_pos.y < 0) {
         ed->target_scroll_pos.y = 0;
     }
+}
+
+void moveCursorToMousePos(Editor *ed, AppContext *ctx, f64 mouse_x, f64 mouse_y) {
+    ed->cursor.moved_last_frame = true;
+    
+    i32 row = MAX((i32)((ed->scroll_pos.y + mouse_y) / ed->line_height), 0);
+    i32 max_row = MIN((i32)((ed->scroll_pos.y + ed->frame.h) / ed->line_height), (i32)ed->line_count - 1);
+    row = MIN(max_row, row);
+
+    // Move the cursor to the correct line
+    size_t cur_row = 0;
+    size_t i = 0;
+    while ((i32)cur_row != row) {
+        UnicodeChar uc = getBufChar(ed->buf, i);
+        if (uc == '\n') {
+            cur_row++;
+        }
+        i = getNextGraphemeCursor(ed->buf, i);
+    }
+
+    // Move the cursor to the correct column
+    i32 max_col = getBufLineLength(ed->buf, i);
+    i32 col = getBufColumn(ed->buf, i);
+    f64 text_base = ed->gutter.size.x + (ctx->glyph_width * 1.5f);
+    f64 cursor_x = text_base;
+    f64 size_text = 0.0f;
+    string line = stringNew("");
+    while (cursor_x <= mouse_x) {
+        UnicodeChar uc = getBufChar(ed->buf, col);
+        char * upc = unpackUTF8(uc);
+        line = stringCatStr(line, upc);
+        size_text = getSizeOfText(ctx->font_collection, ctx->glyph_cache, ctx->atlas, line, 1.0);
+        cursor_x = text_base + size_text;
+        free(upc);
+        col++;
+    }
+    stringFree(line);
+    col = MIN(max_col, col);
+    i += col;
+    
+    // if we moved past the end of the buffer, set it equal to the end of the buffer
+    if (i >= getBufLength(ed->buf)) {
+        i = getBufLength(ed->buf);
+    }
+
+    ed->cursor.prev_buffer_idx = ed->cursor.buffer_idx;
+    ed->cursor.buffer_idx = i;
+    ed->cursor.disp_col = getBufColumn(ed->buf, ed->cursor.buffer_idx) + 1;
+    ed->cursor.disp_row = row + 1;
+    ed->cursor.pos_anim_time = 0.0f;
+    ed->goal_col = ed->cursor.disp_col;
 }

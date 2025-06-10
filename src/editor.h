@@ -70,5 +70,6 @@ void editorDeleteRight(Editor *ed);
 void editorDeleteWordLeft(Editor *ed);
 void editorDeleteWordRight(Editor *ed);
 
-/* Other */
+/* Mouse Controls */
 void editorScrollWithMouseWheel(Editor *ed, f32 yoffset);
+void moveCursorToMousePos(Editor *ed, AppContext *ctx, f64 mouse_x, f64 mouse_y);

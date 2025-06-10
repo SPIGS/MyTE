@@ -224,6 +224,27 @@ void scrollCallback(GLFWwindow *window, double xoffset, double yoffset) {
     editorScrollWithMouseWheel(app->ed, yoffset);
 }
 
+void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
+    Application *app = glfwGetWindowUserPointer(window);
+
+    if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+        f64 mouse_x = 0.0;
+        f64 mouse_y = 0.0;
+        glfwGetCursorPos(app->window, &mouse_x, &mouse_y);
+        LOG_DEBUG("mouse click: %f,%f", mouse_x, mouse_y);
+        moveCursorToMousePos(app->ed, &app->ctx,mouse_x, mouse_y);
+    }
+}
+
+void cursorEnterCallback(GLFWwindow *window, int entered) {
+    Application *app = glfwGetWindowUserPointer(window);
+    if (entered) {
+        glfwSetCursor(app->window, glfwCreateStandardCursor(GLFW_IBEAM_CURSOR));
+    } else {
+        glfwSetCursor(app->window, NULL);
+    }
+}
+
 Application *applicationNew(int argc, char **argv) {
     #if defined(__linux__)
     glfwInitHint(GLFW_PLATFORM, GLFW_PLATFORM_X11);
@@ -252,6 +273,8 @@ Application *applicationNew(int argc, char **argv) {
     glfwSetCharCallback(app->window, characterCallback);
     glfwSetScrollCallback(app->window, scrollCallback);
     glfwSetFramebufferSizeCallback(app->window, resizeWindowCallback);
+    glfwSetMouseButtonCallback(app->window, mouseButtonCallback);
+    glfwSetCursorEnterCallback(app->window, cursorEnterCallback);
     
     if (glewInit() != GLEW_OK) {
         glfwTerminate();
@@ -339,13 +362,12 @@ void applicationUpdate(Application *app, f64 delta_time) {
     }
 
     // Build the context
-    AppContext ctx = {0};
-    ctx.glyph_cache = app->r->glyphs;
-    ctx.font_collection = app->r->font_collection;
-    ctx.atlas = &app->r->atlas;
-    ctx.screen_width = app->r->screen_width;
-    ctx.screen_height = app->r->screen_height;
-    ctx.glyph_width = app->r->glyph_width;
+    app->ctx.glyph_cache = app->r->glyphs;
+    app->ctx.font_collection = app->r->font_collection;
+    app->ctx.atlas = &app->r->atlas;
+    app->ctx.screen_width = app->r->screen_width;
+    app->ctx.screen_height = app->r->screen_height;
+    app->ctx.glyph_width = app->r->glyph_width;
 
     if (app->modal) {
         if (app->modal->submitted) {
@@ -378,7 +400,7 @@ void applicationUpdate(Application *app, f64 delta_time) {
         }
     }
 
-    editorUpdate(app->ed, &ctx, delta_time);
+    editorUpdate(app->ed, &app->ctx, delta_time);
 }
 
 void applicationRender(Application *app, f64 delta_time) {
