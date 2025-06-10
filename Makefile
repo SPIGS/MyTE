@@ -1,16 +1,17 @@
 CC=gcc
-
 CFLAGS=-Wall -Wextra -std=c11 -pedantic -ggdb -Iinclude
-CFLAGS += $(shell pkg-config --cflags gl glew glfw3 lua freetype2 harfbuzz)
-
 LDLIBS=-lm
-LDLIBS += $(shell pkg-config --libs gl glew glfw3 lua libgrapheme freetype2 harfbuzz)
-
 TARGET=myte
 SRCS=$(shell find src include -name '*.c')
 OBJ=$(patsubst src/%.c, build/%.o, $(SRCS))
 
 UNAME_S := $(shell uname -s)
+
+# Linux
+ifeq ($(UNAME_S), Linux)
+CFLAGS += $(shell pkg-config --cflags gl glew glfw3 lua freetype2 harfbuzz)
+LDLIBS += $(shell pkg-config --libs gl glew glfw3 lua libgrapheme freetype2 harfbuzz)
+endif
 
 # MACOS
 ifeq ($(UNAME_S), Darwin)
