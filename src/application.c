@@ -126,6 +126,13 @@ COMMAND(saveAs) {
     app->focus = FOCUS_SAVE_MODAL;
 }
 
+COMMAND(paste) {
+    char *cb = glfwGetClipboardString(app->window);
+    if (cb) {
+        editorInsert(app->ed, cb);
+    }
+}
+
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
     UNUSED(scancode);
     UNUSED(mods);
@@ -303,6 +310,7 @@ Application *applicationNew(int argc, char **argv) {
     REGISTER_COMMAND(app->reg, openCommandModal);
     REGISTER_COMMAND(app->reg, save);
     REGISTER_COMMAND(app->reg, saveAs);
+    REGISTER_COMMAND(app->reg, paste);
 
     // Setup lua context
     lua_State *L = luaL_newstate();

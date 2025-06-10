@@ -19,6 +19,7 @@ Myte.bind("ctrl + delete", "deleteWordRight")
 Myte.bind("ctrl + p", "openCommandModal")
 Myte.bind("ctrl + s", "save")
 Myte.bind("ctrl + shift + s", "saveAs")
+Myte.bind("ctrl + v", "paste")
 
 Myte.a = 69
 Myte.b = 4.20
