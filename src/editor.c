@@ -7,6 +7,7 @@
 #include "cursor.h"
 #include <grapheme.h>
 #include <string.h>
+#include "lexer.h"
 #include "putils/log.h"
 #include "putils/pmath.h"
 #include "putils/unicode.h"
@@ -40,6 +41,9 @@ Editor *editorNew(Rect frame, f32 line_height) {
 
     ed->unsaved = false;
     ed->path = NULL;
+
+    lexerInit(&ed->lexer);
+    ed->dirty = true;
 
     return ed;
 }
@@ -146,6 +150,20 @@ void editorUpdate(Editor *ed, AppContext *ctx, f64 delta_time) {
     f32 y = status_line_height;
     ed->frame = rect(0, y, ctx->screen_width, h);
     ed->text_pos = vec2(ed->text_pos.x, ctx->screen_height);
+
+    // Update the lexer
+    if (ed->dirty) {
+        UnicodeChar *uc_data = getBufferString(ed->buf);
+        string data = unpackUTF8String(uc_data, getBufLength(ed->buf));
+        lex(&ed->lexer, data);
+        free(uc_data);
+        stringFree(data);
+        ed->dirty = false;
+
+        for (size_t i = 0; i < ed->lexer.token_count; i++) {
+            LOG_INFO("Token: \'%s\'", ed->lexer.tokens[i]);
+        }
+    }
 }
 
 void editorSetPath(Editor *ed, const char *path) {
@@ -367,6 +385,7 @@ void editorInsert(Editor *ed, char *bytes) {
     }
     ed->cursor.pos_anim_time = 0.0f;
     ed->unsaved = true;
+    ed->dirty = true;
 }
 
 void editorDeleteLeft(Editor *ed) {
@@ -391,6 +410,7 @@ void editorDeleteLeft(Editor *ed) {
             ed->line_count --;
         }
         ed->unsaved = true;
+        ed->dirty = true;
     }
     ed->cursor.pos_anim_time = 0.0f;
 }
@@ -405,6 +425,7 @@ void editorDeleteRight(Editor *ed) {
 
     if (g != 0) {
         ed->unsaved = true;
+        ed->dirty = true;
     }
 }
 

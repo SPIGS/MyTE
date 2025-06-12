@@ -3,6 +3,7 @@
 #include "buffer.h"
 #include "context.h"
 #include "cursor.h"
+#include "lexer.h"
 #include "putils/defines.h"
 #include "putils/pmath.h"
 
@@ -27,6 +28,10 @@ typedef struct {
     f32 cursor_speed;
     f32 scroll_speed;
     ScrollMode scroll_mode;
+
+    // Lexer stuff
+    Lexer lexer;
+    bool dirty;
 
     // Editor statistics
     i32 goal_col;

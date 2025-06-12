@@ -378,6 +378,25 @@ void rendererText(Renderer *r, const char *str, f32 *x, f32 y, Color color) {
     }
 }
 
+static void renderToken(Renderer *r, const char *tok_text, f32 text_base_x, Vector2 *text_pos, Color color) {
+    size_t grapheme_size, offset = 0;
+    for (offset = 0; tok_text[offset] != '\0'; offset += grapheme_size) {
+        grapheme_size = grapheme_next_character_break_utf8(tok_text + offset, SIZE_MAX);
+        UnicodeChar grapheme = packUTF8(tok_text + offset, grapheme_size);
+	if (grapheme == '\n') {
+	    text_pos->y -= r->line_height;
+	    text_pos->x = text_base_x;
+	    continue;
+	} else if (grapheme == '\t') {
+	    for (size_t k = 0; k < TAB_WIDTH; k++) {
+		renderGrapheme(r, 32, &text_pos->x, text_pos->y, 1.0, color);
+	    }
+	    continue;
+	}
+	renderGrapheme(r, grapheme, &text_pos->x, text_pos->y, 1.0, color);
+    }
+}
+
 void rendererResizeWindow (Renderer* r, i32 width, i32 height) {
     // Adjust the viewport for opengl
     glViewport(0, 0, width, height);
@@ -423,29 +442,42 @@ void renderEditor(Renderer *r, Editor *ed, Focus focus, f64 delta_time) {
     f32 text_base_x = frame.x + ed->gutter.size.x + r->glyph_width;
     Vector2 text_pos = vec2(text_base_x, frame.y + frame.h - r->line_height);
     text_pos = vec2Add(text_pos, ed->scroll_pos);
+    text_base_x += ed->scroll_pos.x;
 
-    UnicodeChar *graphemes = getBufferString(ed->buf);
-    size_t buf_len = getBufLength(ed->buf);
+    // UnicodeChar *graphemes = getBufferString(ed->buf);
+    // size_t buf_len = getBufLength(ed->buf);
 
     // Draw the cursor
     if (focus == FOCUS_EDITOR) {
 	renderCursor(r, ed->cursor);
     }
 
-    for (size_t i = 0; i < buf_len; i++) {
-        if (graphemes[i] == 10) { // newline
-            text_pos.y -= r->line_height;
-            text_pos.x = text_base_x + ed->scroll_pos.x;
-            continue;
-        } else if (graphemes[i] == '\t') {
-	    for (size_t k = 0; k < TAB_WIDTH; k++) {
-		renderGrapheme(r, 32, &text_pos.x, text_pos.y, 1.0, COLOR_WHITE);
-	    }
-	    continue;
+    // Render tokens
+    for (size_t i = 0; i < ed->lexer.token_count; i++) {
+	Token cur_tok = ed->lexer.tokens[i];
+	size_t token_len = stringLength(cur_tok.text);
+
+	switch (cur_tok.type) {
+	    default:
+		renderToken(r, cur_tok.text, text_base_x, &text_pos, COLOR_WHITE);
+	    break;
 	}
-        renderGrapheme(r, graphemes[i], &text_pos.x, text_pos.y, 1.0, COLOR_WHITE);
     }
-    free(graphemes);
+
+	//     for (size_t i = 0; i < buf_len; i++) {
+	// if (graphemes[i] == 10) { // newline
+	//     text_pos.y -= r->line_height;
+	//     text_pos.x = text_base_x + ed->scroll_pos.x;
+	//     continue;
+	// } else if (graphemes[i] == '\t') {
+	//     for (size_t k = 0; k < TAB_WIDTH; k++) {
+	// 	renderGrapheme(r, 32, &text_pos.x, text_pos.y, 1.0, COLOR_WHITE);
+	//     }
+	//     continue;
+	// }
+	// renderGrapheme(r, graphemes[i], &text_pos.x, text_pos.y, 1.0, COLOR_WHITE);
+	//    }
+	//    free(graphemes);
 
     renderGutter(r, ed->gutter, ed->cursor.disp_row, ed->line_count, ed->frame);
 }
