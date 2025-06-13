@@ -1,24 +1,24 @@
 #include "lexer.h"
-#include "putils/pstring.h"
+#include "putils/log.h"
+#include "buffer.h"
 #include <stddef.h>
+#include <string.h>
 
-Token tokenNew() {
+
+Token tokenNew(void) {
     Token token;
-    token.text = NULL;
+    token.text = UTF8StringNew();
     token.type = TOKEN_UNKNOWN;
     return token;
 }
 
 void tokenDestroy(Token *token) {
-    if (token->text)
-        stringFree(token->text);
+    if (token->text.s)
+        UTF8StringDestroy(&token->text);
 }
 
-void tokenPushChar(Token *token, char c) {
-    if (!token->text) {
-        token->text = stringNew("");
-    }
-    token->text = stringCatChar(token->text, c);
+void tokenPushChar(Token *token, UnicodeChar c) {
+    UTF8StringPushChar(&token->text, c);
 }
 
 void lexerInit(Lexer *lexer) {
@@ -44,7 +44,7 @@ void lexerClearTokens(Lexer *lexer) {
 }
 
 static void lexerPushToken(Lexer *lexer, Token token) {
-    if (!token.text || stringLength(token.text) == 0) {
+    if (token.text.size == 0) {
         return;
     }
 
@@ -61,7 +61,7 @@ static void lexerPushToken(Lexer *lexer, Token token) {
     lexer->token_count++;
 }
 
-void lex(Lexer *lexer, string source) {
+void lex(Lexer *lexer, GapBuffer *buf) {
     if (lexer->tokens) {
         lexerClearTokens(lexer);
     }
@@ -70,21 +70,34 @@ void lex(Lexer *lexer, string source) {
     
     // If we don't know what file type it is, don't do anything.
     Token cur_tok = tokenNew();
-    size_t len = stringLength(source);
-    for (size_t i = 0; i < len; i++) {
-        tokenPushChar(&cur_tok, source[i]);
+    size_t len = getBufLength(buf);
+    size_t cursor_idx = 0;
+    while (cursor_idx < len) {
+        UnicodeChar c = getBufChar(buf, cursor_idx);
+        tokenPushChar(&cur_tok, c);
+
 
         // If we encounter a newline, start a new token.
         // this doesn't change highlighting, it helps with
         // visualizing the user selection (we don't have to worry about multi-
         // line tokens).
-        if (source[i] == '\n') {
+        if (c == '\n') {
             cur_tok.type = TOKEN_UNKNOWN;
             lexerPushToken(lexer, cur_tok);
             cur_tok = tokenNew();
         }
+        cursor_idx = getNextGraphemeCursor(buf, cursor_idx);
     }
-    if (cur_tok.text) {
+    // for (size_t i = 0; i < len; i++) {
+    //     tokenPushChar(&cur_tok, source[i]);
+    //
+    //     if (source[i] == '\n') {
+    //         cur_tok.type = TOKEN_UNKNOWN;
+    //         lexerPushToken(lexer, cur_tok);
+    //         cur_tok = tokenNew();
+    //     }
+    // }
+    if (cur_tok.text.size > 0) {
         lexerPushToken(lexer, cur_tok);
     }
 }

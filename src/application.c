@@ -12,7 +12,6 @@
 #include "modal.h"
 #include "putils/color.h"
 #include "putils/defines.h"
-#include "putils/file.h"
 #include "putils/log.h"
 #include "putils/pmath.h"
 #include "putils/pstring.h"
@@ -341,7 +340,8 @@ Application *applicationNew(int argc, char **argv) {
     if (argc == 2) {
         editorLoadFile(app->ed, argv[1]);
     }
-
+    
+    LOG_DEBUG("Initialized app");
     return app;
 }
 
@@ -407,7 +407,7 @@ void applicationUpdate(Application *app, f64 delta_time) {
             closeModal(app);
         }
     }
-
+    
     editorUpdate(app->ed, &app->ctx, delta_time);
 }
 

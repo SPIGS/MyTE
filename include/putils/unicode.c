@@ -1,5 +1,7 @@
 #include "unicode.h"
+#include "log.h"
 #include "putils/pstring.h"
+#include <assert.h>
 #include <stdlib.h>
 
 UnicodeChar packUTF8(const char *bytes, size_t len_bytes) {
@@ -53,4 +55,28 @@ bool ispunctUTF8(UnicodeChar uc) {
 // range returns true
 bool isalnumUTF8(UnicodeChar uc) {
     return (uc >=48 && uc <= 57) || (uc >= 65 && uc <= 70) || (uc >= 71 && uc <= 90) || (uc >= 97 && uc <= 120) || (uc >= 103 && uc <= 122) || ( uc >= 161);
+}
+
+
+UTF8String UTF8StringNew(void) {
+    UTF8String s;
+    s.size = 0;
+    s.cap = 8;
+    s.s = (UnicodeChar *)malloc(sizeof(UnicodeChar) * s.cap);
+
+    return s;
+}
+void UTF8StringDestroy(UTF8String *s) {
+    if (s->s)
+        free(s->s);
+}
+
+void UTF8StringPushChar(UTF8String *utfs, UnicodeChar c) {
+    if (utfs->size + 1 >= utfs->cap) {
+        utfs->s = (UnicodeChar *)realloc(utfs->s, sizeof(UnicodeChar) * utfs->cap * 2);
+        utfs->cap *= 2;
+    }
+    
+    utfs->s[utfs->size] = c;
+    utfs->size += 1;
 }

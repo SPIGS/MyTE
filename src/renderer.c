@@ -378,22 +378,21 @@ void rendererText(Renderer *r, const char *str, f32 *x, f32 y, Color color) {
     }
 }
 
-static void renderToken(Renderer *r, const char *tok_text, f32 text_base_x, Vector2 *text_pos, Color color) {
-    size_t grapheme_size, offset = 0;
-    for (offset = 0; tok_text[offset] != '\0'; offset += grapheme_size) {
-        grapheme_size = grapheme_next_character_break_utf8(tok_text + offset, SIZE_MAX);
-        UnicodeChar grapheme = packUTF8(tok_text + offset, grapheme_size);
-	if (grapheme == '\n') {
+static void renderToken(Renderer *r, UTF8String tok_text, f32 text_base_x, Vector2 *text_pos, Color color) {
+    size_t len = tok_text.size;
+    for (size_t i = 0; i < len; i++) {
+	UnicodeChar c = tok_text.s[i];
+	if (c == '\n') {
 	    text_pos->y -= r->line_height;
 	    text_pos->x = text_base_x;
 	    continue;
-	} else if (grapheme == '\t') {
+	} else if (c == '\t') {
 	    for (size_t k = 0; k < TAB_WIDTH; k++) {
 		renderGrapheme(r, 32, &text_pos->x, text_pos->y, 1.0, color);
 	    }
 	    continue;
 	}
-	renderGrapheme(r, grapheme, &text_pos->x, text_pos->y, 1.0, color);
+	renderGrapheme(r, c, &text_pos->x, text_pos->y, 1.0, color);
     }
 }
 
@@ -455,7 +454,10 @@ void renderEditor(Renderer *r, Editor *ed, Focus focus, f64 delta_time) {
     // Render tokens
     for (size_t i = 0; i < ed->lexer.token_count; i++) {
 	Token cur_tok = ed->lexer.tokens[i];
-	size_t token_len = stringLength(cur_tok.text);
+	size_t token_len = cur_tok.text.size;
+
+	// Render selection on Token
+	
 
 	switch (cur_tok.type) {
 	    default:

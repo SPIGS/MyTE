@@ -4,6 +4,16 @@
 
 typedef uint32_t UnicodeChar;
 
+typedef struct {
+    size_t size;
+    size_t cap;
+    UnicodeChar *s;
+} UTF8String;
+
+UTF8String UTF8StringNew(void);
+void UTF8StringDestroy(UTF8String *s);
+void UTF8StringPushChar(UTF8String *s, UnicodeChar c);
+
 UnicodeChar packUTF8(const char *bytes, size_t len);
 char *unpackUTF8(UnicodeChar packed);
 string unpackUTF8String(UnicodeChar *packed_str, size_t len);

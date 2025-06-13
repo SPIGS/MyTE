@@ -1,5 +1,7 @@
 #pragma once
+#include "buffer.h"
 #include "putils/pstring.h"
+#include "putils/unicode.h"
 
 // Token types
 typedef enum {
@@ -7,13 +9,13 @@ typedef enum {
 } TokenType;
 
 typedef struct {
-    string text;
+    UTF8String text;
     TokenType type;
 } Token;
 
-Token tokenNew();
+Token tokenNew(void);
 void tokenDestroy(Token *token);
-void tokenPushChar(Token *token, char c);
+void tokenPushChar(Token *token, UnicodeChar c);
 
 typedef struct {
     Token *tokens;
@@ -25,4 +27,4 @@ void lexerInit(Lexer *lexer);
 void lexerDestroy(Lexer *lexer);
 void lexerClearTokens(Lexer *lexer);
 
-void lex(Lexer *lexer, string source);
+void lex(Lexer *lexer,  GapBuffer *buf);

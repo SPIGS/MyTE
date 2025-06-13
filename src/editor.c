@@ -151,13 +151,10 @@ void editorUpdate(Editor *ed, AppContext *ctx, f64 delta_time) {
     ed->frame = rect(0, y, ctx->screen_width, h);
     ed->text_pos = vec2(ed->text_pos.x, ctx->screen_height);
 
+
     // Update the lexer
     if (ed->dirty) {
-        UnicodeChar *uc_data = getBufferString(ed->buf);
-        string data = unpackUTF8String(uc_data, getBufLength(ed->buf));
-        lex(&ed->lexer, data);
-        free(uc_data);
-        stringFree(data);
+        lex(&ed->lexer, ed->buf);
         ed->dirty = false;
 
         for (size_t i = 0; i < ed->lexer.token_count; i++) {
