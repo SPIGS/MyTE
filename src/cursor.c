@@ -20,6 +20,7 @@ Cursor cursorNew(Vector2 pos) {
         .blink_rate = BLINK_RATE,
         .alpha = 1.0,
         .target_alpha = 0.0,
+        .selection_size = 0
     };
 }
 

@@ -78,3 +78,9 @@ void editorDeleteWordRight(Editor *ed);
 /* Mouse Controls */
 void editorScrollWithMouseWheel(Editor *ed, f32 yoffset);
 void moveCursorToMousePos(Editor *ed, AppContext *ctx, f64 mouse_x, f64 mouse_y);
+
+/* Selection */
+void editorMakeSelection(Editor *ed);
+void editorUnselectSelection(Editor *ed);
+void editorDeleteSelection(Editor *ed);
+string editorGetSelectionBytes(Editor *ed);

@@ -19,6 +19,7 @@
 #include "putils/file.h"
 #include <grapheme.h>
 #include <stddef.h>
+#include <stdlib.h>
 
 #define FONT_PATH "./IosevkaTermNerdFontMono-Regular.ttf"
 #define FALLBACK_FONT_PATH_1 "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc"
@@ -378,6 +379,104 @@ void rendererText(Renderer *r, const char *str, f32 *x, f32 y, Color color) {
     }
 }
 
+static void renderSelectionOnToken(Renderer *r, Cursor *c, Vector2 adj_text_pos, size_t buffer_pos, UTF8String *text) {
+    
+    i32 selection_size = c->selection_size;
+    size_t selection_beg = c->buffer_idx - selection_size;
+    size_t selection_end = c->buffer_idx;
+    size_t token_end = buffer_pos + text->size;
+    size_t selection_offset = 0;
+    size_t chars_to_highlight = 0;
+
+    if (selection_size != 0) {
+	/* Case 1:
+	 * The selection starts before the token and extends through it
+	 * OR
+	 * The selection starts after the token and extends behind it
+	 * THEN
+	 * color whole token
+	 */
+	if ((selection_beg <= buffer_pos && selection_end >= token_end) || (selection_beg >= token_end && selection_end <= buffer_pos)) {
+	    chars_to_highlight = text->size;
+	    selection_offset = 0;
+	}
+
+	/* Case 2:
+	 * The selection starts on the token and extends through it
+	 * THEN 
+	 * color part of the token
+	 */
+	else if (selection_beg > buffer_pos && selection_beg < token_end && selection_end >= token_end) {
+	    chars_to_highlight = token_end - selection_beg;
+	    selection_offset = selection_beg;
+	}
+
+	/* Case 3:
+	 * The selection starts on the token and extends behind it
+	 * THEN 
+	 * color part of the token
+	 */
+	else if (selection_beg > buffer_pos && selection_beg <= token_end && selection_end <= buffer_pos) {
+	    chars_to_highlight = selection_beg - buffer_pos;
+	    selection_offset = 0;
+	}
+
+	/* Case 4:
+	 * The selection starts before the token and ends in it
+	 * THEN 
+	 * color part of the token
+	 */
+	else if (selection_beg <= buffer_pos && selection_end >= buffer_pos && selection_end <= token_end) {
+	    selection_offset = 0;
+	    chars_to_highlight = selection_end - buffer_pos;
+	}
+
+	/* Case 5:
+	 * The selection starts after the token and ends in it
+	 * THEN 
+	 * color part of the token
+	 */
+	else if ((selection_beg >= token_end && (selection_end >= buffer_pos && selection_end < token_end))) {
+	    selection_offset = selection_end - buffer_pos;
+	    chars_to_highlight = token_end - selection_end;
+	    
+	}
+
+	/* Case 6:
+	 * The selection starts in the token and ends in it
+	 * THEN 
+	 * color part of the token
+	 */
+	else if (selection_beg > buffer_pos && selection_end <= token_end) {
+	    selection_offset = MIN(selection_beg, selection_end) - buffer_pos;
+	    chars_to_highlight = abs(selection_size);
+	}
+    }
+    // get x pos of offset in screen coordinates
+    string byte_str = unpackUTF8String(text->s, text->size);
+    f32 x_pos = 0.0;
+    if (selection_offset > 0) {
+	string sub_str = stringSubstring(byte_str, 0, UTF8StringGetSubstringSizeBytes(text, 0, selection_offset));
+	x_pos = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, sub_str, 1.0);
+	stringFree(sub_str);
+    }
+
+    // get pixel width of selection
+    f32 w = 0.0;
+    if (chars_to_highlight > 0) {
+	string sub_str = stringSubstring(byte_str, selection_offset, chars_to_highlight);
+	w = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, sub_str, 1.0);
+	stringFree(sub_str);
+    }
+    stringFree(byte_str);
+
+    
+    if (chars_to_highlight > 0) {
+	renderQuad(r, adj_text_pos.x + x_pos, adj_text_pos.y - (r->line_height * 0.1), w, r->line_height, COLOR_SILVER);
+    }
+
+}
+
 static void renderToken(Renderer *r, UTF8String tok_text, f32 text_base_x, Vector2 *text_pos, Color color) {
     size_t len = tok_text.size;
     for (size_t i = 0; i < len; i++) {
@@ -446,17 +545,16 @@ void renderEditor(Renderer *r, Editor *ed, Focus focus, f64 delta_time) {
     // UnicodeChar *graphemes = getBufferString(ed->buf);
     // size_t buf_len = getBufLength(ed->buf);
 
-    // Draw the cursor
-    if (focus == FOCUS_EDITOR) {
-	renderCursor(r, ed->cursor);
-    }
 
     // Render tokens
+    size_t buffer_pos = 0;
     for (size_t i = 0; i < ed->lexer.token_count; i++) {
 	Token cur_tok = ed->lexer.tokens[i];
 	size_t token_len = cur_tok.text.size;
 
 	// Render selection on Token
+	renderSelectionOnToken(r, &ed->cursor, text_pos, buffer_pos, &cur_tok.text);
+	buffer_pos += token_len;
 	
 
 	switch (cur_tok.type) {
@@ -480,6 +578,11 @@ void renderEditor(Renderer *r, Editor *ed, Focus focus, f64 delta_time) {
 	// renderGrapheme(r, graphemes[i], &text_pos.x, text_pos.y, 1.0, COLOR_WHITE);
 	//    }
 	//    free(graphemes);
+
+    // Draw the cursor
+    if (focus == FOCUS_EDITOR) {
+	renderCursor(r, ed->cursor);
+    }
 
     renderGutter(r, ed->gutter, ed->cursor.disp_row, ed->line_count, ed->frame);
 }

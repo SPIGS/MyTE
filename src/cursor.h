@@ -25,6 +25,10 @@ typedef struct {
     size_t disp_col;
     size_t disp_row;
     size_t prev_disp_row;
+
+    // Selection
+    i32 selection_size;
+    Vector2 beg_sel_scrn_pos;
 } Cursor;
 
 Cursor cursorNew(Vector2 pos);

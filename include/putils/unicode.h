@@ -13,6 +13,7 @@ typedef struct {
 UTF8String UTF8StringNew(void);
 void UTF8StringDestroy(UTF8String *s);
 void UTF8StringPushChar(UTF8String *s, UnicodeChar c);
+size_t UTF8StringGetSubstringSizeBytes(UTF8String *s, size_t beg, size_t end);
 
 UnicodeChar packUTF8(const char *bytes, size_t len);
 char *unpackUTF8(UnicodeChar packed);

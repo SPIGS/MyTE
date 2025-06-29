@@ -41,6 +41,15 @@ string unpackUTF8String(UnicodeChar *packed_str, size_t len) {
     return byte_str;
 }
 
+size_t UTF8StringGetSubstringSizeBytes(UTF8String *s, size_t beg, size_t end) {
+    assert(end <= s->size);
+    size_t size_bytes = 0;
+    for (size_t i = beg; i < end; i++) {
+        size_bytes += getUTF8Size(s->s[i]);
+    }
+    return size_bytes;
+}
+
 
 bool isspaceUTF8(UnicodeChar uc) {
     return (uc == '\n') || (uc == ' ') || (uc == '\r') || (uc == '\t') || (uc == '\v') || (uc == '\f');

@@ -48,18 +48,27 @@ COMMAND(splat) {
 }
 
 COMMAND(moveCursorLeft) {
-    if (app->modal == NULL)
+    if (app->modal == NULL) {
+        editorUnselectSelection(app->ed);
         editorMoveLeft(app->ed);
+    }
 }
 
 COMMAND(moveCursorRight) {
-    if (app->modal == NULL)
+    if (app->modal == NULL) {
+        editorUnselectSelection(app->ed);
         editorMoveRight(app->ed);
+    }
 }
 
 COMMAND(deleteGraphemeLeft) {
-    if (app->modal == NULL)
-        editorDeleteLeft(app->ed);
+    if (app->modal == NULL) {
+        if (app->ed->cursor.selection_size != 0) {
+            editorDeleteSelection(app->ed);
+        } else {
+            editorDeleteLeft(app->ed);
+        }
+    }
 }
 
 COMMAND(deleteGraphemeRight) {
@@ -68,23 +77,31 @@ COMMAND(deleteGraphemeRight) {
 }
 
 COMMAND(moveCursorUp) {
-    if (app->modal == NULL)
+    if (app->modal == NULL) {
+        editorUnselectSelection(app->ed);
         editorMoveUp(app->ed);
+    }
 }
 
 COMMAND(moveCursorDown) {
-    if (app->modal == NULL)
+    if (app->modal == NULL) {
+        editorUnselectSelection(app->ed);
         editorMoveDown(app->ed);
+    }
 }
 
 COMMAND(moveCursorEndOfNextWord) {
-    if (app->modal == NULL)
+    if (app->modal == NULL) {
+        editorUnselectSelection(app->ed);
         editorMoveEndOfNextWord(app->ed);
+    }
 }
 
 COMMAND(moveCursorBegOfPrevWord) {
-    if (app->modal == NULL)
+    if (app->modal == NULL) {
+        editorUnselectSelection(app->ed);
         editorMoveBegOfPrevWord(app->ed);
+    }
 }
 
 COMMAND(deleteWordLeft) {
@@ -125,11 +142,47 @@ COMMAND(saveAs) {
     app->focus = FOCUS_SAVE_MODAL;
 }
 
+COMMAND(copy) {
+    string bytes = editorGetSelectionBytes(app->ed);
+    LOG_DEBUG("COPY: %s", bytes);
+    if (bytes) {
+        glfwSetClipboardString(app->window, bytes);
+        stringFree(bytes);
+    }
+}
+
 COMMAND(paste) {
     char *cb = glfwGetClipboardString(app->window);
     if (cb) {
+        if (app->ed->cursor.selection_size != 0) {
+            editorDeleteSelection(app->ed);
+        }
         editorInsert(app->ed, cb);
     }
+}
+
+COMMAND(selectRight) {
+    editorMoveRight(app->ed);
+    editorMakeSelection(app->ed);
+}
+
+COMMAND(selectLeft) {
+    editorMoveLeft(app->ed);
+    editorMakeSelection(app->ed);
+}
+
+COMMAND(selectUp) {
+    editorMoveUp(app->ed);
+    editorMakeSelection(app->ed);
+}
+
+COMMAND(selectDown) {
+    editorMoveDown(app->ed);
+    editorMakeSelection(app->ed);
+}
+
+COMMAND(unselect) {
+    editorUnselectSelection(app->ed);
 }
 
 void keyCallback(GLFWwindow *window, int key, int scancode, int action, int mods) {
@@ -238,6 +291,7 @@ void mouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
         f64 mouse_y = 0.0;
         glfwGetCursorPos(app->window, &mouse_x, &mouse_y);
         LOG_DEBUG("mouse click: %f,%f", mouse_x, mouse_y);
+        editorUnselectSelection(app->ed);
         moveCursorToMousePos(app->ed, &app->ctx,mouse_x, mouse_y);
     }
 }
@@ -309,7 +363,13 @@ Application *applicationNew(int argc, char **argv) {
     REGISTER_COMMAND(app->reg, openCommandModal);
     REGISTER_COMMAND(app->reg, save);
     REGISTER_COMMAND(app->reg, saveAs);
+    REGISTER_COMMAND(app->reg, copy);
     REGISTER_COMMAND(app->reg, paste);
+    REGISTER_COMMAND(app->reg, selectRight);
+    REGISTER_COMMAND(app->reg, selectLeft);
+    REGISTER_COMMAND(app->reg, selectUp);
+    REGISTER_COMMAND(app->reg, selectDown);
+    REGISTER_COMMAND(app->reg, unselect);
 
     // Setup lua context
     lua_State *L = luaL_newstate();

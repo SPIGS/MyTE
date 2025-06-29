@@ -19,7 +19,12 @@ Myte.bind("ctrl + delete", "deleteWordRight")
 Myte.bind("ctrl + p", "openCommandModal")
 Myte.bind("ctrl + s", "save")
 Myte.bind("ctrl + shift + s", "saveAs")
+Myte.bind("ctrl + c", "copy")
 Myte.bind("ctrl + v", "paste")
+Myte.bind("shift + right", "selectRight")
+Myte.bind("shift + left", "selectLeft")
+Myte.bind("shift + up", "selectUp")
+Myte.bind("shift + down", "selectDown")
 
 Myte.a = 69
 Myte.b = 4.20

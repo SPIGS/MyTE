@@ -540,3 +540,81 @@ void moveCursorToMousePos(Editor *ed, AppContext *ctx, f64 mouse_x, f64 mouse_y)
     ed->cursor.pos_anim_time = 0.0f;
     ed->goal_col = ed->cursor.disp_col;
 }
+
+
+void editorMakeSelection(Editor *ed) {
+    if (ed->cursor.buffer_idx != ed->cursor.prev_buffer_idx) {
+        i32 new_sel_size = (i32)ed->cursor.buffer_idx - (i32)ed->cursor.prev_buffer_idx;
+        if (ed->cursor.selection_size == 0) {
+            ed->cursor.beg_sel_scrn_pos = ed->cursor.target_screen_pos;
+        }
+        ed->cursor.selection_size += new_sel_size;
+    }
+    LOG_DEBUG("Selection size: %d", ed->cursor.selection_size);
+}
+
+void editorUnselectSelection(Editor *ed) {
+    ed->cursor.selection_size = 0;
+    LOG_DEBUG("Unselect selection");
+}
+
+static void deleteSelectionLeft(Editor *ed) {
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
+    ed->cursor.moved_last_frame = true;
+    size_t i = ed->cursor.buffer_idx;
+    size_t sel_beg = ed->cursor.buffer_idx - ed->cursor.selection_size;
+    while(i > sel_beg) {
+        editorDeleteLeft(ed);
+        i--;
+    }
+    editorUnselectSelection(ed);
+}
+
+static void deleteSelectionRight(Editor *ed) {
+    ed->scroll_mode = SCROLL_MODE_CURSOR;
+    ed->cursor.moved_last_frame = true;
+    size_t i = ed->cursor.buffer_idx;
+    size_t sel_end = ed->cursor.buffer_idx - ed->cursor.selection_size;
+    while(i < sel_end) {
+        editorDeleteRight(ed);
+        i++;
+    }
+    editorUnselectSelection(ed);
+}
+
+void editorDeleteSelection(Editor *ed) {
+    if (ed->cursor.selection_size > 0) {
+        deleteSelectionLeft(ed);
+    } else if (ed->cursor.selection_size < 0) {
+        deleteSelectionRight(ed);
+    }
+}
+
+string editorGetSelectionBytes(Editor *ed) {
+    if (ed->cursor.selection_size > 0) {
+        size_t buf_pos = getPrevGraphemeCursor(ed->buf, ed->cursor.buffer_idx);
+        string sel_bytes = stringNew("");
+        for (i32 i = 0; i < ed->cursor.selection_size; i++) {
+            UnicodeChar c = getBufChar(ed->buf, buf_pos);
+            char *char_bytes = unpackUTF8(c);
+            string new_sel_bytes = stringNew(char_bytes);
+            new_sel_bytes = stringCatStr(new_sel_bytes, sel_bytes);
+            sel_bytes = stringDup(new_sel_bytes);
+            free(char_bytes);
+            buf_pos = getPrevGraphemeCursor(ed->buf, buf_pos);
+        }
+        return sel_bytes;
+    } else if (ed->cursor.selection_size < 0) {
+        size_t buf_pos = ed->cursor.buffer_idx;
+        string sel_bytes = stringNew("");
+        for (i32 i = 0; i < abs(ed->cursor.selection_size); i++) {
+            UnicodeChar c = getBufChar(ed->buf, buf_pos);
+            char *char_bytes = unpackUTF8(c);
+            sel_bytes = stringCatStr(sel_bytes, char_bytes);
+            free(char_bytes);
+            buf_pos = getNextGraphemeCursor(ed->buf, buf_pos);
+        }
+        return sel_bytes;
+    }
+    return NULL;
+}
