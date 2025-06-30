@@ -72,8 +72,13 @@ COMMAND(deleteGraphemeLeft) {
 }
 
 COMMAND(deleteGraphemeRight) {
-    if (app->modal == NULL)
-        editorDeleteRight(app->ed);
+    if (app->modal == NULL) {
+        if (app->ed->cursor.selection_size != 0) {
+            editorDeleteSelection(app->ed);
+        } else {
+            editorDeleteRight(app->ed);
+        }
+    }
 }
 
 COMMAND(moveCursorUp) {

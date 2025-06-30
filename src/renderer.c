@@ -20,6 +20,7 @@
 #include <grapheme.h>
 #include <stddef.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define FONT_PATH "./IosevkaTermNerdFontMono-Regular.ttf"
 #define FALLBACK_FONT_PATH_1 "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc"
@@ -465,8 +466,12 @@ static void renderSelectionOnToken(Renderer *r, Cursor *c, Vector2 adj_text_pos,
     f32 w = 0.0;
     if (chars_to_highlight > 0) {
 	string sub_str = stringSubstring(byte_str, selection_offset, chars_to_highlight);
-	w = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, sub_str, 1.0);
-	stringFree(sub_str);
+	if (sub_str == NULL) {
+	    w = 0.0;
+	} else {
+	    w = getSizeOfText(r->font_collection, r->glyphs, &r->atlas, sub_str, 1.0);
+	    stringFree(sub_str);
+	}
     }
     stringFree(byte_str);
 

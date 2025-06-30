@@ -25,6 +25,8 @@ Editor *editorNew(Rect frame, f32 line_height) {
         .txt_pos = vec2(0.0, 0.0)
     };
 
+    ed->text_pos = vec2(0.0, 0.0);
+
     ed->frame = frame;
     ed->scroll_pos = vec2(0.0,0.0);
     ed->target_scroll_pos = vec2(0.0,0.0);
@@ -156,10 +158,6 @@ void editorUpdate(Editor *ed, AppContext *ctx, f64 delta_time) {
     if (ed->dirty) {
         lex(&ed->lexer, ed->buf);
         ed->dirty = false;
-
-        for (size_t i = 0; i < ed->lexer.token_count; i++) {
-            LOG_INFO("Token: \'%s\'", ed->lexer.tokens[i]);
-        }
     }
 }
 
@@ -368,6 +366,12 @@ void editorMoveBegOfPrevWord(Editor *ed) {
 void editorInsert(Editor *ed, char *bytes) {
     ed->cursor.moved_last_frame = true;
     ed->scroll_mode = SCROLL_MODE_CURSOR;
+
+    // Handle the selection, if there is one
+    if (ed->cursor.selection_size != 0) {
+        editorDeleteSelection(ed);
+    }
+
     size_t grapheme_size, offset = 0;
     for (offset = 0; bytes[offset] != '\0'; offset += grapheme_size) {
         grapheme_size = grapheme_next_character_break_utf8(bytes + offset, SIZE_MAX);
